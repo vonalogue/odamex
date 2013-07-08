@@ -37,6 +37,7 @@
 #include "r_sky.h"
 #include "gi.h"
 #include "w_wad.h"
+#include "r_texture.h"
 
 extern int *texturewidthmask;
 
@@ -48,7 +49,13 @@ EXTERN_CVAR(r_skypalette)
 //
 // sky mapping
 //
-int 		skyflatnum;
+
+texhandle_t		sky1flathandle;
+texhandle_t		sky2flathandle;
+
+
+
+
 int 		sky1texture,	sky2texture;
 fixed_t		skytexturemid;
 fixed_t		skyscale;
@@ -188,18 +195,20 @@ void R_RenderSkyRange(visplane_t* pl)
 	fixed_t front_offset = 0;
 	angle_t skyflip = 0;
 
-	if (pl->picnum == skyflatnum)
+	if (pl->texhandle == sky1flathandle)
 	{
 		// use sky1
 		skytex = sky1texture;
 	}
-	else if (pl->picnum == int(PL_SKYFLAT))
+//	else if (pl->picnum == int(PL_SKYFLAT))
+	else if (pl->texhandle == sky2flathandle)
 	{
 		// use sky2
 		skytex = sky2texture;
 	}
 	else
 	{
+/*
 		// MBF's linedef-controlled skies
 		short picnum = (pl->picnum & ~PL_SKYFLAT) - 1;
 		const line_t* line = &lines[picnum < numlines ? picnum : 0];
@@ -225,6 +234,7 @@ void R_RenderSkyRange(visplane_t* pl)
 		// to make it easier to use the new feature, while to still
 		// allow old sky textures to be used.
 		skyflip = line->args[2] ? 0u : ~0u;
+*/
 	}
 
 	R_ResetDrawFuncs();

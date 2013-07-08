@@ -38,6 +38,8 @@
 #include "i_system.h"
 #include "w_wad.h"
 #include "doomdef.h"
+#include "r_texture.h"
+#include "r_sky.h"
 #include "p_local.h"
 #include "p_acs.h"
 #include "s_sound.h"
@@ -314,8 +316,14 @@ void P_LoadSectors (int lump)
 	{
 		ss->floorheight = LESHORT(ms->floorheight)<<FRACBITS;
 		ss->ceilingheight = LESHORT(ms->ceilingheight)<<FRACBITS;
-		ss->floorpic = (short)R_FlatNumForName(ms->floorpic);
-		ss->ceilingpic = (short)R_FlatNumForName(ms->ceilingpic);
+
+		ss->floor_texhandle = 
+				texturemanager.getHandle(ms->floorpic, Texture::TEX_FLAT);
+		ss->ceiling_texhandle = 
+				texturemanager.getHandle(ms->ceilingpic, Texture::TEX_FLAT);
+
+		ss->sky = 0;
+
 		ss->lightlevel = LESHORT(ms->lightlevel);
 		if (HasBehavior)
 			ss->special = LESHORT(ms->special);
@@ -362,14 +370,13 @@ void P_LoadSectors (int lump)
 
 		// [RH] Sectors default to white light with the default fade.
 		//		If they are outside (have a sky ceiling), they use the outside fog.
-		if (level.outsidefog != 0xff000000 && ss->ceilingpic == skyflatnum)
+		bool outside = ss->ceiling_texhandle == sky1flathandle;
+		if (level.outsidefog != 0xff000000 && outside) 
 			ss->ceilingcolormap = ss->floorcolormap = GetSpecialLights (255,255,255,
 				RPART(level.outsidefog),GPART(level.outsidefog),BPART(level.outsidefog));
 		else
 			ss->ceilingcolormap = ss->floorcolormap = GetSpecialLights (255,255,255,
 				RPART(level.fadeto),GPART(level.fadeto),BPART(level.fadeto));
-
-		ss->sky = 0;
 
 		// killough 8/28/98: initialize all sectors to normal friction
 		ss->friction = ORIG_FRICTION;

@@ -939,33 +939,6 @@ void R_InitData (void)
 }
 
 
-
-//
-// R_FlatNumForName
-// Retrieval, get a flat number for a flat name.
-//
-int R_FlatNumForName (const char* name)
-{
-	int i = W_CheckNumForName (name, ns_flats);
-
-	if (i == -1)	// [RH] Default flat for not found ones
-		i = W_CheckNumForName ("-NOFLAT-", ns_flats);
-
-	if (i == -1) {
-		char namet[9];
-
-		strncpy (namet, name, 8);
-		namet[8] = 0;
-
-		I_Error ("R_FlatNumForName: %s not found", namet);
-	}
-
-	return i - firstflat;
-}
-
-
-
-
 //
 // R_CheckTextureNumForName
 // Check whether texture is available.
@@ -1038,21 +1011,8 @@ void R_PrecacheLevel (void)
 	if (demoplayback)
 		return;
 
-	{
-		int size = (numflats > numsprites) ? numflats : numsprites;
-
-		hitlist = new byte[(numtextures > size) ? numtextures : size];
-	}
-
-	// Precache flats.
-	memset (hitlist, 0, numflats);
-
-	for (i = numsectors - 1; i >= 0; i--)
-		hitlist[sectors[i].floorpic] = hitlist[sectors[i].ceilingpic] = 1;
-
-	for (i = numflats - 1; i >= 0; i--)
-		if (hitlist[i])
-			W_CacheLumpNum (firstflat + i, PU_CACHE);
+	int size = MAX(numtextures, numsprites);
+	hitlist = new byte[size];
 
 	// Precache textures.
 	memset (hitlist, 0, numtextures);

@@ -57,6 +57,7 @@
 
 // State.
 #include "r_state.h"
+#include "r_texture.h"
 
 #include "c_console.h"
 
@@ -401,7 +402,9 @@ static void P_InitAnimDefs ()
 				if (SC_Compare ("flat"))
 				{
 					SC_MustGetString ();
-					flatwarp[R_FlatNumForName (sc_String)] = true;
+					texhandle_t handle = texturemanager.getHandle(sc_String, Texture::TEX_FLAT);
+					// TODO: [SL] allow warping again
+					//flatwarp[handle] = true;
 				}
 				else if (SC_Compare ("texture"))
 				{
@@ -615,9 +618,14 @@ void P_InitPicAnims (void)
 					W_CheckNumForName ((char *)anim_p + 1 /* .startname */, ns_flats) == -1)
 					continue;
 
-				lastanim->basepic = R_FlatNumForName (anim_p + 10 /* .startname */);
-				lastanim->numframes = R_FlatNumForName (anim_p + 1 /* .endname */)
-									  - lastanim->basepic + 1;
+				const char* startname = (const char*)(anim_p + 10);
+				const char* endname = (const char*)(anim_p + 1);
+
+				lastanim->basepic = texturemanager.getHandle(startname, Texture::TEX_FLAT);
+				lastanim->numframes = texturemanager.getHandle(endname, Texture::TEX_FLAT) - lastanim->basepic + 1;
+
+//				lastanim->basepic = R_FlatNumForName (anim_p + 10 /* .startname */);
+//				lastanim->numframes = R_FlatNumForName (anim_p + 1 /* .endname */) - lastanim->basepic + 1;
 			}
 
 			lastanim->istexture = *anim_p /* .istexture */;

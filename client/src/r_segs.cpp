@@ -834,7 +834,8 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 
 		// hack to allow height changes in outdoor areas (sky hack)
 		// copy back ceiling height array to front ceiling height array
-		if (frontsector->ceilingpic == skyflatnum && backsector->ceilingpic == skyflatnum)
+		if (frontsector->ceiling_texhandle == sky1flathandle && 
+			backsector->ceiling_texhandle == sky1flathandle)
 			memcpy(walltopf+start, walltopb+start, width*sizeof(*walltopb));
 	}
 
@@ -950,7 +951,7 @@ void R_StoreWallRange(int start, int stop)
 			markfloor =
 				  !P_IdenticalPlanes(&backsector->floorplane, &frontsector->floorplane)
 				|| backsector->lightlevel != frontsector->lightlevel
-				|| backsector->floorpic != frontsector->floorpic
+				|| backsector->floor_texhandle != frontsector->floor_texhandle
 
 				// killough 3/7/98: Add checks for (x,y) offsets
 				|| backsector->floor_xoffs != frontsector->floor_xoffs
@@ -977,7 +978,7 @@ void R_StoreWallRange(int start, int stop)
 			markceiling = 
 				  !P_IdenticalPlanes(&backsector->ceilingplane, &frontsector->ceilingplane)
 				|| backsector->lightlevel != frontsector->lightlevel
-				|| backsector->ceilingpic != frontsector->ceilingpic
+				|| backsector->ceiling_texhandle != frontsector->ceiling_texhandle
 
 				// killough 3/7/98: Add checks for (x,y) offsets
 				|| backsector->ceiling_xoffs != frontsector->ceiling_xoffs
@@ -986,7 +987,7 @@ void R_StoreWallRange(int start, int stop)
 
 				// killough 4/15/98: prevent 2s normals
 				// from bleeding through fake ceilings
-				|| (frontsector->heightsec && frontsector->ceilingpic != skyflatnum)
+				|| (frontsector->heightsec && frontsector->ceiling_texhandle != sky1flathandle)
 
 				// killough 4/17/98: draw ceilings if different light levels
 				|| backsector->ceilinglightsec != frontsector->ceilinglightsec
@@ -1003,7 +1004,8 @@ void R_StoreWallRange(int start, int stop)
 				
 			// Sky hack
 			markceiling = markceiling &&
-				(frontsector->ceilingpic != skyflatnum || backsector->ceilingpic != skyflatnum);
+				(frontsector->ceiling_texhandle != sky1flathandle ||
+				backsector->ceiling_texhandle != sky1flathandle);
 		}
 
 
@@ -1056,7 +1058,8 @@ void R_StoreWallRange(int start, int stop)
 		}
 
 		// [SL] additional fix for sky hack
-		if (frontsector->ceilingpic == skyflatnum && backsector->ceilingpic == skyflatnum)
+		if (frontsector->ceiling_texhandle == sky1flathandle &&
+			backsector->ceiling_texhandle == sky1flathandle)
 			toptexture = 0;
 	}
 
@@ -1108,7 +1111,7 @@ void R_StoreWallRange(int start, int stop)
 			markfloor = false;
 		// below view plane?
 		if (P_CeilingHeight(viewx, viewy, frontsector) <= viewz &&
-			frontsector->ceilingpic != skyflatnum)   
+			frontsector->ceiling_texhandle != sky1flathandle)   
 			markceiling = false;	
 	}
 

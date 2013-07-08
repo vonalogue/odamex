@@ -28,6 +28,7 @@
 #ifndef __P_SPEC__
 #define __P_SPEC__
 
+#include "r_texture.h"
 #include <list>
 #include "dsectoreffect.h"
 
@@ -739,7 +740,7 @@ public:
 	int 		m_Direction;	// 1 = up, 0 = waiting, -1 = down
 
 	// [RH] Need these for BOOM-ish transferring ceilings
-	int			m_Texture;
+	texhandle_t	m_Texture;
 	int			m_NewSpecial;
 
 	// ID
@@ -856,7 +857,7 @@ public:
 	bool 		m_Crush;
 	int 		m_Direction;
 	short 		m_NewSpecial;
-	short		m_Texture;
+	texhandle_t	m_Texture;
 	fixed_t 	m_FloorDestHeight;
 	fixed_t 	m_Speed;
 

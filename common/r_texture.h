@@ -137,7 +137,7 @@ private:
 	void init(int width, int height);
 
 	static size_t calculateSize(int width, int height)
-	{	return sizeof(Texture) + width * sizeof(mColumnLookup) + width * height * sizeof(byte);	}
+	{	return sizeof(Texture) + width * sizeof(*mColumnLookup) + width * height;	}
 
 	fixed_t				mWidth;
 	fixed_t				mHeight;
@@ -185,6 +185,11 @@ private:
 // managed internally by TextureManager and as such, users should not store
 // Texture pointers but instead store the texture handle and use getTexture
 // when a Texture object is needed.
+//
+// TODO: properly load Heretic skies where the texture definition reports
+// the sky texture is 128 pixels high but uses a 200 pixel high patch.
+// The texture height should be adjusted to the height of the tallest
+// patch in the texture.
 //
 class TextureManager
 {

@@ -1363,8 +1363,8 @@ void SV_UpdateSectors(client_t* cl)
 			MSG_WriteShort(&cl->reliablebuf, sectornum);
 			MSG_WriteShort(&cl->reliablebuf, P_FloorHeight(sector) >> FRACBITS);
 			MSG_WriteShort(&cl->reliablebuf, P_CeilingHeight(sector) >> FRACBITS);
-			MSG_WriteShort(&cl->reliablebuf, sector->floorpic);
-			MSG_WriteShort(&cl->reliablebuf, sector->ceilingpic);
+			MSG_WriteShort(&cl->reliablebuf, sector->floor_texhandle & 0xFFFF);
+			MSG_WriteShort(&cl->reliablebuf, sector->ceiling_texhandle & 0xFFFF);
 		}
 	}
 }

@@ -71,8 +71,8 @@ visplane_t				*skyplane;
 // killough -- hash function for visplanes
 // Empirically verified to be fairly uniform:
 
-#define visplane_hash(picnum,lightlevel,secplane) \
-  ((unsigned)((picnum)*3+(lightlevel)+(secplane.d)*7) & (MAXVISPLANES-1))
+#define visplane_hash(texhandle,lightlevel,secplane) \
+  ((unsigned)((texhandle)*3+(lightlevel)+(secplane.d)*7) & (MAXVISPLANES-1))
 
 //
 // Clip values are the solid pixel bounding the range.
@@ -293,22 +293,22 @@ static visplane_t *new_visplane(unsigned hash)
 //
 // killough 2/28/98: Add offsets
 //
-visplane_t *R_FindPlane (plane_t secplane, int picnum, int lightlevel,
+visplane_t *R_FindPlane (plane_t secplane, texhandle_t texhandle, int lightlevel,
 						 fixed_t xoffs, fixed_t yoffs,
 						 fixed_t xscale, fixed_t yscale, angle_t angle)
 {
 	visplane_t *check;
 	unsigned hash;						// killough
 
-	if (picnum == skyflatnum || picnum & PL_SKYFLAT)  // killough 10/98
+	if (texhandle == sky1flathandle || texhandle == sky2flathandle)  // killough 10/98
 		lightlevel = 0;		// most skies map together
 
 	// New visplane algorithm uses hash table -- killough
-	hash = visplane_hash (picnum, lightlevel, secplane);
+	hash = visplane_hash(texhandle, lightlevel, secplane);
 
 	for (check = visplanes[hash]; check; check = check->next)	// killough
 		if (P_IdenticalPlanes(&secplane, &check->secplane) &&
-			picnum == check->picnum &&
+			texhandle == check->texhandle &&
 			lightlevel == check->lightlevel &&
 			xoffs == check->xoffs &&	// killough 2/28/98: Add offset checks
 			yoffs == check->yoffs &&
@@ -322,7 +322,7 @@ visplane_t *R_FindPlane (plane_t secplane, int picnum, int lightlevel,
 	check = new_visplane (hash);		// killough
 
 	memcpy(&check->secplane, &secplane, sizeof(secplane));
-	check->picnum = picnum;
+	check->texhandle = texhandle;
 	check->lightlevel = lightlevel;
 	check->xoffs = xoffs;				// killough 2/28/98: Save offsets
 	check->yoffs = yoffs;
@@ -371,7 +371,7 @@ visplane_t* R_CheckPlane(visplane_t* pl, int start, int stop)
 		intrh = stop;
 	}
 
-	for (x = intrl ; x <= intrh && pl->top[x] == viewheight; x++)
+	for (x = intrl ; x <= intrh && pl->top[x] == (unsigned)viewheight; x++)
 		;
 
 	if (x > intrh)
@@ -383,11 +383,11 @@ visplane_t* R_CheckPlane(visplane_t* pl, int start, int stop)
 	else
 	{
 		// make a new visplane
-		unsigned hash = visplane_hash (pl->picnum, pl->lightlevel, pl->secplane);
+		unsigned hash = visplane_hash(pl->texhandle, pl->lightlevel, pl->secplane);
 		visplane_t *new_pl = new_visplane (hash);
 
 		new_pl->secplane = pl->secplane;
-		new_pl->picnum = pl->picnum;
+		new_pl->texhandle = pl->texhandle;
 		new_pl->lightlevel = pl->lightlevel;
 		new_pl->xoffs = pl->xoffs;			// killough 2/28/98
 		new_pl->yoffs = pl->yoffs;
@@ -606,18 +606,21 @@ void R_DrawPlanes (void)
 				continue;
 
 			// sky flat
-			if (pl->picnum == skyflatnum || pl->picnum & PL_SKYFLAT)
+			if (pl->texhandle == sky1flathandle || pl->texhandle == sky2flathandle)
 			{
 				R_RenderSkyRange(pl);
 			}
 			else
 			{
 				// regular flat
-				int useflatnum = flattranslation[pl->picnum < numflats ? pl->picnum : 0];
+//				int useflatnum = flattranslation[pl->picnum < numflats ? pl->picnum : 0];
 
 				ds_color += 4;	// [RH] color if r_drawflat is 1
-				ds_source = (byte *)W_CacheLumpNum (firstflat + useflatnum, PU_STATIC);
-										   
+//				ds_source = (byte *)W_CacheLumpNum (firstflat + useflatnum, PU_STATIC);
+				const Texture* texture = texturemanager.getTexture(pl->texhandle);
+				ds_source = texture->getData(); 
+
+/*										   
 				// [RH] warp a flat if desired
 				if (flatwarp[useflatnum])
 				{
@@ -659,6 +662,7 @@ void R_DrawPlanes (void)
 						Z_ChangeTag (ds_source, PU_STATIC);
 					}
 				}
+*/
 				
 				pl->top[pl->maxx+1] = viewheight;
 				pl->top[pl->minx-1] = viewheight;
@@ -667,8 +671,6 @@ void R_DrawPlanes (void)
 					R_DrawLevelPlane(pl);
 				else
 					R_DrawSlopedPlane(pl);
-					
-				Z_ChangeTag (ds_source, PU_CACHE);
 			}
 		}
 	}

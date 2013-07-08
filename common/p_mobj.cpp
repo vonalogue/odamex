@@ -38,6 +38,8 @@
 #include "p_mobj.h"
 #include "p_ctf.h"
 #include "gi.h"
+#include "r_texture.h"
+#include "r_sky.h"
 
 #define WATER_SINK_FACTOR		3
 #define WATER_SINK_SMALL_FACTOR	4
@@ -1105,8 +1107,8 @@ void P_XYMovement(AActor *mo)
 						sec2 = ceilingline->frontsector;
 					}
 
-					bool skyceiling1 = sec1->ceilingpic == skyflatnum;
-					bool skyceiling2 = sec2 && sec2->ceilingpic == skyflatnum;
+					bool skyceiling1 = sec1->ceiling_texhandle == sky1flathandle;
+					bool skyceiling2 = sec2 && sec2->ceiling_texhandle == sky1flathandle;
 
 					if (skyceiling2)
 					{
@@ -1375,7 +1377,7 @@ void P_ZMovement(AActor *mo)
 		if ((mo->flags & MF_MISSILE) && !(mo->flags & MF_NOCLIP))
 		{
 			if ((HasBehavior || co_fixweaponimpacts) &&
-				mo->subsector->sector->floorpic == skyflatnum)
+				mo->subsector->sector->floor_texhandle == sky1flathandle)
 			{
 				mo->Destroy();
 				return;
@@ -1464,7 +1466,7 @@ void P_ZMovement(AActor *mo)
 		if (mo->flags & MF_MISSILE && !(mo->flags & MF_NOCLIP))
 		{
 			if ((HasBehavior || co_fixweaponimpacts) &&
-				 mo->subsector->sector->ceilingpic == skyflatnum)
+				 mo->subsector->sector->ceiling_texhandle == sky1flathandle)
 			{
 				mo->Destroy ();
 				return;

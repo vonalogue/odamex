@@ -59,8 +59,9 @@ void Texture::init(int width, int height)
 	mOffsetY = 0;
 	mScaleX = FRACUNIT;
 	mScaleY = FRACUNIT;
+
 	mColumnLookup = (byte**)((byte*)this + sizeof(*this));
-	mData = (byte*)mColumnLookup + width * sizeof(mColumnLookup);
+	mData = (byte*)mColumnLookup + width * sizeof(*mColumnLookup);
 
 	for (int colnum = 0; colnum < width; colnum++)
 		mColumnLookup[colnum] = mData + colnum * height;	
@@ -132,8 +133,6 @@ void TextureManager::init()
 	addTextureDirectory("TEXTURE1");
 	addTextureDirectory("TEXTURE2");
 
-	generateNotFoundTexture();
-
 	// initialize mHandleMap for all possible handles
 	unsigned int num_walltextures = mTextureDefinitions.size();
 	for (unsigned int texnum = 0; texnum < num_walltextures; texnum++)
@@ -147,6 +146,8 @@ void TextureManager::init()
 		texhandle_t handle = getFlatHandle(flatnum);
 		mHandleMap[handle] = NULL;
 	}
+
+	generateNotFoundTexture();
 }
 
 
@@ -172,8 +173,8 @@ void TextureManager::precache()
 	// precache all the floor/ceiling textures
 	for (int i = 0; i < numsectors; i++)
 	{
-		getTexture(sectors[i].ceilingpic);
-		getTexture(sectors[i].floorpic);
+		getTexture(sectors[i].ceiling_texhandle);
+		getTexture(sectors[i].floor_texhandle);
 	}
 }
 
@@ -318,10 +319,11 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 //
 texhandle_t TextureManager::getFlatHandle(unsigned int lumpnum)
 {
-	unsigned int flatnum = lumpnum - mFirstFlatLumpNum;
+	const unsigned int flatcount = mLastFlatLumpNum - mFirstFlatLumpNum + 1;
+	const unsigned int flatnum = lumpnum - mFirstFlatLumpNum;
 
 	// flatnum > number of flats in the WAD file?
-	if (flatnum > mLastFlatLumpNum - mFirstFlatLumpNum)
+	if (flatnum >= flatcount)
 		return NOT_FOUND_TEXTURE_HANDLE;
 
 	if (W_LumpLength(lumpnum) == 0)
@@ -358,6 +360,7 @@ void TextureManager::cacheFlat(texhandle_t handle)
 	Texture** owner = &mHandleMap[handle];
 	size_t texture_size = Texture::calculateSize(width, height);
 	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
+
 	texture->init(width, height);
 
 	byte *rawlumpdata = new byte[lumplen];
@@ -517,7 +520,6 @@ texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceTy
 //
 const Texture* TextureManager::getTexture(texhandle_t handle) 
 {
-//	handle = NOT_FOUND_TEXTURE_HANDLE;
 	Texture* texture = mHandleMap[handle];
 	if (!texture)
 	{

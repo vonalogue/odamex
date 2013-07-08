@@ -150,7 +150,7 @@ void DCeiling::RunThink ()
 			case genCeilingChg0:
 				m_Sector->special = m_NewSpecial;
 			case genCeilingChg:
-				m_Sector->ceilingpic = m_Texture;
+				m_Sector->ceiling_texhandle = m_Texture;
 				// fall through
 			default:
 				Destroy ();
@@ -184,7 +184,7 @@ void DCeiling::RunThink ()
 			case genCeilingChg0:
 				m_Sector->special = m_NewSpecial;
 			case genCeilingChg:
-				m_Sector->ceilingpic = m_Texture;
+				m_Sector->ceiling_texhandle = m_Texture;
 				// fall through
 			default:
 				Destroy ();
@@ -436,7 +436,7 @@ manual_ceiling:
 					P_FindModelCeilingSector (targheight, secnum);
 				if (sec)
 				{
-					ceiling->m_Texture = sec->ceilingpic;
+					ceiling->m_Texture = sec->ceiling_texhandle;
 					switch (change & 3)
 					{
 						case 1:		// type is zeroed
@@ -456,7 +456,7 @@ manual_ceiling:
 			else if (line)	// else if a trigger model change
 			{
 
-				ceiling->m_Texture = line->frontsector->ceilingpic;
+				ceiling->m_Texture = line->frontsector->ceiling_texhandle;
 				switch (change & 3)
 				{
 					case 1:		// type is zeroed

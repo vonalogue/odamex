@@ -27,10 +27,12 @@
 
 #include <stdio.h>
 
+#include "r_texture.h"
 #include "r_data.h"
 
-// [ML] 5/11/06 - Remove sky2
-int 		skyflatnum;
+texhandle_t	sky1flathandle;
+texhandle_t	sky2flathandle;
+
 int 		sky1texture, sky2texture;
 
 fixed_t		sky1pos=0,		sky1speed=0;

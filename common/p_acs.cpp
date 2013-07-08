@@ -25,6 +25,7 @@
 #include "z_zone.h"
 #include "doomdef.h"
 #include "p_local.h"
+#include "r_texture.h"
 #include "p_spec.h"
 #include "g_level.h"
 #include "s_sound.h"
@@ -1349,20 +1350,19 @@ int DLevelScript::ThingCount (int type, int tid)
 
 void DLevelScript::ChangeFlat (int tag, int name, bool floorOrCeiling)
 {
-	int flat, secnum = -1;
-	const char *flatname = level.behavior->LookupString (name);
-
+	const char *flatname = level.behavior->LookupString(name);
 	if (flatname == NULL)
 		return;
 
-	flat = R_FlatNumForName (flatname);
+	texhandle_t handle = texturemanager.getHandle(flatname, Texture::TEX_FLAT);
 
-	while ((secnum = P_FindSectorFromTag (tag, secnum)) >= 0)
+	int secnum = -1;
+	while ((secnum = P_FindSectorFromTag(tag, secnum)) >= 0)
 	{
 		if (floorOrCeiling == false)
-			sectors[secnum].floorpic = flat;
+			sectors[secnum].floor_texhandle = handle;
 		else
-			sectors[secnum].ceilingpic = flat;
+			sectors[secnum].ceiling_texhandle = handle;
 	}
 }
 

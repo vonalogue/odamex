@@ -40,6 +40,8 @@
 // State.
 #include "doomstat.h"
 #include "r_state.h"
+#include "r_texture.h"
+#include "r_sky.h"
 
 #include "z_zone.h"
 #include "p_unlag.h"
@@ -1960,7 +1962,8 @@ BOOL PTR_ShootTraverse (intercept_t* in)
 		if (spawnprecise)
 		{
 			plane_t *floorplane, *ceilingplane;
-			int ceilingpic, floorpic;
+			texhandle_t ceiling_texhandle;
+			texhandle_t floor_texhandle;
 
 			// [SL] 2012-01-25 - Don't show bullet puffs on horizon lines 
 			if (li->special == Line_Horizon)
@@ -1972,23 +1975,23 @@ BOOL PTR_ShootTraverse (intercept_t* in)
 				
 				ceilingheight = P_CeilingHeight(crossx, crossy, li->frontsector);
 				floorheight = P_FloorHeight(crossx, crossy, li->frontsector);
-				ceilingpic = li->frontsector->ceilingpic;
-				floorpic = li->frontsector->floorpic;
+				ceiling_texhandle = li->frontsector->ceiling_texhandle;
+				floor_texhandle = li->frontsector->floor_texhandle;
 			} else {
 				ceilingplane = &li->backsector->ceilingplane;
 				floorplane = &li->backsector->floorplane;
 				
 				ceilingheight = P_CeilingHeight(crossx, crossy, li->backsector);
 				floorheight = P_FloorHeight(crossx, crossy, li->backsector);
-				ceilingpic = li->backsector->ceilingpic;
-				floorpic = li->backsector->floorpic;
+				ceiling_texhandle = li->backsector->ceiling_texhandle;
+				floor_texhandle = li->backsector->floor_texhandle;
 			}
 
 			// [RH] If the trace went below/above the floor/ceiling, make the puff
 			//		appear in the right place and not on a wall.
 			if (z < floorheight)
 			{
-				if (floorpic == skyflatnum)			// don't shoot the sky!
+				if (floor_texhandle == sky1flathandle)			// don't shoot the sky!
 					return false;
 			
 				// [SL] 2012-03-18 - Calculate where the the tracer intersects
@@ -2000,7 +2003,7 @@ BOOL PTR_ShootTraverse (intercept_t* in)
 			}
 			else if (z > ceilingheight)
 			{
-				if (ceilingpic == skyflatnum)			// don't shoot the sky!
+				if (ceiling_texhandle == sky1flathandle)			// don't shoot the sky!
 					return false;
 
 				// [SL] 2012-03-18 - Calculate where the the tracer intersects
@@ -2017,8 +2020,8 @@ BOOL PTR_ShootTraverse (intercept_t* in)
 			else
 			{
 				if (li->backsector && z > opentop &&
-					li->frontsector->ceilingpic == skyflatnum &&
-					li->backsector->ceilingpic == skyflatnum &&
+					li->frontsector->ceiling_texhandle == sky1flathandle &&
+					li->backsector->ceiling_texhandle == sky1flathandle &&
 					li->backsector->ceilingheight < z)
 				{
 					return false;	// sky hack wall
@@ -2039,14 +2042,14 @@ BOOL PTR_ShootTraverse (intercept_t* in)
 			y = trace.y + FixedMul (trace.dy, frac);
 			z = shootz + FixedMul (aimslope, FixedMul(frac, attackrange));
 
-			if (li->frontsector->ceilingpic == skyflatnum)
+			if (li->frontsector->ceiling_texhandle == sky1flathandle)
 			{
 			// don't shoot the sky!
 				if (z > P_CeilingHeight(crossx, crossy, li->frontsector))
 					return false;
 
 			// it's a sky hack wall
-				if	(li->backsector && li->backsector->ceilingpic == skyflatnum)
+				if	(li->backsector && li->backsector->ceiling_texhandle == sky1flathandle)
 					return false;
 			}
 
@@ -3756,8 +3759,8 @@ void P_CopySector(sector_t *dest, sector_t *src)
 		
 	dest->floorheight			= src->floorheight;
 	dest->ceilingheight			= src->ceilingheight;
-	dest->floorpic				= src->floorpic;
-	dest->ceilingpic			= src->ceilingpic;
+	dest->floor_texhandle		= src->floor_texhandle;
+	dest->ceiling_texhandle		= src->ceiling_texhandle;
 	dest->lightlevel			= src->lightlevel;
 	dest->special				= src->special;
 	dest->tag					= src->tag;

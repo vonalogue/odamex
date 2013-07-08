@@ -139,14 +139,17 @@ class DSectorEffect;
 
 struct sector_s
 {
-	fixed_t 	floorheight;
-	fixed_t 	ceilingheight;
-	short		floorpic;
-	short		ceilingpic;
-	short		lightlevel;
-	short		special;
-	short		tag;
-	int			nexttag,firsttag;	// killough 1/30/98: improves searches for tags.
+	fixed_t 			floorheight;
+	fixed_t 			ceilingheight;
+
+	texhandle_t			floor_texhandle;
+	texhandle_t			ceiling_texhandle;
+	int					sky;
+
+	short				lightlevel;
+	short				special;
+	short				tag;
+	int					nexttag,firsttag;	// killough 1/30/98: improves searches for tags.
 
     // 0 = untraversed, 1,2 = sndlines -1
 	int 				soundtraversed;
@@ -155,18 +158,17 @@ struct sector_s
 	AActor::AActorPtr 	soundtarget;
 
 	// mapblock bounding box for height changes
-	int 		blockbox[4];
+	int 				blockbox[4];
 
 	// origin for any sounds played by the sector
-	fixed_t		soundorg[3];
+	fixed_t				soundorg[3];
 
     // if == validcount, already checked
-	int 		validcount;
+	int 				validcount;
 
     // list of mobjs in sector
-	AActor* 	thinglist;
-	int			seqType;		// this sector's sound sequence
-	int sky;
+	AActor* 			thinglist;
+	int					seqType;	// this sector's sound sequence
 
 	// killough 8/28/98: friction is a sector property, not an mobj property.
 	// these fields used to be in AActor, but presented performance problems
@@ -628,7 +630,7 @@ struct visplane_s
 
 	plane_t		secplane;
 
-	int			picnum;
+	texhandle_t	texhandle;
 	int			lightlevel;
 	fixed_t		xoffs, yoffs;		// killough 2/28/98: Support scrolling flats
 	int			minx;

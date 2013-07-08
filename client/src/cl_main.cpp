@@ -2712,15 +2712,20 @@ void CL_UpdateSector(void)
 	P_SetCeilingHeight(sector, ceilingheight << FRACBITS);	
 	P_SetFloorHeight(sector, floorheight << FRACBITS);
 
+	char lumpname[9];
+
 	if(fp >= numflats)
 		fp = numflats;
 
-	sector->floorpic = fp;
+	W_GetLumpName(lumpname, fp + firstflat);
+	sector->floor_texhandle = texturemanager.getHandle(lumpname, Texture::TEX_FLAT);
 
 	if(cp >= numflats)
 		cp = numflats;
 
-	sector->ceilingpic = cp;
+	W_GetLumpName(lumpname, cp + firstflat);
+	sector->ceiling_texhandle = texturemanager.getHandle(lumpname, Texture::TEX_FLAT);
+
 	sector->moveable = true;
 
 	P_ChangeSector(sector, false);

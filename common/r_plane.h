@@ -26,6 +26,7 @@
 #define __R_PLANE_H__
 
 #include "r_data.h"
+#include "r_texture.h"
 
 // Visplane related.
 extern	int*			lastopening;
@@ -63,7 +64,7 @@ void R_DrawPlanes (void);
 
 visplane_t *R_FindPlane
 ( plane_t		secplane,
-  int			picnum,
+  texhandle_t	picnum,
   int			lightlevel,
   fixed_t		xoffs,		// killough 2/28/98: add x-y offsets
   fixed_t		yoffs,
