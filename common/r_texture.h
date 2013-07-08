@@ -220,10 +220,12 @@ private:
 
 	// flats
 	texhandle_t getFlatHandle(unsigned int lumpnum);
+	texhandle_t getFlatHandle(const char* name);
 	void cacheFlat(texhandle_t handle);
 
 	// wall textures
 	texhandle_t getWallTextureHandle(unsigned int lumpnum);
+	texhandle_t getWallTextureHandle(const char* name);
 	void cacheWallTexture(texhandle_t handle);
 
 	// maps texture handles to Texture*

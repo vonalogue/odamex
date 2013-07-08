@@ -285,10 +285,10 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 		texdef->height = SAFESHORT(mtexdef->height);
 		texdef->patchcount = SAFESHORT(mtexdef->patchcount);
 
-		std::string texname(mtexdef->name, 9);
-		std::transform(texname.begin(), texname.end(), texname.begin(), toupper);
-		strncpy(texdef->name, mtexdef->name, 9);
-		std::transform(texdef->name, texdef->name + strlen(texdef->name), texdef->name, toupper);
+		char uname[9];
+		for (int c = 0; c < 8; c++)
+			uname[c] = toupper(mtexdef->name[c]);
+		uname[8] = 0;
 
 		mappatch_t* mpatch = &mtexdef->patches[0];
 		texdefpatch_t* patch = &texdef->patches[0];
@@ -305,7 +305,7 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 			}
 		}
 
-		mTextureNameTranslationMap[texname] = mTextureDefinitions.size() - 1;
+		mTextureNameTranslationMap[uname] = mTextureDefinitions.size() - 1;
 	}
 
 	delete [] rawlumpdata;
@@ -332,6 +332,13 @@ texhandle_t TextureManager::getFlatHandle(unsigned int lumpnum)
 	return (texhandle_t)flatnum | FLAT_HANDLE_MASK;
 }
 
+texhandle_t TextureManager::getFlatHandle(const char* name)
+{
+	int lumpnum = W_CheckNumForName(name, ns_flats);
+	if (lumpnum >= 0)
+		return getFlatHandle(lumpnum);
+	return NOT_FOUND_TEXTURE_HANDLE;
+}
 
 //
 // TextureManager::cacheFlat
@@ -399,13 +406,20 @@ void TextureManager::cacheFlat(texhandle_t handle)
 //
 texhandle_t TextureManager::getWallTextureHandle(unsigned int texdef_handle)
 {
-	// flatnum > number of flats in the WAD file?
+	// texdef_handle > number of wall textures in the WAD file?
 	if (texdef_handle >= mTextureDefinitions.size())
 		return NOT_FOUND_TEXTURE_HANDLE;
 
 	return (texhandle_t)texdef_handle | WALLTEXTURE_HANDLE_MASK;
 }
 
+texhandle_t TextureManager::getWallTextureHandle(const char* name)
+{
+	std::map<std::string, unsigned int>::iterator it = mTextureNameTranslationMap.find(name);
+	if (it != mTextureNameTranslationMap.end())
+		return getWallTextureHandle(it->second);
+	return NOT_FOUND_TEXTURE_HANDLE;
+}
 
 //
 // TextureManager::cacheWallTexture
@@ -487,26 +501,24 @@ texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceTy
 	if (name[0] == '-')
 		return NOT_FOUND_TEXTURE_HANDLE;
 
+	char uname[9];
+	for (int i = 0; i < 8; i++)
+		uname[i] = toupper(name[i]);
+	uname[8] = 0;
+
 	texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
 
+	// check for the texture in the default location specified by type
 	if (type == Texture::TEX_FLAT)
-	{
-		int lumpnum = W_CheckNumForName(name, ns_flats);
-		if (lumpnum >= 0)
-			handle = getFlatHandle(lumpnum);
-	}
-	else if (type == Texture::TEX_PATCH)
-	{
-	}
+		handle = getFlatHandle(uname);
 	else if (type == Texture::TEX_WALLTEXTURE)
-	{
-		std::string texname(name, 9);
-		std::transform(texname.begin(), texname.end(), texname.begin(), toupper);
+		handle = getWallTextureHandle(uname);
 
-		std::map<std::string, unsigned int>::iterator it = mTextureNameTranslationMap.find(texname);
-		if (it != mTextureNameTranslationMap.end())
-			handle = getWallTextureHandle(it->second);
-	}
+	// not found? check elsewhere
+	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
+		handle = getFlatHandle(uname);
+	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_WALLTEXTURE)
+		handle = getWallTextureHandle(uname);
 
 	return handle;
 }
@@ -526,8 +538,6 @@ const Texture* TextureManager::getTexture(texhandle_t handle)
 		DPrintf("cache miss 0x%x\n", handle);
 		if (handle & FLAT_HANDLE_MASK)
 			cacheFlat(handle);
-//		else if (handle & PATCH_HANDLE_MASK)
-//			cachePatch(handle);
 		else if (handle & WALLTEXTURE_HANDLE_MASK)
 			cacheWallTexture(handle);
 
