@@ -23,6 +23,7 @@
 //
 //-----------------------------------------------------------------------------
 
+#include "r_texture.h"
 #include "i_system.h"
 #include "z_zone.h"
 #include "m_alloc.h"
@@ -485,6 +486,8 @@ byte* R_GetTextureColumnData(int texnum, int colnum)
 //
 void R_InitTextures (void)
 {
+	texturemanager.init();
+
 	maptexture_t*		mtexture;
 	texture_t*			texture;
 	mappatch_t* 		mpatch;

@@ -24,13 +24,54 @@
 #ifndef __R_TEXTURE_H__
 #define __R_TEXTURE_H__
 
-#include "r_data.h"
+#include "doomtype.h"
+#include "m_fixed.h"
+
+#include <vector>
 #include <map>
 #include <string>
 
 typedef unsigned int texhandle_t;
 
 class TextureManager;
+
+// A single patch from a texture definition,
+//	basically a rectangular area within
+//	the texture rectangle.
+typedef struct
+{
+	// Block origin (always UL),
+	// which has already accounted
+	// for the internal origin of the patch.
+	int 		originx;
+	int 		originy;
+	int 		patch;
+} texdefpatch_t;
+
+
+// A maptexturedef_t describes a rectangular texture,
+//	which is composed of one or more mappatch_t structures
+//	that arrange graphic patches.
+typedef struct
+{
+	// Keep name for switch changing, etc.
+	char			name[9];
+	short			width;
+	short			height;
+
+	// [RH] Use a hash table similar to the one now used
+	//		in w_wad.c, thus speeding up level loads.
+	//		(possibly quite considerably for larger levels)
+	int				index;
+	int				next;
+
+	// All the patches[patchcount]
+	//	are drawn back to front into the cached texture.
+	short			patchcount;
+	texdefpatch_t	patches[1];
+
+} texdef_t;
+
 
 // ============================================================================
 //
@@ -167,22 +208,18 @@ private:
 	static const unsigned int SPRITE_HANDLE_MASK		= 0x40000000ul;
 	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x80000000ul;
 
+	// initialization routines
 	void generateNotFoundTexture();
 	void readPNamesDirectory();
 	void addTextureDirectory(const char* lumpname); 
-	unsigned int lookupWallTexture(const char* name);
-	unsigned int lookupFlat(const char* name);
 
+	// flats
 	texhandle_t getFlatHandle(unsigned int lumpnum);
 	void cacheFlat(texhandle_t handle);
 
+	// wall textures
 	texhandle_t getWallTextureHandle(unsigned int lumpnum);
 	void cacheWallTexture(texhandle_t handle);
-
-	texhandle_t addFlat(unsigned int flatnum);
-	texhandle_t addPatch(unsigned int patchnum);
-
-	void removeFlat(unsigned int flatnum);
 
 	// maps texture handles to Texture*
 	std::map<texhandle_t, Texture*>	mHandleMap;
@@ -192,7 +229,7 @@ private:
 	unsigned int				mLastFlatLumpNum;
 
 	int*						mPNameLookup;
-	std::vector<texture_t*>		mTextureDefinitions;
+	std::vector<texdef_t*>		mTextureDefinitions;
 
 	std::map<std::string, unsigned int>	mTextureNameTranslationMap;
 };

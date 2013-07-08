@@ -28,6 +28,8 @@
 // Screenwidth.
 #include "doomdef.h"
 
+#include "r_texture.h"
+
 // Some more or less basic data types
 // we depend on.
 #include "m_fixed.h"
