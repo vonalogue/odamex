@@ -85,7 +85,7 @@ extern const angle_t *p_tantoangle;
 void Table_InitTanToAngle(void);
 void Table_SetTanToAngle(int version);
 
-
+unsigned int Log2(unsigned int value);
 
 #endif // __TABLES_H__
 
