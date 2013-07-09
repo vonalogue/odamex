@@ -502,11 +502,11 @@ void G_DoLoadLevel (int position)
 	// [RH] Fetch sky parameters from level_locals_t.
 	// [ML] 5/11/06 - remove sky2 remenants
 	// [SL] 2012-03-19 - Add sky2 back
-	sky1texture = R_TextureNumForName (level.skypic);
+	sky1texhandle = texturemanager.getHandle(level.skypic, Texture::TEX_WALLTEXTURE);
 	if (strlen(level.skypic2))
-		sky2texture = R_TextureNumForName (level.skypic2);
+		sky2texhandle = texturemanager.getHandle(level.skypic2, Texture::TEX_WALLTEXTURE);
 	else
-		sky2texture = 0;
+		sky2texhandle = 0;
 
 	// [RH] Set up details about sky rendering
 	R_InitSkyMap ();

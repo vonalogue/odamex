@@ -58,6 +58,8 @@ typedef struct
 	char			name[9];
 	short			width;
 	short			height;
+	byte			scalex;
+	byte			scaley;
 
 	// [RH] Use a hash table similar to the one now used
 	//		in w_wad.c, thus speeding up level loads.
@@ -190,6 +192,11 @@ private:
 // the sky texture is 128 pixels high but uses a 200 pixel high patch.
 // The texture height should be adjusted to the height of the tallest
 // patch in the texture.
+//
+// TODO: Make a work-around for P_FindShortestUpperAround() which will search
+// for the shortest texture on a linedef bounding the texture. The function
+// considers walltexture 0 valid, which is normally used to denote no texture
+// but should return the height of AASTINKY/AASHITTY instead.
 //
 class TextureManager
 {

@@ -328,15 +328,15 @@ void DPusher::Serialize (FArchive &arc)
 
 typedef struct
 {
-	short 	basepic;
-	short	numframes;
-	byte 	istexture;
-	byte	uniqueframes;
-	byte	countdown;
-	byte	curframe;
-	byte 	speedmin[MAX_ANIM_FRAMES];
-	byte	speedmax[MAX_ANIM_FRAMES];
-	short	framepic[MAX_ANIM_FRAMES];
+	texhandle_t		basepic;
+	short			numframes;
+	byte 			istexture;
+	byte			uniqueframes;
+	byte			countdown;
+	byte			curframe;
+	byte 			speedmin[MAX_ANIM_FRAMES];
+	byte			speedmax[MAX_ANIM_FRAMES];
+	texhandle_t		framepic[MAX_ANIM_FRAMES];
 } anim_t;
 
 
@@ -401,7 +401,7 @@ static void P_InitAnimDefs ()
 				SC_MustGetString ();
 				if (SC_Compare ("flat"))
 				{
-					SC_MustGetString ();
+					SC_MustGetString();
 					texhandle_t handle = texturemanager.getHandle(sc_String, Texture::TEX_FLAT);
 					// TODO: [SL] allow warping again
 					//flatwarp[handle] = true;
@@ -409,8 +409,8 @@ static void P_InitAnimDefs ()
 				else if (SC_Compare ("texture"))
 				{
 					// TODO: Make texture warping work with wall textures
-					SC_MustGetString ();
-					R_TextureNumForName (sc_String);
+					SC_MustGetString();
+					texhandle_t handle = texturemanager.getHandle(sc_String, Texture::TEX_WALLTEXTURE);
 				}
 				else
 				{
@@ -425,16 +425,15 @@ static void P_InitAnimDefs ()
 static void ParseAnim (byte istex)
 {
 	anim_t sink;
-	short picnum;
 	anim_t *place;
 	byte min, max;
 	int frame;
 
-	SC_MustGetString ();
-	picnum = istex ? R_CheckTextureNumForName (sc_String)
-		: W_CheckNumForName (sc_String, ns_flats) - firstflat;
+	SC_MustGetString();
 
-	if (picnum == -1)
+	texhandle_t texhandle = texturemanager.getHandle(sc_String, Texture::TEX_WALLTEXTURE);
+
+	if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE)
 	{ // Base pic is not present, so skip this definition
 		place = &sink;
 	}
@@ -442,7 +441,7 @@ static void ParseAnim (byte istex)
 	{
 		for (place = anims; place < lastanim; place++)
 		{
-			if (place->basepic == picnum && place->istexture == istex)
+			if (place->basepic == texhandle && place->istexture == istex)
 			{
 				break;
 			}
@@ -459,32 +458,19 @@ static void ParseAnim (byte istex)
 				maxanims = newmax;
 			}
 		}
-		// no decals on animating textures by default
-		//if (istex)
-		//{
-		//	texturenodecals[picnum] = 1;
-		//}
 	}
 
 	place->uniqueframes = true;
 	place->curframe = 0;
 	place->numframes = 0;
-	place->basepic = picnum;
+	place->basepic = texhandle;
 	place->istexture = istex;
 	memset (place->speedmin, 1, MAX_ANIM_FRAMES * sizeof(*place->speedmin));
 	memset (place->speedmax, 1, MAX_ANIM_FRAMES * sizeof(*place->speedmax));
 
 	while (SC_GetString ())
 	{
-		/*if (SC_Compare ("allowdecals"))
-		{
-			if (istex && picnum >= 0)
-			{
-				texturenodecals[picnum] = 0;
-			}
-			continue;
-		}
-		else*/ if (!SC_Compare ("pic"))
+		if (!SC_Compare ("pic"))
 		{
 			SC_UnGet ();
 			break;
@@ -523,7 +509,7 @@ static void ParseAnim (byte istex)
 
 		place->speedmin[place->numframes] = min;
 		place->speedmax[place->numframes] = max;
-		place->framepic[place->numframes] = frame + picnum - 1;
+		place->framepic[place->numframes] = frame + texhandle - 1;
 		place->numframes++;
 	}
 
@@ -596,36 +582,37 @@ void P_InitPicAnims (void)
 			if (*anim_p /* .istexture */ & 1)
 			{
 				// different episode ?
-				if (R_CheckTextureNumForName (anim_p + 10 /* .startname */) == -1 ||
-					R_CheckTextureNumForName (anim_p + 1 /* .endname */) == -1)
-					continue;		
-
-				lastanim->basepic = R_TextureNumForName (anim_p + 10 /* .startname */);
-				lastanim->numframes = R_TextureNumForName (anim_p + 1 /* .endname */)
-									  - lastanim->basepic + 1;
-				/*if (*anim_p & 2)
-				{ // [RH] Bit 1 set means allow decals on walls with this texture
-					texturenodecals[lastanim->basepic] = 0;
-				}
-				else
-				{
-					texturenodecals[lastanim->basepic] = 1;
-				}*/
-			}
-			else
-			{
-				if (W_CheckNumForName ((char *)anim_p + 10 /* .startname */, ns_flats) == -1 ||
-					W_CheckNumForName ((char *)anim_p + 1 /* .startname */, ns_flats) == -1)
-					continue;
-
 				const char* startname = (const char*)(anim_p + 10);
 				const char* endname = (const char*)(anim_p + 1);
 
-				lastanim->basepic = texturemanager.getHandle(startname, Texture::TEX_FLAT);
-				lastanim->numframes = texturemanager.getHandle(endname, Texture::TEX_FLAT) - lastanim->basepic + 1;
+				texhandle_t start_texhandle =
+						texturemanager.getHandle(startname, Texture::TEX_WALLTEXTURE);
+				texhandle_t end_texhandle =
+						texturemanager.getHandle(endname, Texture::TEX_WALLTEXTURE);
 
-//				lastanim->basepic = R_FlatNumForName (anim_p + 10 /* .startname */);
-//				lastanim->numframes = R_FlatNumForName (anim_p + 1 /* .endname */) - lastanim->basepic + 1;
+				if (start_texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
+					end_texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+					continue;
+
+				lastanim->basepic = start_texhandle;
+				lastanim->numframes = end_texhandle - start_texhandle + 1;
+			}
+			else
+			{
+				const char* startname = (const char*)(anim_p + 10);
+				const char* endname = (const char*)(anim_p + 1);
+
+				texhandle_t start_texhandle =
+						texturemanager.getHandle(startname, Texture::TEX_WALLTEXTURE);
+				texhandle_t end_texhandle =
+						texturemanager.getHandle(endname, Texture::TEX_WALLTEXTURE);
+
+				if (start_texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
+					end_texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+					continue;
+
+				lastanim->basepic = start_texhandle;
+				lastanim->numframes = end_texhandle - start_texhandle + 1;
 			}
 
 			lastanim->istexture = *anim_p /* .istexture */;
@@ -1001,6 +988,13 @@ fixed_t P_FindHighestCeilingSurrounding (sector_t *sec)
 //
 // jff 02/03/98 Add routine to find shortest lower texture
 //
+// [SL] a note about comparing sidedef textures using >= 0:
+//
+// haleyjd 05/07/04: repair texture comparison error that was
+// fixed in BOOM v2.02 but missed in MBF -- texture #0 is used
+// for "-", meaning no texture, but if used as an index, will get
+// the height of the first "garbage" texture (ie. AASTINKY)
+//
 fixed_t P_FindShortestTextureAround (int secnum)
 {
 	int minsize = MAXINT;
@@ -1010,16 +1004,22 @@ fixed_t P_FindShortestTextureAround (int secnum)
 
 	for (i = 0; i < sec->linecount; i++)
 	{
-		if (twoSided (secnum, i))
+		if (twoSided(secnum, i))
 		{
-			side = getSide (secnum, i, 0);
-			if (side->bottomtexture >= 0)
-				if (textureheight[side->bottomtexture] < minsize)
-					minsize = textureheight[side->bottomtexture];
-			side = getSide (secnum, i, 1);
-			if (side->bottomtexture >= 0)
-				if (textureheight[side->bottomtexture] < minsize)
-					minsize = textureheight[side->bottomtexture];
+			side = getSide(secnum, i, 0);
+			if (side->_bottomtexture >= 0)
+			{
+				const Texture* texture = texturemanager.getTexture(side->_bottomtexture);
+				if (texture->getHeight() < minsize)
+					minsize = texture->getHeight();
+			}
+			side = getSide(secnum, i, 1);
+			if (side->_bottomtexture >= 0)
+			{
+				const Texture* texture = texturemanager.getTexture(side->_bottomtexture);
+				if (texture->getHeight() < minsize)
+					minsize = texture->getHeight();
+			}
 		}
 	}
 	return minsize;
@@ -1037,6 +1037,13 @@ fixed_t P_FindShortestTextureAround (int secnum)
 //
 // jff 03/20/98 Add routine to find shortest upper texture
 //
+// [SL] a note about comparing sidedef textures using >= 0:
+//
+// haleyjd 05/07/04: repair texture comparison error that was
+// fixed in BOOM v2.02 but missed in MBF -- texture #0 is used
+// for "-", meaning no texture, but if used as an index, will get
+// the height of the first "garbage" texture (ie. AASTINKY)
+//
 fixed_t P_FindShortestUpperAround (int secnum)
 {
 	int minsize = MAXINT;
@@ -1046,16 +1053,22 @@ fixed_t P_FindShortestUpperAround (int secnum)
 
 	for (i = 0; i < sec->linecount; i++)
 	{
-		if (twoSided (secnum, i))
+		if (twoSided(secnum, i))
 		{
-			side = getSide (secnum,i,0);
-			if (side->toptexture >= 0)
-				if (textureheight[side->toptexture] < minsize)
-					minsize = textureheight[side->toptexture];
-			side = getSide (secnum,i,1);
-			if (side->toptexture >= 0)
-				if (textureheight[side->toptexture] < minsize)
-					minsize = textureheight[side->toptexture];
+			side = getSide(secnum, i, 0);
+			if (side->_bottomtexture >= 0)
+			{
+				const Texture* texture = texturemanager.getTexture(side->_toptexture);
+				if (texture->getHeight() < minsize)
+					minsize = texture->getHeight();
+			}
+			side = getSide(secnum, i, 1);
+			if (side->_bottomtexture >= 0)
+			{
+				const Texture* texture = texturemanager.getTexture(side->_toptexture);
+				if (texture->getHeight() < minsize)
+					minsize = texture->getHeight();
+			}
 		}
 	}
 	return minsize;
@@ -1799,23 +1812,27 @@ void P_UpdateSpecials (void)
 		{
 			int pic = anim->framepic[anim->curframe];
 
+/*
 			if (anim->istexture)
 				for (i = 0; i < anim->numframes; i++)
 					texturetranslation[anim->framepic[i]] = pic;
 			else
 				for (i = 0; i < anim->numframes; i++)
 					flattranslation[anim->framepic[i]] = pic;
+*/
 		}
 		else
 		{
-			for (i = anim->basepic; i < anim->basepic + anim->numframes; i++)
+			for (unsigned i = anim->basepic; i < anim->basepic + anim->numframes; i++)
 			{
 				int pic = anim->basepic + (anim->curframe + i) % anim->numframes;
 
+/*
 				if (anim->istexture)
 					texturetranslation[i] = pic;
 				else
 					flattranslation[i] = pic;
+*/
 			}
 		}
 	}

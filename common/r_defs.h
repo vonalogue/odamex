@@ -258,9 +258,9 @@ struct side_s
 
     // Texture indices.
     // We do not maintain names here.
-    short	toptexture;
-    short	bottomtexture;
-    short	midtexture;
+	texhandle_t	_toptexture;
+	texhandle_t	_bottomtexture;
+	texhandle_t	_midtexture;
 
     // Sector the SideDef is facing.
     sector_t*	sector;

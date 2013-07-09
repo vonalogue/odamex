@@ -164,12 +164,12 @@ void TextureManager::precache()
 	// precache all the wall textures
 	for (int i = 0; i < numsides; i++)
 	{
-		if (sides[i].toptexture)
-			getTexture(sides[i].toptexture);
-		if (sides[i].midtexture)
-			getTexture(sides[i].midtexture);
-		if (sides[i].bottomtexture)
-			getTexture(sides[i].bottomtexture);
+		if (sides[i]._toptexture)
+			getTexture(sides[i]._toptexture);
+		if (sides[i]._midtexture)
+			getTexture(sides[i]._midtexture);
+		if (sides[i]._bottomtexture)
+			getTexture(sides[i]._bottomtexture);
 	}
 
 	// precache all the floor/ceiling textures
@@ -286,6 +286,8 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 		texdef->width = SAFESHORT(mtexdef->width);
 		texdef->height = SAFESHORT(mtexdef->height);
 		texdef->patchcount = SAFESHORT(mtexdef->patchcount);
+		texdef->scalex = mtexdef->scalex;
+		texdef->scaley = mtexdef->scaley;
 
 		char uname[9];
 		for (int c = 0; c < 8; c++)
@@ -448,6 +450,8 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 	size_t texture_size = Texture::calculateSize(width, height);
 	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
 	texture->init(width, height);
+	texture->mScaleX = texdef->scalex ? texdef->scalex << (FRACBITS - 3) : FRACUNIT;
+	texture->mScaleY = texdef->scaley ? texdef->scaley << (FRACBITS - 3) : FRACUNIT;
 
 	// TODO: remove this once proper masking is in place
 	memset(texture->mData, 0, width * height);
@@ -551,10 +555,6 @@ const Texture* TextureManager::getTexture(texhandle_t handle)
 			cacheWallTexture(handle);
 
 		texture = mHandleMap[handle];
-	}
-	else
-	{
-		DPrintf("cache hit 0x%x\n", handle);
 	}
 
 	return texture;

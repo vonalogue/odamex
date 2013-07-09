@@ -56,13 +56,13 @@ public:
 	};
 
 	DActiveButton ();
-	DActiveButton (line_t *, EWhere, SWORD tex, SDWORD time, fixed_t x, fixed_t y);
+	DActiveButton (line_t *, EWhere, texhandle_t tex, SDWORD time, fixed_t x, fixed_t y);
 
 	void RunThink ();
 
 	line_t	*m_Line;
 	EWhere	m_Where;
-	SWORD	m_Texture;
+	texhandle_t	m_Texture;
 	SDWORD	m_Timer;
 	fixed_t	m_X, m_Y;	// Location of timer sound
 
@@ -76,7 +76,7 @@ public:
 	}
 };
 
-static int *switchlist;
+static texhandle_t *switchlist;
 static int  numswitches;
 
 //
@@ -87,7 +87,7 @@ static int  numswitches;
 //		MAXSWITCHES limit.
 void P_InitSwitchList(void)
 {
-	byte *alphSwitchList = (byte *)W_CacheLumpName ("SWITCHES", PU_STATIC);
+	byte *alphSwitchList = (byte *)W_CacheLumpName("SWITCHES", PU_STATIC);
 	byte *list_p;
 	int i;
 
@@ -96,29 +96,35 @@ void P_InitSwitchList(void)
 
 	if (i == 0)
 	{
-		switchlist = (int *)Z_Malloc (sizeof(*switchlist), PU_STATIC, 0);
-		*switchlist = -1;
+		switchlist = (texhandle_t*)Z_Malloc (sizeof(*switchlist), PU_STATIC, 0);
+		*switchlist = TextureManager::NOT_FOUND_TEXTURE_HANDLE;
 		numswitches = 0;
 	}
 	else
 	{
-		switchlist = (int *)Z_Malloc (sizeof(*switchlist)*(i*2+1), PU_STATIC, 0);
+		switchlist = (texhandle_t*)Z_Malloc(sizeof(*switchlist) * (i * 2 + 1), PU_STATIC, 0);
 
 		for (i = 0, list_p = alphSwitchList; list_p[18] || list_p[19]; list_p += 20)
 		{
 			if (((gameinfo.maxSwitch & 15) >= (list_p[18] & 15)) &&
 				((gameinfo.maxSwitch & ~15) == (list_p[18] & ~15)))
 			{
+				const char* name1 = (const char*)list_p;
+				const char* name2 = (const char*)list_p + 9;
+
+				texhandle_t texhandle1 = texturemanager.getHandle(name1, Texture::TEX_WALLTEXTURE);
+				texhandle_t texhandle2 = texturemanager.getHandle(name2, Texture::TEX_WALLTEXTURE);
+
 				// [RH] Skip this switch if it can't be found.
-				if (R_CheckTextureNumForName (list_p /* .name1 */) < 0)
+				if (texhandle1 == TextureManager::NOT_FOUND_TEXTURE_HANDLE)
 					continue;
 
-				switchlist[i++] = R_TextureNumForName(list_p /* .name1 */);
-				switchlist[i++] = R_TextureNumForName(list_p + 9 /* .name2 */);
+				switchlist[i++] = texhandle1;
+				switchlist[i++] = texhandle2;
 			}
 		}
 		numswitches = i/2;
-		switchlist[i] = -1;
+		switchlist[i] = TextureManager::NOT_FOUND_TEXTURE_HANDLE;
 	}
 
 	Z_Free (alphSwitchList);
@@ -128,7 +134,7 @@ void P_InitSwitchList(void)
 // Start a button counting down till it turns off.
 // [RH] Rewritten to remove MAXBUTTONS limit and use temporary soundorgs.
 //
-static void P_StartButton (line_t *line, DActiveButton::EWhere w, int texture,
+static void P_StartButton (line_t *line, DActiveButton::EWhere w, texhandle_t texture,
 						   int time, fixed_t x, fixed_t y)
 {
 	DActiveButton *button;
@@ -187,23 +193,17 @@ bool P_SetButtonInfo (line_t *line, unsigned state, unsigned time)
 // Function that changes wall texture.
 // Tell it if switch is ok to use again (1=yes, it's a button).
 //
-void
-P_ChangeSwitchTexture
-( line_t*	line,
-  int 		useAgain )
+void P_ChangeSwitchTexture(line_t* line, int useAgain)
 {
-	int texTop;
-	int texMid;
-	int texBot;
 	int i;
 	const char *sound;
 	
 	if (!useAgain)
 		line->special = 0;
 
-	texTop = sides[line->sidenum[0]].toptexture;
-	texMid = sides[line->sidenum[0]].midtexture;
-	texBot = sides[line->sidenum[0]].bottomtexture;
+	texhandle_t texTop = sides[line->sidenum[0]]._toptexture;
+	texhandle_t texMid = sides[line->sidenum[0]]._midtexture;
+	texhandle_t texBot = sides[line->sidenum[0]]._bottomtexture;
 
 	// EXIT SWITCH?
 	if (line->special == Exit_Normal ||
@@ -216,22 +216,22 @@ P_ChangeSwitchTexture
 
 	for (i = 0; i < numswitches*2; i++)
 	{
-		short *texture = NULL;
+		texhandle_t *texture = NULL;
 		DActiveButton::EWhere where = (DActiveButton::EWhere)0;
 
 		if (switchlist[i] == texTop)
 		{
-			texture = &sides[line->sidenum[0]].toptexture;
+			texture = &sides[line->sidenum[0]]._toptexture;
 			where = DActiveButton::BUTTON_Top;
 		}
 		else if (switchlist[i] == texBot)
 		{
-			texture = &sides[line->sidenum[0]].bottomtexture;
+			texture = &sides[line->sidenum[0]]._bottomtexture;
 			where = DActiveButton::BUTTON_Bottom;
 		}
 		else if (switchlist[i] == texMid)
 		{
-			texture = &sides[line->sidenum[0]].midtexture;
+			texture = &sides[line->sidenum[0]]._midtexture;
 			where = DActiveButton::BUTTON_Middle;
 		}
 
@@ -256,7 +256,7 @@ P_ChangeSwitchTexture
 				S_Sound (CHAN_BODY, sound, 1, ATTN_NONE);
 			}
 				
-			*texture = (short)switchlist[i^1];
+			*texture = switchlist[i^1];
 			if (useAgain)
 				P_StartButton (line, where, switchlist[i], BUTTONTIME, x, y);
 			break;
@@ -276,7 +276,7 @@ DActiveButton::DActiveButton ()
 	m_Y = 0;
 }
 
-DActiveButton::DActiveButton (line_t *line, EWhere where, SWORD texture,
+DActiveButton::DActiveButton (line_t *line, EWhere where, texhandle_t texture,
 							  SDWORD time, fixed_t x, fixed_t y)
 {
 	m_Line = line;
@@ -307,15 +307,15 @@ void DActiveButton::RunThink ()
 		switch (m_Where)
 		{
 		case BUTTON_Top:
-			sides[m_Line->sidenum[0]].toptexture = m_Texture;
+			sides[m_Line->sidenum[0]]._toptexture = m_Texture;
 			break;
 			
 		case BUTTON_Middle:
-			sides[m_Line->sidenum[0]].midtexture = m_Texture;
+			sides[m_Line->sidenum[0]]._midtexture = m_Texture;
 			break;
 			
 		case BUTTON_Bottom:
-			sides[m_Line->sidenum[0]].bottomtexture = m_Texture;
+			sides[m_Line->sidenum[0]]._bottomtexture = m_Texture;
 			break;
 
 		default:

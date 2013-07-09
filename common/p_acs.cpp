@@ -1379,7 +1379,7 @@ int DLevelScript::CountPlayers ()
 
 void DLevelScript::SetLineTexture (int lineid, int side, int position, int name)
 {
-	int texture, linenum = -1;
+	int linenum = -1;
 	const char *texname = level.behavior->LookupString (name);
 
 	if (texname == NULL)
@@ -1387,24 +1387,26 @@ void DLevelScript::SetLineTexture (int lineid, int side, int position, int name)
 
 	side = (side) ? 1 : 0;
 
-	texture = R_TextureNumForName (texname);
+	texhandle_t texhandle = texturemanager.getHandle(texname, Texture::TEX_WALLTEXTURE);
 
-	while ((linenum = P_FindLineFromID (lineid, linenum)) >= 0) {
+	while ((linenum = P_FindLineFromID (lineid, linenum)) >= 0)
+	{
 		side_t *sidedef;
 
 		if (lines[linenum].sidenum[side] == R_NOSIDE)
 			continue;
 		sidedef = sides + lines[linenum].sidenum[side];
 
-		switch (position) {
+		switch (position)
+		{
 			case TEXTURE_TOP:
-				sidedef->toptexture = texture;
+				sidedef->_toptexture = texhandle;
 				break;
 			case TEXTURE_MIDDLE:
-				sidedef->midtexture = texture;
+				sidedef->_midtexture = texhandle;
 				break;
 			case TEXTURE_BOTTOM:
-				sidedef->bottomtexture = texture;
+				sidedef->_bottomtexture = texhandle;
 				break;
 			default:
 				break;

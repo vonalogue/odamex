@@ -730,33 +730,32 @@ void P_LoadSideDefs (int lump)
 }
 
 // [RH] Figure out blends for deep water sectors
-static void SetTexture (short *texture, unsigned int *blend, char *name)
+static void SetTextureNoErr(texhandle_t& texhandle, unsigned int& color, const char* name)
 {
-	if ((*blend = R_ColormapNumForName (name)) == 0) {
-		if ((*texture = R_CheckTextureNumForName (name)) == -1) {
-			char name2[9];
-			char *stop;
-			strncpy (name2, name, 8);
-			name2[8] = 0;
-			*blend = strtoul (name2, &stop, 16);
-			*texture = 0;
-		} else {
-			*blend = 0;
-		}
-	} else {
-		*texture = 0;
+	texhandle = texturemanager.getHandle(name, Texture::TEX_WALLTEXTURE);
+	if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+	{
+		char name2[9];
+		char* stop;
+		strncpy(name2, name, 8);
+		name2[8] = 0;
+		color = strtoul(name2, &stop, 16);
+		texhandle = 0;
 	}
 }
 
-static void SetTextureNoErr (short *texture, unsigned int *color, char *name)
+static void SetTexture(texhandle_t& texhandle, unsigned int& color, const char* name)
 {
-	if ((*texture = R_CheckTextureNumForName (name)) == -1) {
-		char name2[9];
-		char *stop;
-		strncpy (name2, name, 8);
-		name2[8] = 0;
-		*color = strtoul (name2, &stop, 16);
-		*texture = 0;
+	color = R_ColormapNumForName(name);
+	if (color == 0)
+	{
+		SetTextureNoErr(texhandle, color, name);
+		if (texhandle != 0)
+			color = 0;
+	}
+	else
+	{
+		texhandle = 0;
 	}
 }
 
@@ -791,9 +790,9 @@ void P_LoadSideDefs2 (int lump)
 			  //	  but a packed ARGB word for blending, so we also allow
 			  //	  the blend to be specified directly by the texture names
 			  //	  instead of figuring something out from the colormap.
-			SetTexture (&sd->bottomtexture, &sec->bottommap, msd->bottomtexture);
-			SetTexture (&sd->midtexture, &sec->midmap, msd->midtexture);
-			SetTexture (&sd->toptexture, &sec->topmap, msd->toptexture);
+			SetTexture(sd->_bottomtexture, sec->bottommap, msd->bottomtexture);
+			SetTexture(sd->_midtexture, sec->midmap, msd->midtexture);
+			SetTexture(sd->_toptexture, sec->topmap, msd->toptexture);
 			break;
 
 		  case Static_Init:
@@ -803,9 +802,9 @@ void P_LoadSideDefs2 (int lump)
 			{
 				unsigned int color = 0xffffff, fog = 0x000000;
 
-				SetTextureNoErr (&sd->bottomtexture, &fog, msd->bottomtexture);
-				SetTextureNoErr (&sd->toptexture, &color, msd->toptexture);
-				sd->midtexture = R_TextureNumForName (msd->midtexture);
+				SetTextureNoErr(sd->_bottomtexture, fog, msd->bottomtexture);
+				SetTextureNoErr(sd->_toptexture, color, msd->toptexture);
+				sd->_midtexture = texturemanager.getHandle(msd->midtexture, Texture::TEX_WALLTEXTURE);
 
 				if (fog != 0x000000 || color != 0xffffff) {
 					int s;
@@ -834,9 +833,9 @@ void P_LoadSideDefs2 (int lump)
 			break;
 */
 		  default:			// normal cases
-			sd->midtexture = R_TextureNumForName(msd->midtexture);
-			sd->toptexture = R_TextureNumForName(msd->toptexture);
-			sd->bottomtexture = R_TextureNumForName(msd->bottomtexture);
+			sd->_midtexture = texturemanager.getHandle(msd->midtexture, Texture::TEX_WALLTEXTURE);
+			sd->_toptexture = texturemanager.getHandle(msd->toptexture, Texture::TEX_WALLTEXTURE);
+			sd->_bottomtexture = texturemanager.getHandle(msd->bottomtexture, Texture::TEX_WALLTEXTURE);
 			break;
 		}
 	}

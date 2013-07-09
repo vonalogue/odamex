@@ -39,8 +39,6 @@
 #include "w_wad.h"
 #include "r_texture.h"
 
-extern int *texturewidthmask;
-
 EXTERN_CVAR(sv_freelook)
 EXTERN_CVAR(cl_mouselook)
 EXTERN_CVAR(r_skypalette)
@@ -53,10 +51,10 @@ EXTERN_CVAR(r_skypalette)
 texhandle_t		sky1flathandle;
 texhandle_t		sky2flathandle;
 
+texhandle_t		sky1texhandle;
+texhandle_t		sky2texhandle;
 
 
-
-int 		sky1texture,	sky2texture;
 fixed_t		skytexturemid;
 fixed_t		skyscale;
 int			skystretch;
@@ -76,7 +74,7 @@ char SKYFLATNAME[8] = "F_SKY1";
 extern "C" int detailxshift, detailyshift;
 extern fixed_t freelookviewheight;
 
-static tallpost_t* skyposts[MAXWIDTH];
+static byte* skycols[MAXWIDTH];
 
 //
 //
@@ -89,43 +87,26 @@ static tallpost_t* skyposts[MAXWIDTH];
 
 void R_InitSkyMap ()
 {
-	texpatch_t *texpatch;
-	patch_t *wpatch;
-	int p_height, t_height,i,count;
-
-	if (textureheight == NULL)
-		return;
-
 	// [SL] 2011-11-30 - Don't run if we don't know what sky texture to use
 	if (gamestate != GS_LEVEL)
 		return;
 
-	if (sky2texture && textureheight[sky1texture] != textureheight[sky2texture])
+	const Texture* sky1texture = texturemanager.getTexture(sky1texhandle);
+	const Texture* sky2texture = NULL;
+	if (sky2texhandle)
 	{
-		Printf (PRINT_HIGH,"\x1f+Both sky textures must be the same height.\x1f-\n");
-		sky2texture = sky1texture;
+		sky2texture = texturemanager.getTexture(sky2texhandle);
+		if (sky1texture->getHeight() != sky2texture->getHeight())
+		{
+			Printf (PRINT_HIGH,"\x1f+Both sky textures must be the same height.\x1f-\n");
+			sky2texhandle = sky1texhandle;
+			sky2texture = sky1texture;
+		}
 	}
 
-	t_height = textures[sky1texture]->height;
-	p_height = 0;
-
-	count = textures[sky1texture]->patchcount;
-	texpatch = &(textures[sky1texture]->patches[0]);
-	
-	// Find the tallest patch in the texture
-	for(i = 0; i < count; i++, texpatch++)
-	{
-		wpatch = W_CachePatch(texpatch->patch);
-		if(wpatch->height() > p_height)
-			p_height = SAFESHORT(wpatch->height());
-	}
-
-	textures[sky1texture]->height = MAX(t_height,p_height);
-	textureheight[sky1texture] = textures[sky1texture]->height << FRACBITS;
-	
 	skystretch = 0;
 
-	if (textureheight[sky1texture] <= (128 << FRACBITS))
+	if (sky1texture->getHeight() <= 128*FRACUNIT)
 	{
 		skytexturemid = 200/2*FRACUNIT;
 		skystretch = (r_stretchsky == 1) || (r_stretchsky == 2 && sv_freelook && cl_mouselook);
@@ -148,9 +129,9 @@ void R_InitSkyMap ()
 	// The Heretic sky map is 256*200*4 maps.
 	sky1shift = 22+skystretch-16;
 	sky2shift = 22+skystretch-16;	
-	if (texturewidthmask[sky1texture] >= 127)
+	if (sky1texture->getWidth() >= 128*FRACUNIT)
 		sky1shift -= skystretch;
-	if (texturewidthmask[sky2texture] >= 127)
+	if (sky2texture->getWidth() >= 128*FRACUNIT)
 		sky2shift -= skystretch;
 }
 
@@ -161,7 +142,6 @@ static inline void R_BlastSkyColumn(void (*drawfunc)(void))
 {
 	if (dc_yl <= dc_yh)
 	{
-		dc_source = dc_post->data();
 		dc_texturefrac = dc_texturemid + (dc_yl - centery + 1) * dc_iscale;
 		drawfunc();
 	}
@@ -202,19 +182,20 @@ void R_RenderSkyRange(visplane_t* pl)
 		return;
 
 	int columnmethod = 2;
-	int skytex = sky1texture;
+
+	texhandle_t skytexhandle = sky1texhandle;
 	fixed_t front_offset = 0;
 	angle_t skyflip = 0;
 
 	if (pl->texhandle == sky1flathandle)
 	{
 		// use sky1
-		skytex = sky1texture;
+		skytexhandle = sky1texhandle;
 	}
 	else if (pl->texhandle == sky2flathandle)
 	{
 		// use sky2
-		skytex = sky2texture;
+		skytexhandle = sky2texhandle;
 	}
 	else if (pl->texhandle & PL_SKYTRANSFERLINE_MASK)
 	{
@@ -228,7 +209,8 @@ void R_RenderSkyRange(visplane_t* pl)
 			const side_t* side = *line->sidenum + sides;
 
 			// Texture comes from upper texture of reference sidedef
-			skytex = texturetranslation[side->toptexture];
+			// TODO: texturetranslation[]
+			skytexhandle = side->_toptexture;
 
 			// Horizontal offset is turned into an angle offset,
 			// to allow sky rotation as well as careful positioning.
@@ -252,9 +234,11 @@ void R_RenderSkyRange(visplane_t* pl)
 
 	palette_t *pal = GetDefaultPalette();
 
+	const Texture* texture = texturemanager.getTexture(skytexhandle);
+
 	dc_iscale = skyiscale >> skystretch;
 	dc_texturemid = skytexturemid;
-	dc_textureheight = textureheight[skytex];
+	dc_textureheight = texture->getHeight();
 	skyplane = pl;
 
 	// set up the appropriate colormap for the sky
@@ -273,16 +257,17 @@ void R_RenderSkyRange(visplane_t* pl)
 		dc_colormap = shaderef_t(&pal->maps, 0);
 	}
 
+
 	// determine which texture posts will be used for each screen
 	// column in this range.
 	for (int x = pl->minx; x <= pl->maxx; x++)
 	{
-		int colnum = ((((viewangle + xtoviewangle[x]) ^ skyflip) >> sky1shift) + front_offset) >> FRACBITS;
-		skyposts[x] = R_GetTextureColumn(skytex, colnum);
+		int colnum = (((viewangle + xtoviewangle[x]) ^ skyflip) >> sky1shift) + front_offset;
+		skycols[x] = texture->getColumnData(colnum);
 	}
 
 	R_RenderColumnRange(pl->minx, pl->maxx, (int*)pl->top, (int*)pl->bottom,
-			skyposts, SkyColumnBlaster, SkyHColumnBlaster, false, columnmethod);
+			skycols, SkyColumnBlaster, SkyHColumnBlaster, false, columnmethod);
 				
 	R_ResetDrawFuncs();
 }

@@ -33,7 +33,8 @@
 texhandle_t	sky1flathandle;
 texhandle_t	sky2flathandle;
 
-int 		sky1texture, sky2texture;
+texhandle_t sky1texhandle;
+texhandle_t sky2texhandle;
 
 fixed_t		sky1pos=0,		sky1speed=0;
 

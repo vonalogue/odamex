@@ -38,9 +38,6 @@
 //	for rendering.
 //
 
-// needed for texture pegging
-extern fixed_t* 		textureheight;
-
 extern "C" int			viewwidth;
 extern "C" int			realviewwidth;
 extern "C" int			viewheight;
@@ -53,9 +50,6 @@ extern int				numflats;
 extern bool*			flatwarp;
 extern byte**			warpedflats;
 extern int*				flatwarpedwhen;
-extern int*				flattranslation;
-		
-extern int* 			texturetranslation; 	
 
 // Sprite....
 extern int				firstspritelump;
