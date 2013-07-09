@@ -714,7 +714,7 @@ static forceinline void R_DrawLevelSpanGeneric(
 	// of ufrac and vfrac have been reversed to accomodate this.
 	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
 	const int vmask = (1 << ds_textureheightbits) - 1;
-	const int ushift = FRACBITS - ds_texturewidthbits; 
+	const int ushift = FRACBITS - ds_textureheightbits; 
 	const int vshift = FRACBITS;
  
 	do {
@@ -768,7 +768,7 @@ static forceinline void R_DrawSlopedSpanGeneric(
 	// of xfrac and yfrac have been reversed to accomodate this.
 	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
 	const int vmask = (1 << ds_textureheightbits) - 1;
-	const int ushift = FRACBITS - ds_texturewidthbits; 
+	const int ushift = FRACBITS - ds_textureheightbits; 
 	const int vshift = FRACBITS;
  
 	float iu = ds_iu, iv = ds_iv;

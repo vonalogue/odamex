@@ -162,7 +162,7 @@ void R_DrawSpanD_SSE2 (void)
 	// of ufrac and vfrac have been reversed to accomodate this.
 	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
 	const int vmask = (1 << ds_textureheightbits) - 1;
-	const int ushift = FRACBITS - ds_texturewidthbits; 
+	const int ushift = FRACBITS - ds_textureheightbits; 
 	const int vshift = FRACBITS;
 
 	// Blit until we align ourselves with a 16-byte offset for SSE2:
@@ -252,12 +252,8 @@ void R_DrawSlopeSpanD_SSE2 (void)
 	// of ufrac and vfrac have been reversed to accomodate this.
 	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
 	const int vmask = (1 << ds_textureheightbits) - 1;
-	const int ushift = FRACBITS - ds_texturewidthbits; 
+	const int ushift = FRACBITS - ds_textureheightbits; 
 	const int vshift = FRACBITS;
-
-
-
-
 
 	float iu = ds_iu, iv = ds_iv;
 	float ius = ds_iustep, ivs = ds_ivstep;
