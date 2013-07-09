@@ -373,8 +373,7 @@ void TextureManager::cacheFlat(texhandle_t handle)
 	byte *rawlumpdata = new byte[lumplen];
 	W_ReadLump(lumpnum, rawlumpdata);
 
-#if 0
-	// copy the row-major flat lump to into column-major
+	// convert the row-major flat lump to into column-major
 	byte* dest = texture->mData;
 
 	for (int x = 0; x < width; x++)
@@ -388,12 +387,6 @@ void TextureManager::cacheFlat(texhandle_t handle)
 			dest++;
 		}
 	}
-#else
-	// copy the row-major flat into row-major for now...
-	// visplane span rendering functions will need to be modified to use
-	// column-major format...
-	memcpy(texture->mData, rawlumpdata, width * height);
-#endif
 	
 	delete [] rawlumpdata;
 }

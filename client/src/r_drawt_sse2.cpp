@@ -130,13 +130,7 @@ void rtv_lucent4cols_SSE2(byte *source, palindex_t *dest, int bga, int fga)
 
 void R_DrawSpanD_SSE2 (void)
 {
-	dsfixed_t			xfrac;
-	dsfixed_t			yfrac;
-	dsfixed_t			xstep;
-	dsfixed_t			ystep;
 	argb_t*             dest;
-	int 				count;
-	int 				spot;
 
 #ifdef RANGECHECK
 	if (ds_x2 < ds_x1
@@ -150,25 +144,32 @@ void R_DrawSpanD_SSE2 (void)
 //		dscount++;
 #endif
 
-	xfrac = ds_xfrac;
-	yfrac = ds_yfrac;
+	dsfixed_t ufrac = ds_xfrac;
+	dsfixed_t vfrac = ds_yfrac;
+	dsfixed_t ustep = ds_xstep;
+	dsfixed_t vstep = ds_ystep;
 
 	dest = (argb_t *)(ylookup[ds_y] + columnofs[ds_x1]);
 
 	// We do not check for zero spans here?
-	count = ds_x2 - ds_x1 + 1;
-
-	xstep = ds_xstep;
-	ystep = ds_ystep;
+	int count = ds_x2 - ds_x1 + 1;
 
 	// NOTE(jsd): Can this just die already?
 	assert(ds_colsize == 1);
+
+	// [SL] Note that the texture orientation differs from typical Doom span
+	// drawers since flats are stored in column major format now. The roles
+	// of ufrac and vfrac have been reversed to accomodate this.
+	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
+	const int vmask = (1 << ds_textureheightbits) - 1;
+	const int ushift = FRACBITS - ds_texturewidthbits; 
+	const int vshift = FRACBITS;
 
 	// Blit until we align ourselves with a 16-byte offset for SSE2:
 	while (((size_t)dest) & 15)
 	{
 		// Current texture index in u,v.
-		spot = ((yfrac>>(32-6-6))&(63*64)) + (xfrac>>(32-6));
+		const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 
 		// Lookup pixel from flat texture tile,
 		//  re-index using light/colormap.
@@ -176,8 +177,8 @@ void R_DrawSpanD_SSE2 (void)
 		dest += ds_colsize;
 
 		// Next step in u,v.
-		xfrac += xstep;
-		yfrac += ystep;
+		ufrac += ustep;
+		vfrac += vstep;
 
 		--count;
 	}
@@ -189,10 +190,10 @@ void R_DrawSpanD_SSE2 (void)
 		for (int i = 0; i < rounds; ++i, count -= 4)
 		{
 			// TODO(jsd): Consider SSE2 bit twiddling here!
-			const int spot0 = (((yfrac+ystep*0)>>(32-6-6))&(63*64)) + ((xfrac+xstep*0)>>(32-6));
-			const int spot1 = (((yfrac+ystep*1)>>(32-6-6))&(63*64)) + ((xfrac+xstep*1)>>(32-6));
-			const int spot2 = (((yfrac+ystep*2)>>(32-6-6))&(63*64)) + ((xfrac+xstep*2)>>(32-6));
-			const int spot3 = (((yfrac+ystep*3)>>(32-6-6))&(63*64)) + ((xfrac+xstep*3)>>(32-6));
+			const int spot0 = (((ufrac + ustep*0) >> ushift) & umask) | (((vfrac + vstep*0) >> vshift) & vmask); 
+			const int spot1 = (((ufrac + ustep*1) >> ushift) & umask) | (((vfrac + vstep*1) >> vshift) & vmask); 
+			const int spot2 = (((ufrac + ustep*2) >> ushift) & umask) | (((vfrac + vstep*2) >> vshift) & vmask); 
+			const int spot3 = (((ufrac + ustep*3) >> ushift) & umask) | (((vfrac + vstep*3) >> vshift) & vmask); 
 
 			const __m128i finalColors = _mm_setr_epi32(
 				ds_colormap.shade(ds_source[spot0]),
@@ -204,8 +205,8 @@ void R_DrawSpanD_SSE2 (void)
 			dest += 4;
 
 			// Next step in u,v.
-			xfrac += xstep*4;
-			yfrac += ystep*4;
+			ufrac += ustep*4;
+			vfrac += vstep*4;
 		}
 	}
 
@@ -215,7 +216,7 @@ void R_DrawSpanD_SSE2 (void)
 		while (count--)
 		{
 			// Current texture index in u,v.
-			spot = ((yfrac>>(32-6-6))&(63*64)) + (xfrac>>(32-6));
+			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 
 			// Lookup pixel from flat texture tile,
 			//  re-index using light/colormap.
@@ -223,8 +224,8 @@ void R_DrawSpanD_SSE2 (void)
 			dest += ds_colsize;
 
 			// Next step in u,v.
-			xfrac += xstep;
-			yfrac += ystep;
+			ufrac += ustep;
+			vfrac += vstep;
 		}
 	}
 }
@@ -245,6 +246,18 @@ void R_DrawSlopeSpanD_SSE2 (void)
 				 ds_x1,ds_x2,ds_y);
 	}
 #endif
+
+	// [SL] Note that the texture orientation differs from typical Doom span
+	// drawers since flats are stored in column major format now. The roles
+	// of ufrac and vfrac have been reversed to accomodate this.
+	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
+	const int vmask = (1 << ds_textureheightbits) - 1;
+	const int ushift = FRACBITS - ds_texturewidthbits; 
+	const int vshift = FRACBITS;
+
+
+
+
 
 	float iu = ds_iu, iv = ds_iv;
 	float ius = ds_iustep, ivs = ds_ivstep;
@@ -288,7 +301,10 @@ void R_DrawSlopeSpanD_SSE2 (void)
 		while ((((size_t)dest) & 15) && (incount > 0))
 		{
 			const shaderef_t &colormap = slopelighting[ltindex++];
-			*dest = colormap.shade(src[((vfrac >> 10) & 0xFC0) | ((ufrac >> 16) & 63)]);
+	
+			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
+			*dest = colormap.shade(src[spot]);
+
 			dest += colsize;
 			ufrac += ustep;
 			vfrac += vstep;
@@ -302,10 +318,10 @@ void R_DrawSlopeSpanD_SSE2 (void)
 			{
 				for (int i = 0; i < rounds; ++i, incount -= 4)
 				{
-					const int spot0 = (((vfrac+vstep*0) >> 10) & 0xFC0) | (((ufrac+ustep*0) >> 16) & 63);
-					const int spot1 = (((vfrac+vstep*1) >> 10) & 0xFC0) | (((ufrac+ustep*1) >> 16) & 63);
-					const int spot2 = (((vfrac+vstep*2) >> 10) & 0xFC0) | (((ufrac+ustep*2) >> 16) & 63);
-					const int spot3 = (((vfrac+vstep*3) >> 10) & 0xFC0) | (((ufrac+ustep*3) >> 16) & 63);
+					const int spot0 = (((ufrac + ustep*0) >> ushift) & umask) | (((vfrac + vstep*0) >> vshift) & vmask); 
+					const int spot1 = (((ufrac + ustep*1) >> ushift) & umask) | (((vfrac + vstep*1) >> vshift) & vmask); 
+					const int spot2 = (((ufrac + ustep*2) >> ushift) & umask) | (((vfrac + vstep*2) >> vshift) & vmask); 
+					const int spot3 = (((ufrac + ustep*3) >> ushift) & umask) | (((vfrac + vstep*3) >> vshift) & vmask); 
 
 					const __m128i finalColors = _mm_setr_epi32(
 						slopelighting[ltindex+0].shade(src[spot0]),
@@ -329,7 +345,7 @@ void R_DrawSlopeSpanD_SSE2 (void)
 			while(incount--)
 			{
 				const shaderef_t &colormap = slopelighting[ltindex++];
-				const int spot = ((vfrac >> 10) & 0xFC0) | ((ufrac >> 16) & 63);
+				const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 				*dest = colormap.shade(src[spot]);
 				dest += colsize;
 
@@ -368,7 +384,8 @@ void R_DrawSlopeSpanD_SSE2 (void)
 		while (incount--)
 		{
 			const shaderef_t &colormap = slopelighting[ltindex++];
-			*dest = colormap.shade(src[((vfrac >> 10) & 0xFC0) | ((ufrac >> 16) & 63)]);
+			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
+			*dest = colormap.shade(src[spot]);
 			dest += colsize;
 			ufrac += ustep;
 			vfrac += vstep;

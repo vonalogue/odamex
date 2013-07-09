@@ -448,6 +448,10 @@ dsfixed_t 				ds_ystep;
 
 // start of a 64*64 tile image 
 byte*					ds_source;		
+fixed_t					ds_texturewidth;
+fixed_t					ds_textureheight;
+int						ds_texturewidthbits;
+int						ds_textureheightbits;
 
 // just for profiling
 int 					dscount;
@@ -698,26 +702,33 @@ static forceinline void R_DrawLevelSpanGeneric(
 	if (count <= 0)
 		return;
 	
-	dsfixed_t xfrac = ds_xfrac;
-	dsfixed_t yfrac = ds_yfrac;
-	const dsfixed_t xstep = ds_xstep;
-	const dsfixed_t ystep = ds_ystep;
+	dsfixed_t ufrac = ds_xfrac;
+	dsfixed_t vfrac = ds_yfrac;
+	const dsfixed_t ustep = ds_xstep;
+	const dsfixed_t vstep = ds_ystep;
 
 	COLORFUNC colorfunc(&ds_colormap);
 
+	// [SL] Note that the texture orientation differs from typical Doom span
+	// drawers since flats are stored in column major format now. The roles
+	// of ufrac and vfrac have been reversed to accomodate this.
+	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
+	const int vmask = (1 << ds_textureheightbits) - 1;
+	const int ushift = FRACBITS - ds_texturewidthbits; 
+	const int vshift = FRACBITS;
+ 
 	do {
 		// Current texture index in u,v.
-		const int spot = ((yfrac >> (32-6-6)) & (63*64)) + (xfrac >> (32-6));
+		const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 
 		// Lookup pixel from flat texture tile,
 		//  re-index using light/colormap.
-
 		colorfunc(source[spot], dest);
 		dest += colsize;
 
 		// Next step in u,v.
-		xfrac += xstep;
-		yfrac += ystep;
+		ufrac += ustep;
+		vfrac += vstep;
 	} while (--count);
 }
 
@@ -752,6 +763,14 @@ static forceinline void R_DrawSlopedSpanGeneric(
 	if (count <= 0)
 		return;
 	
+	// [SL] Note that the texture orientation differs from typical Doom span
+	// drawers since flats are stored in column major format now. The roles
+	// of xfrac and yfrac have been reversed to accomodate this.
+	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
+	const int vmask = (1 << ds_textureheightbits) - 1;
+	const int ushift = FRACBITS - ds_texturewidthbits; 
+	const int vshift = FRACBITS;
+ 
 	float iu = ds_iu, iv = ds_iv;
 	const float ius = ds_iustep, ivs = ds_ivstep;
 	float id = ds_id, ids = ds_idstep;
@@ -787,7 +806,7 @@ static forceinline void R_DrawSlopedSpanGeneric(
 		{
 			colormap = slopelighting[ltindex++];
 
-			const int spot = ((vfrac >> 10) & 0xFC0) | ((ufrac >> 16) & 63);
+			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			colorfunc(source[spot], dest);
 			dest += colsize;
 			ufrac += ustep;
@@ -823,7 +842,7 @@ static forceinline void R_DrawSlopedSpanGeneric(
 		{
 			colormap = slopelighting[ltindex++];
 
-			const int spot = ((vfrac >> 10) & 0xFC0) | ((ufrac >> 16) & 63);
+			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			colorfunc(source[spot], dest);
 			dest += colsize;
 			ufrac += ustep;

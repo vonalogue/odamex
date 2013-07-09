@@ -539,8 +539,8 @@ void R_DrawLevelPlane(visplane_t *pl)
 	fixed_t pl_viewx, pl_viewy;
 
 	// texture scaling factor
-	pl_xscale = pl->xscale << 10;
-	pl_yscale = pl->yscale << 10;
+	pl_xscale = pl->xscale;
+	pl_yscale = pl->yscale;
 
 	// viewsin/viewcos rotated by the texture rotation angle
 	pl_viewsin = finesine[(viewangle + pl->angle) >> ANGLETOFINESHIFT];
@@ -564,12 +564,12 @@ void R_DrawLevelPlane(visplane_t *pl)
 	}
 
 	// cache a calculation used by R_MapLevelPlane
-	pl_xstepscale = FixedMul(pl_viewsin, pl->xscale) << 10;
-	pl_ystepscale = FixedMul(pl_viewcos, pl->yscale) << 10;
+	pl_xstepscale = FixedMul(pl_viewsin, pl->xscale);
+	pl_ystepscale = FixedMul(pl_viewcos, pl->yscale);
 
 	// cache a calculation used by R_MapLevelPlane
-	pl_viewxtrans = FixedMul(pl_viewx + pl->xoffs, pl->xscale) << 10;
-	pl_viewytrans = FixedMul(pl_viewy + pl->yoffs, pl->yscale) << 10;
+	pl_viewxtrans = FixedMul(pl_viewx + pl->xoffs, pl->xscale);
+	pl_viewytrans = FixedMul(pl_viewy + pl->yoffs, pl->yscale);
 	
 	basecolormap = pl->colormap;	// [RH] set basecolormap
 
@@ -619,6 +619,10 @@ void R_DrawPlanes (void)
 //				ds_source = (byte *)W_CacheLumpNum (firstflat + useflatnum, PU_STATIC);
 				const Texture* texture = texturemanager.getTexture(pl->texhandle);
 				ds_source = texture->getData(); 
+				ds_texturewidth = texture->getWidth();
+				ds_textureheight = texture->getHeight();
+				ds_texturewidthbits = texture->getWidthBits();
+				ds_textureheightbits = texture->getHeightBits();
 
 /*										   
 				// [RH] warp a flat if desired

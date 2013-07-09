@@ -229,6 +229,10 @@ extern "C" dsfixed_t		ds_ystep;
 
 // start of a 64*64 tile image
 extern "C" byte*			ds_source;
+extern "C" fixed_t			ds_texturewidth;
+extern "C" fixed_t			ds_textureheight;
+extern "C" int				ds_texturewidthbits;
+extern "C" int				ds_textureheightbits;
 
 extern "C" int				ds_color;		// [RH] For flat color (no texturing)
 
