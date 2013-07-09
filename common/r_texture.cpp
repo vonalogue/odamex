@@ -122,6 +122,8 @@ void TextureManager::init()
 {
 	clear();
 
+	mNextSpecialUseHandle = SPECIAL_USE_HANDLE_MASK;
+
 	// initialize the FLATS data
 	mFirstFlatLumpNum = W_GetNumForName("F_START") + 1;
 	mLastFlatLumpNum = W_GetNumForName("F_END") - 1;
@@ -311,6 +313,20 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 	delete [] rawlumpdata;
 }
 
+
+//
+// TextureManager::createSpecialUseHandle
+//
+// Generates a valid handle that can be used by the engine to denote certain
+// properties for a wall or ceiling or floor. For instance, a special use
+// handle can be used to denote that a ceiling should be rendered with SKY2.
+//
+texhandle_t TextureManager::createSpecialUseHandle()
+{
+	if (mNextSpecialUseHandle < SPECIAL_USE_HANDLE_MASK + MAX_SPECIAL_USE_HANDLES)
+		return mNextSpecialUseHandle++;
+	return NOT_FOUND_TEXTURE_HANDLE;
+}
 
 //
 // TextureManager::getFlatHandle

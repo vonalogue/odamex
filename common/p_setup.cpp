@@ -322,7 +322,7 @@ void P_LoadSectors (int lump)
 		ss->ceiling_texhandle = 
 				texturemanager.getHandle(ms->ceilingpic, Texture::TEX_FLAT);
 
-		ss->sky = 0;
+		ss->skytransferline = 0;
 
 		ss->lightlevel = LESHORT(ms->lightlevel);
 		if (HasBehavior)

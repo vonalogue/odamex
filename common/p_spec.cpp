@@ -1947,7 +1947,7 @@ void P_SpawnSpecials (void)
 			break;
 
 		case Sky2:
-			sector->sky = PL_SKYFLAT;
+			sector->skytransferline = PL_SKYTRANSFERLINE_USESKY2;
 			break;
 
 		default:
@@ -2094,7 +2094,7 @@ void P_SpawnSpecials (void)
 
 			case Init_TransferSky:
 				for (s = -1; (s = P_FindSectorFromTag(lines[i].args[0],s)) >= 0;)
-					sectors[s].sky = (i+1) | PL_SKYFLAT;
+					sectors[s].skytransferline = (i+1) | PL_SKYTRANSFERLINE_MASK;
 				break;
 			}
 			break;

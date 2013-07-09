@@ -144,7 +144,7 @@ struct sector_s
 
 	texhandle_t			floor_texhandle;
 	texhandle_t			ceiling_texhandle;
-	int					sky;
+	unsigned int		skytransferline;
 
 	short				lightlevel;
 	short				special;

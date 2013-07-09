@@ -495,6 +495,7 @@ void G_DoLoadLevel (int position)
 	//	we look for an actual index, instead of simply
 	//	setting one.
 	sky1flathandle = texturemanager.getHandle(SKYFLATNAME, Texture::TEX_FLAT);
+	sky2flathandle = texturemanager.createSpecialUseHandle();
 
 	// DOOM determines the sky texture to be used
 	// depending on the current episode, and the game version.

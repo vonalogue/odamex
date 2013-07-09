@@ -3769,7 +3769,7 @@ void P_CopySector(sector_t *dest, sector_t *src)
 	dest->soundtraversed		= src->soundtraversed;
 	dest->validcount			= src->validcount;
 	dest->seqType				= src->seqType;
-	dest->sky					= src->sky;
+	dest->skytransferline		= src->skytransferline;
 	dest->friction				= src->friction;
 	dest->movefactor			= src->movefactor;
 	dest->moveable				= src->moveable;

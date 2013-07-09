@@ -676,15 +676,22 @@ void R_Subsector (int num)
 
 	basecolormap = frontsector->ceilingcolormap->maps;
 
+	texhandle_t ceiling_texhandle = frontsector->ceiling_texhandle;
+	if (frontsector->ceiling_texhandle == sky1flathandle)
+	{
+		if (frontsector->skytransferline == PL_SKYTRANSFERLINE_USESKY2)
+			ceiling_texhandle = sky2flathandle;
+		else if (frontsector->skytransferline & PL_SKYTRANSFERLINE_MASK)
+			ceiling_texhandle = frontsector->skytransferline;
+	}
+
 	ceilingplane = P_CeilingHeight(camera) > viewz ||
 		frontsector->ceiling_texhandle == sky1flathandle ||
 		(frontsector->heightsec && 
 		!(frontsector->heightsec->MoreFlags & SECF_IGNOREHEIGHTSEC) && 
 		frontsector->heightsec->floor_texhandle == sky1flathandle) ?
 		R_FindPlane(frontsector->ceilingplane,		// killough 3/8/98
-					frontsector->ceiling_texhandle == sky1flathandle &&  // killough 10/98
-						frontsector->sky & PL_SKYFLAT ? frontsector->sky :
-						frontsector->ceiling_texhandle,
+					ceiling_texhandle,
 					ceilinglightlevel,				// killough 4/11/98
 					frontsector->ceiling_xoffs,		// killough 3/7/98
 					frontsector->ceiling_yoffs + frontsector->base_ceiling_yoffs,
@@ -695,6 +702,15 @@ void R_Subsector (int num)
 
 	basecolormap = frontsector->floorcolormap->maps;	// [RH] set basecolormap
 
+	texhandle_t floor_texhandle = frontsector->floor_texhandle;
+	if (frontsector->floor_texhandle == sky1flathandle)
+	{
+		if (frontsector->skytransferline == PL_SKYTRANSFERLINE_USESKY2)
+			floor_texhandle = sky2flathandle;
+		else if (frontsector->skytransferline & PL_SKYTRANSFERLINE_MASK)
+			floor_texhandle = frontsector->skytransferline;
+	}
+
 	// killough 3/7/98: Add (x,y) offsets to flats, add deep water check
 	// killough 3/16/98: add floorlightlevel
 	// killough 10/98: add support for skies transferred from sidedefs
@@ -703,9 +719,7 @@ void R_Subsector (int num)
 		!(frontsector->heightsec->MoreFlags & SECF_IGNOREHEIGHTSEC) &&
 		frontsector->heightsec->ceiling_texhandle == sky1flathandle) ?
 		R_FindPlane(frontsector->floorplane,
-					frontsector->floor_texhandle == sky1flathandle &&  // killough 10/98
-						frontsector->sky & PL_SKYFLAT ? frontsector->sky :
-						frontsector->floor_texhandle,
+					floor_texhandle,
 					floorlightlevel,				// killough 3/16/98
 					frontsector->floor_xoffs,		// killough 3/7/98
 					frontsector->floor_yoffs + frontsector->base_floor_yoffs,

@@ -30,7 +30,8 @@
 #include "v_palette.h"
 
 // killough 10/98: special mask indicates sky flat comes from sidedef
-#define PL_SKYFLAT (0x80000000)
+#define PL_SKYTRANSFERLINE_MASK (0x80000000)
+#define PL_SKYTRANSFERLINE_USESKY2 (0x00000002)
 
 BOOL R_AlignFlat (int linenum, int side, int fc);
 

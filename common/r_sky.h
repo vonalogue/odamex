@@ -47,6 +47,7 @@ extern fixed_t	skyheight;
 EXTERN_CVAR (r_stretchsky)
 
 // Called whenever the sky changes.
+bool R_IsSkyFlat(texhandle_t handle);
 void R_InitSkyMap		();
 
 void R_RenderSkyRange(visplane_t* pl);

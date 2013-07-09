@@ -204,14 +204,17 @@ public:
 	texhandle_t getHandle(const char* name, Texture::TextureSourceType type);
 	const Texture* getTexture(texhandle_t handle);
 
+	texhandle_t createSpecialUseHandle();
+
 	static const texhandle_t NOT_PRESENT_TEXTURE_HANDLE	= 0x0;
 	static const texhandle_t NOT_FOUND_TEXTURE_HANDLE	= 0xFFFFFFFFul;
 
 private:
-	static const unsigned int FLAT_HANDLE_MASK			= 0x10000000ul;
-	static const unsigned int PATCH_HANDLE_MASK			= 0x20000000ul;
-	static const unsigned int SPRITE_HANDLE_MASK		= 0x40000000ul;
-	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x80000000ul;
+	static const unsigned int SPECIAL_USE_HANDLE_MASK	= 0x00008000ul;
+	static const unsigned int FLAT_HANDLE_MASK			= 0x01000000ul;
+	static const unsigned int PATCH_HANDLE_MASK			= 0x02000000ul;
+	static const unsigned int SPRITE_HANDLE_MASK		= 0x04000000ul;
+	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x08000000ul;
 
 	// initialization routines
 	void generateNotFoundTexture();
@@ -239,6 +242,10 @@ private:
 	std::vector<texdef_t*>		mTextureDefinitions;
 
 	std::map<std::string, unsigned int>	mTextureNameTranslationMap;
+
+	static const unsigned int MAX_SPECIAL_USE_HANDLES = 256;
+	texhandle_t					mNextSpecialUseHandle;
+
 };
 
 extern TextureManager texturemanager;

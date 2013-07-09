@@ -606,7 +606,7 @@ void R_DrawPlanes (void)
 				continue;
 
 			// sky flat
-			if (pl->texhandle == sky1flathandle || pl->texhandle == sky2flathandle)
+			if (R_IsSkyFlat(pl->texhandle))
 			{
 				R_RenderSkyRange(pl);
 			}
