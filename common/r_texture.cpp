@@ -47,6 +47,20 @@ Texture::Texture()
 	init(0, 0);
 }
 
+size_t Texture::calculateSize(int width, int height)
+{
+	return sizeof(Texture)						// header
+		+ width * sizeof(*mMaskColumnLookup)	// mMaskColumnLookup
+		+ width * height						// mMask
+		+ width * sizeof(*mColumnLookup)		// mColumnLookup
+		+ width * height;						// mData
+}
+
+//
+// Texture::init
+//
+// Sets up the member variable of Texture based on a supplied width and height.
+//
 void Texture::init(int width, int height)
 {
 	mWidth = width << FRACBITS;
@@ -59,12 +73,25 @@ void Texture::init(int width, int height)
 	mOffsetY = 0;
 	mScaleX = FRACUNIT;
 	mScaleY = FRACUNIT;
+	mHasMask = false;
 
+	// mColumnLookup follows the header in memory
+	size_t column_lookup_size = width * sizeof(*mColumnLookup);
 	mColumnLookup = (byte**)((byte*)this + sizeof(*this));
-	mData = (byte*)mColumnLookup + width * sizeof(*mColumnLookup);
+	// mData follows mColumnLookup
+	size_t data_size = width * height;
+	mData = (byte*)mColumnLookup + column_lookup_size;
+	// mMaskColumnLookup follows mData
+	size_t mask_column_lookup_size = width * sizeof(*mMaskColumnLookup);
+	mMaskColumnLookup = (byte**)(mData + data_size);
+	// mMask follows mMaskColumnLookup
+	mMask = (byte*)(mMaskColumnLookup) + mask_column_lookup_size;
 
 	for (int colnum = 0; colnum < width; colnum++)
+	{
 		mColumnLookup[colnum] = mData + colnum * height;	
+		mMaskColumnLookup[colnum] = mMask + colnum * height;
+	}
 }
 
 
@@ -456,6 +483,9 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 	// TODO: remove this once proper masking is in place
 	memset(texture->mData, 0, width * height);
 
+	// initialize the mask to entirely transparent 
+	memset(texture->mMask, 0, width * height);
+
 	// compose the texture out of a set of patches
 	for (int i = 0; i < texdef->patchcount; i++)
 	{
@@ -490,9 +520,12 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 
 				if (y1 <= y2)
 				{
-					byte* dest = texture->mData + x * height + y1;
+					byte* dest = texture->mColumnLookup[x] + y1;
 					const byte* source = (byte*)post + 3;
 					memcpy(dest, source, y2 - y1 + 1);
+
+					// set up the mask
+					memset(texture->mMaskColumnLookup[x] + y1, 1, y2 - y1 + 1);	
 				}
 			
 				post = (post_t*)((byte*)post + post->length + 4);
@@ -501,6 +534,8 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 
 		delete [] rawlumpdata;
 	}
+
+	texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
 }
 
 

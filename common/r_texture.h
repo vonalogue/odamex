@@ -136,10 +136,8 @@ public:
 private:
 	friend class TextureManager;
 
+	static size_t calculateSize(int width, int height);
 	void init(int width, int height);
-
-	static size_t calculateSize(int width, int height)
-	{	return sizeof(Texture) + width * sizeof(*mColumnLookup) + width * height;	}
 
 	fixed_t				mWidth;
 	fixed_t				mHeight;
@@ -155,6 +153,11 @@ private:
 
 	fixed_t				mScaleX;
 	fixed_t				mScaleY;
+
+	bool				mHasMask;
+
+	byte**				mMaskColumnLookup;
+	byte*				mMask;
 
 	byte**				mColumnLookup;
 	byte*				mData;
