@@ -216,7 +216,7 @@ public:
 
 	texhandle_t createSpecialUseHandle();
 
-	static const texhandle_t NOT_PRESENT_TEXTURE_HANDLE	= 0x0;
+	static const texhandle_t NO_TEXTURE_HANDLE			= 0x0;
 	static const texhandle_t NOT_FOUND_TEXTURE_HANDLE	= 0xFFFFFFFFul;
 
 private:

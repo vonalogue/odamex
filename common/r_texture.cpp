@@ -546,8 +546,9 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 //
 texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceType type)
 {
+	// sidedefs with the '-' texture indicate there should be no texture used
 	if (name[0] == '-')
-		return NOT_FOUND_TEXTURE_HANDLE;
+		return NO_TEXTURE_HANDLE;
 
 	char uname[9];
 	for (int i = 0; i < 8; i++)
