@@ -1359,7 +1359,7 @@ void R_DrawSprite (vissprite_t *spr)
 	{
 		// determine if the drawseg obscures the sprite
 		if (ds->x1 > spr->x2 || ds->x2 < spr->x1 ||
-			(!(ds->silhouette & SIL_BOTH) && !ds->midposts) )
+			(!(ds->silhouette & SIL_BOTH) && !ds->maskedmidcols) )
 		{
 			// does not cover sprite
 			continue;
@@ -1376,7 +1376,7 @@ void R_DrawSprite (vissprite_t *spr)
 			(segscale2 < spr->yscale && !R_PointOnSegSide(spr->gx, spr->gy, ds->curline)))
 		{
 			// masked mid texture?
-			if (ds->midposts)
+			if (ds->maskedmidcols)
 				R_RenderMaskedSegRange(ds, r1, r2);
 			// seg is behind sprite
 			continue;
@@ -1397,7 +1397,7 @@ void R_DrawSprite (vissprite_t *spr)
 	// all clipping has been performed, so draw the sprite
 	mfloorclip = clipbot;
 	mceilingclip = cliptop;
-	R_DrawVisSprite (spr, spr->x1, spr->x2);
+	R_DrawVisSprite(spr, spr->x1, spr->x2);
 }
 
 
@@ -1464,8 +1464,6 @@ static void R_DrawCrosshair (void)
 //
 void R_DrawMasked (void)
 {
-	drawseg_t		 *ds;
-
 	R_SortVisSprites ();
 
 	while (vsprcount > 0)
@@ -1479,8 +1477,8 @@ void R_DrawMasked (void)
 
 	//		for (ds=ds_p-1 ; ds >= drawsegs ; ds--)    old buggy code
 
-	for (ds=ds_p ; ds-- > drawsegs ; )	// new -- killough
-		if (ds->midposts)
+	for (drawseg_t* ds = ds_p; ds-- > drawsegs; )	// new -- killough
+		if (ds->maskedmidcols)
 			R_RenderMaskedSegRange(ds, ds->x1, ds->x2);
 
 	// draw the psprites on top of everything

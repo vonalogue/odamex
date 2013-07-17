@@ -266,8 +266,7 @@ void R_RenderSkyRange(visplane_t* pl)
 		skycols[x] = texture->getColumnData(colnum);
 	}
 
-	R_RenderColumnRange(pl->minx, pl->maxx, (int*)pl->top, (int*)pl->bottom,
-			skycols, SkyColumnBlaster, SkyHColumnBlaster, false, columnmethod);
+	R_RenderColumnRange(pl->minx, pl->maxx, (int*)pl->top, (int*)pl->bottom, skycols, SkyColumnBlaster, false);
 				
 	R_ResetDrawFuncs();
 }

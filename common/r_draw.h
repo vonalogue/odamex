@@ -58,7 +58,7 @@ extern "C" unsigned int	horizspans[4];
 void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
 		tallpost_t** posts, void (*colblast)(), void (*hcolblast)(), bool calc_light, int columnmethod);
 void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
-		byte** cols, void (*colblast)(), void (*hcolblast)(), bool calc_light, int columnmethod);
+		byte** cols, void (*colblast)(), bool calc_light);
 
 // [RH] Pointers to the different column and span drawers...
 

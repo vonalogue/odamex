@@ -88,14 +88,13 @@ static int wallbottomb[MAXWIDTH];
 static byte* topcols[MAXWIDTH];
 static byte* midcols[MAXWIDTH];
 static byte* bottomcols[MAXWIDTH];
+static byte** maskedmidcols;
 
 static fixed_t wallscalex[MAXWIDTH];
 static int texoffs[MAXWIDTH];
 
 extern fixed_t FocalLengthY;
 extern float yfoc;
-
-static tallpost_t** masked_midposts;
 
 //
 // R_OrthogonalLightnumAdjustment
@@ -146,60 +145,15 @@ static void R_FillWallHeightArray(
 //
 static inline void R_BlastMaskedSegColumn(void (*drawfunc)())
 {
-	tallpost_t* post = dc_post;
+	if (wallscalex[dc_x] <= 0)
+		return;
 
-	if (post != NULL && spryscale > 0)
-	{
-		sprtopscreen = centeryfrac - FixedMul(dc_texturemid, spryscale);
-		dc_iscale = 0xffffffffu / (unsigned)spryscale;
+	dc_iscale = 0xffffffffu / unsigned(wallscalex[dc_x]);
+	// TODO: dc_texturefrac should take y-scaling of textures into account
+	dc_texturefrac = dc_texturemid + FixedMul((dc_yl - centery + 1) << FRACBITS, dc_iscale);
 
-		while (!post->end())
-		{
-			if (post->length > 0)
-			{
-				// calculate unclipped screen coordinates for post
-				int topscreen = sprtopscreen + spryscale * post->topdelta + 1;
-
-				dc_yl = (topscreen + FRACUNIT) >> FRACBITS;
-				dc_yh = (topscreen + spryscale * post->length) >> FRACBITS;
-
-				if (dc_yh >= mfloorclip[dc_x])
-					dc_yh = mfloorclip[dc_x] - 1;
-				if (dc_yl <= mceilingclip[dc_x])
-					dc_yl = mceilingclip[dc_x] + 1;
-
-				dc_texturefrac = dc_texturemid - (post->topdelta << FRACBITS)
-					+ (dc_yl*dc_iscale) - FixedMul(centeryfrac-FRACUNIT, dc_iscale);
-
-				if (dc_texturefrac < 0)
-				{
-					int cnt = (FixedDiv(-dc_texturefrac, dc_iscale) + FRACUNIT - 1) >> FRACBITS;
-					dc_yl += cnt;
-					dc_texturefrac += cnt * dc_iscale;
-				}
-
-				const fixed_t endfrac = dc_texturefrac + (dc_yh-dc_yl)*dc_iscale;
-				const fixed_t maxfrac = post->length << FRACBITS;
-				
-				if (endfrac >= maxfrac)
-				{
-					int cnt = (FixedDiv(endfrac - maxfrac - 1, dc_iscale) + FRACUNIT - 1) >> FRACBITS;
-					dc_yh -= cnt;
-				}
-
-				dc_source = post->data();
-
-				if (dc_yl >= 0 && dc_yh < viewheight && dc_yl <= dc_yh)
-					drawfunc();
-			}
-			
-			post = post->next();
-		}
-
-		masked_midposts[dc_x] = NULL;
-	}
-
-	spryscale += rw_scalestep;
+	if (dc_yl <= dc_yh)
+		drawfunc();
 }
 
 //
@@ -419,8 +373,7 @@ void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
 }
 
 
-void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
-		byte** cols, void (*colblast)(), void (*hcolblast)(), bool calc_light, int columnmethod)
+void R_RenderColumnRange(int start, int stop, int* top, int* bottom, byte** cols, void (*colblast)(), bool calc_light)
 {
 	if (start > stop)
 		return;
@@ -444,49 +397,46 @@ void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
 		}
 	}
 
-	if (columnmethod == 2)
+	// pre-calculate the color map number for lighting for each screen column 
+	static int light_lookup[MAXWIDTH];
+	if (calc_light)
 	{
-		#define BLOCKBITS 6
-		#define BLOCKSIZE (1 << BLOCKBITS)
-		#define BLOCKMASK (BLOCKSIZE - 1)
-
-		// pre-calculate the color map number for lighting for each screen column 
-		static int light_lookup[MAXWIDTH];
-		if (calc_light)
+		for (int x = start; x <= stop; x++)
 		{
-			for (int x = start; x <= stop; x++)
-			{
-				light_lookup[x] = walllights[MIN(rw_light >> LIGHTSCALESHIFT, MAXLIGHTSCALE - 1)];
-				rw_light += rw_lightstep;
-			}
+			light_lookup[x] = walllights[MIN(rw_light >> LIGHTSCALESHIFT, MAXLIGHTSCALE - 1)];
+			rw_light += rw_lightstep;
 		}
-			
-		// [SL] Render the range of columns in 64x64 pixel blocks, aligned to a grid
-		// on the screen. This is to make better use of spatial locality in the cache.
-		for (int bx = start; bx <= stop; bx = (bx & ~BLOCKMASK) + BLOCKSIZE)
+	}
+		
+	#define BLOCKBITS 6
+	#define BLOCKSIZE (1 << BLOCKBITS)
+	#define BLOCKMASK (BLOCKSIZE - 1)
+
+	// [SL] Render the range of columns in 64x64 pixel blocks, aligned to a grid
+	// on the screen. This is to make better use of spatial locality in the cache.
+	for (int bx = start; bx <= stop; bx = (bx & ~BLOCKMASK) + BLOCKSIZE)
+	{
+		int blockstartx = bx;
+		int blockstopx = MIN((bx & ~BLOCKMASK) + BLOCKSIZE - 1, stop);
+
+		int miny = R_ColumnRangeMinimumHeight(blockstartx, blockstopx, top);
+		int maxy = R_ColumnRangeMaximumHeight(blockstartx, blockstopx, bottom);
+
+		for (int by = miny; by <= maxy; by = (by & ~BLOCKMASK) + BLOCKSIZE)
 		{
-			int blockstartx = bx;
-			int blockstopx = MIN((bx & ~BLOCKMASK) + BLOCKSIZE - 1, stop);
+			int blockstarty = by;
+			int blockstopy = (by & ~BLOCKMASK) + BLOCKSIZE - 1;
 
-			int miny = R_ColumnRangeMinimumHeight(blockstartx, blockstopx, top);
-			int maxy = R_ColumnRangeMaximumHeight(blockstartx, blockstopx, bottom);
-
-			for (int by = miny; by <= maxy; by = (by & ~BLOCKMASK) + BLOCKSIZE)
+			for (int x = blockstartx; x <= blockstopx; x++)
 			{
-				int blockstarty = by;
-				int blockstopy = (by & ~BLOCKMASK) + BLOCKSIZE - 1;
+				if (calc_light)
+					dc_colormap = basecolormap.with(light_lookup[x]);
 
-				for (int x = blockstartx; x <= blockstopx; x++)
-				{
-					if (calc_light)
-						dc_colormap = basecolormap.with(light_lookup[x]);
-
-					dc_x = x;
-					dc_yl = MAX(top[x], blockstarty);
-					dc_yh = MIN(bottom[x], blockstopy);
-					dc_source = cols[x];
-					colblast();
-				}
+				dc_x = x;
+				dc_yl = MAX(top[x], blockstarty);
+				dc_yh = MIN(bottom[x], blockstopy);
+				dc_source = cols[x];
+				colblast();
 			}
 		}
 	}
@@ -564,8 +514,7 @@ void R_RenderSolidSegRange(int start, int stop)
 
 		dc_texturemid = rw_midtexturemid;
 
-		R_RenderColumnRange(start, stop, walltopf, lower, midcols,
-					SolidColumnBlaster, SolidHColumnBlaster, true, columnmethod);
+		R_RenderColumnRange(start, stop, walltopf, lower, midcols, SolidColumnBlaster, true);
 
 		// indicate that no further drawing can be done in this column
 		memcpy(ceilingclip + start, floorclipinitial + start, count * sizeof(*ceilingclip));
@@ -586,11 +535,9 @@ void R_RenderSolidSegRange(int start, int stop)
 
 			const Texture* texture = texturemanager.getTexture(toptexture);
 			dc_textureheight = texture->getHeight();
-//			dc_textureheight = textureheight[toptexture];
 			dc_texturemid = rw_toptexturemid;
 
-			R_RenderColumnRange(start, stop, walltopf, lower, topcols,
-						SolidColumnBlaster, SolidHColumnBlaster, true, columnmethod);
+			R_RenderColumnRange(start, stop, walltopf, lower, topcols, SolidColumnBlaster, true);
 
 			memcpy(ceilingclip + start, walltopb + start, count * sizeof(*ceilingclip));
 		}
@@ -615,8 +562,7 @@ void R_RenderSolidSegRange(int start, int stop)
 			dc_textureheight = texture->getHeight();
 			dc_texturemid = rw_bottomtexturemid;
 
-			R_RenderColumnRange(start, stop, wallbottomb, lower, bottomcols,
-						SolidColumnBlaster, SolidHColumnBlaster, true, columnmethod);
+			R_RenderColumnRange(start, stop, wallbottomb, lower, bottomcols, SolidColumnBlaster, true);
 
 			memcpy(floorclip + start, wallbottomb + start, count * sizeof(*floorclip));
 		}
@@ -628,14 +574,7 @@ void R_RenderSolidSegRange(int start, int stop)
 
 		if (maskedmidtexture)
 		{
-/*
-			// save texturecol for backdrawing of masked mid texture
-			for (int x = start; x <= stop; x++)
-			{
-				int colnum = R_TexScaleX(texoffs[x], maskedmidtexture) >> FRACBITS;
-				masked_midposts[x] = R_GetTextureColumn(maskedmidtexture, colnum);
-			}
-*/
+			memcpy(maskedmidcols + start, midcols + start, sizeof(*maskedmidcols) * (stop - start + 1));
 		}
 	}
 
@@ -651,26 +590,8 @@ void R_RenderSolidSegRange(int start, int stop)
 	}
 }
 
-
-//
-// R_RenderMaskedSegRange
-//
-// Renders a masked seg
-//
 void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 {
-	// TODO: remove
-	return;
-
-	int 		lightnum;
-	sector_t	tempsec;		// killough 4/13/98
-
-	dc_color = (dc_color + 4) & 0xFF;	// color if using r_drawflat
-
-	// Calculate light table.
-	// Use different light tables
-	//	 for horizontal / vertical / diagonal. Diagonal?
-	// OPTIMIZE: get rid of LIGHTSEGSHIFT globally
 	curline = ds->curline;
 
 	// killough 4/11/98: draw translucent 2s normal textures
@@ -691,33 +612,57 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 
 	// TODO: texturetranslation[]
 	const Texture* texture = texturemanager.getTexture(curline->sidedef->_midtexture);
-	fixed_t texheight = FixedMul(texture->getHeight(), texture->getScaleY());
+	fixed_t texheight = texture->getHeight();
 
-	// find texture positioning
+	fixed_t scalefrac = ds->scale1 + (x1 - ds->x1) * ds->scalestep;
+	fixed_t scalestep = ds->scalestep;
+
+	static int top[MAXWIDTH];
+	static int bottom[MAXWIDTH];
+
 	if (curline->linedef->flags & ML_DONTPEGBOTTOM)
-		dc_texturemid = MAX(P_FloorHeight(frontsector), P_FloorHeight(backsector)) + texheight;
-	else
-		dc_texturemid = MIN(P_CeilingHeight(frontsector), P_CeilingHeight(backsector));
+	{
+		dc_texturemid = MAX(P_FloorHeight(frontsector), P_FloorHeight(backsector))
+						+ texheight - viewz + curline->sidedef->rowoffset;
 
-	dc_texturemid = FixedMul(dc_texturemid - viewz + curline->sidedef->rowoffset, texture->getScaleY());
-	
-	int64_t topscreenclip = int64_t(centery) << 2*FRACBITS;
-	int64_t botscreenclip = int64_t(centery - viewheight) << 2*FRACBITS;
- 
-	// top of texture entirely below screen?
-	if (int64_t(dc_texturemid) * ds->scale1 <= botscreenclip &&
-		int64_t(dc_texturemid) * ds->scale2 <= botscreenclip)
+		for (int x = x1; x <= x2; x++)
+		{
+			top[x] = MAX((centeryfrac - FixedMul(dc_texturemid, scalefrac)) >> FRACBITS, ds->sprtopclip[x]);
+			bottom[x] = ds->sprbottomclip[x] - 1;
+
+			wallscalex[x] = scalefrac;
+			scalefrac += scalestep;
+		}
+
+	}
+	else
+	{
+		dc_texturemid = MIN(P_CeilingHeight(frontsector), P_CeilingHeight(backsector))
+						- viewz + curline->sidedef->rowoffset;
+
+		for (int x = x1; x <= x2; x++)
+		{
+			top[x] = ds->sprtopclip[x];
+			bottom[x] = MIN(((centeryfrac - FixedMul(dc_texturemid - texheight, scalefrac)) >> FRACBITS) - 1, ds->sprbottomclip[x] - 1);
+
+			wallscalex[x] = scalefrac;
+			scalefrac += scalestep;
+		}
+	}
+
+	if ((bottom[x1] < 0 && bottom[x2] < 0) ||
+		(top[x1] >= viewheight && top[x2] >= viewheight))
 		return;
- 
-	// bottom of texture entirely above screen?
-	if (int64_t(dc_texturemid - texheight) * ds->scale1 > topscreenclip &&
-		int64_t(dc_texturemid - texheight) * ds->scale2 > topscreenclip)
-		return;
+
+	maskedmidcols = ds->maskedmidcols;
+	dc_color = (dc_color + 4) & 0xFF;	// color if using r_drawflat
+	dc_textureheight = 256*FRACUNIT;
 
 	basecolormap = frontsector->floorcolormap->maps;	// [RH] Set basecolormap
 
 	// killough 4/13/98: get correct lightlevel for 2s normal textures
-	lightnum = (R_FakeFlat(frontsector, &tempsec, NULL, NULL, false)
+	sector_t tempsec;
+	int lightnum = (R_FakeFlat(frontsector, &tempsec, NULL, NULL, false)
 			->lightlevel >> LIGHTSEGSHIFT) + (foggy ? 0 : extralight);
 
 	lightnum += R_OrthogonalLightnumAdjustment();
@@ -725,24 +670,11 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 	walllights = lightnum >= LIGHTLEVELS ? scalelight[LIGHTLEVELS-1] :
 		lightnum <  0 ? scalelight[0] : scalelight[lightnum];
 
-	masked_midposts = ds->midposts;
-
-	rw_scalestep = FixedDiv(ds->scalestep, texture->getScaleY());
-
-	spryscale = FixedDiv(ds->scale1, texture->getScaleY()) + (x1 - ds->x1) * rw_scalestep;
-
 	rw_lightstep = ds->lightstep;
 	rw_light = ds->light + (x1 - ds->x1) * rw_lightstep;
 
-	mfloorclip = ds->sprbottomclip;
-	mceilingclip = ds->sprtopclip;
-
-	dc_textureheight = 256*FRACUNIT;
-
 	// draw the columns
-	// TODO: change negonearray to the actual top/bottom
-	R_RenderColumnRange(x1, x2, negonearray, viewheightarray, ds->midposts,
-			MaskedColumnBlaster, MaskedHColumnBlaster, true, r_columnmethod);
+	R_RenderColumnRange(x1, x2, top, bottom, maskedmidcols, MaskedColumnBlaster, true);
 }
 
 
@@ -778,11 +710,11 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 	const Texture* bottomtexture = NULL;
 
 	// TODO: texturetranslation[]
-	if (curline->sidedef->_toptexture != 0)
+	if (curline->sidedef->_toptexture)
 		toptexture = texturemanager.getTexture(curline->sidedef->_toptexture);
-	if (curline->sidedef->_midtexture != 0)
+	if (curline->sidedef->_midtexture)
 		midtexture = texturemanager.getTexture(curline->sidedef->_midtexture);
-	if (curline->sidedef->_bottomtexture != 0)
+	if (curline->sidedef->_bottomtexture)
 		bottomtexture = texturemanager.getTexture(curline->sidedef->_bottomtexture);
 
 	// determine which vertex of the linedef should be used for texture alignment
@@ -934,7 +866,7 @@ void R_StoreWallRange(int start, int stop)
 	// calculate texture boundaries
 	//	and decide if floor / ceiling marks are needed
 	midtexture = toptexture = bottomtexture = maskedmidtexture = 0;
-	ds_p->midposts = NULL;
+	ds_p->maskedmidcols = NULL;
 
 	if (!backsector)
 	{
@@ -1062,10 +994,10 @@ void R_StoreWallRange(int start, int stop)
 				backsector->ceiling_texhandle != sky1flathandle);
 		}
 
-		// TODO: texturetranslation[]
-		toptexture = sidedef->_toptexture;
-		if (toptexture && rw_hashigh)
+		if (rw_hashigh)
 		{
+			// TODO: texturetranslation[]
+			toptexture = sidedef->_toptexture;
 			if (linedef->flags & ML_DONTPEGTOP)
 			{
 				// top of texture at top
@@ -1074,18 +1006,19 @@ void R_StoreWallRange(int start, int stop)
 			else
 			{
 				// bottom of texture
-				const Texture* texture = texturemanager.getTexture(toptexture);
-				fixed_t texheight = FixedMul(texture->getHeight(), texture->getScaleY());
+				fixed_t texheight = 0;
+				if (toptexture)
+					texheight = texturemanager.getTexture(toptexture)->getHeight();
 				rw_toptexturemid = P_CeilingHeight(backsector) - viewz + texheight;
 			}
 
 			rw_toptexturemid += sidedef->rowoffset;
 		}
 
-		// TODO: texturetranslation[]
-		bottomtexture = sidedef->_bottomtexture;
-		if (bottomtexture && rw_haslow)
+		if (rw_haslow)
 		{
+			// TODO: texturetranslation[]
+			bottomtexture = sidedef->_bottomtexture;
 			if (linedef->flags & ML_DONTPEGBOTTOM)
 			{
 				// bottom of texture at bottom, top of texture at top
@@ -1105,7 +1038,8 @@ void R_StoreWallRange(int start, int stop)
 		if (maskedmidtexture)
 		{
 			// masked midtexture
-			ds_p->midposts = masked_midposts = openings.alloc<tallpost_t*>(count) - start;
+			ds_p->maskedmidcols = maskedmidcols = openings.alloc<byte*>(count) - start;
+			markfloor = markceiling = true;
 		}
 
 		// [SL] additional fix for sky hack
@@ -1186,7 +1120,7 @@ void R_StoreWallRange(int start, int stop)
 	if (maskedmidtexture || (backsector && didsolidcol))
 		ds_p->silhouette = SIL_BOTH;
 
-    // save sprite clipping info
+    // save sprite & masked seg clipping info
 	if ((ds_p->silhouette & SIL_TOP) && ds_p->sprtopclip == NULL)
 	{
 		ds_p->sprtopclip = openings.alloc<int>(count) - start;

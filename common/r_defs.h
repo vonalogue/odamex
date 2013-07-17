@@ -487,6 +487,7 @@ struct drawseg_s
     int*			sprtopclip;
     int*			sprbottomclip;
 	tallpost_t**	midposts;
+	byte**			maskedmidcols;
 };
 typedef struct drawseg_s drawseg_t;
 
