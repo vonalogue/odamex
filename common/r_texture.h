@@ -106,6 +106,9 @@ public:
 	{	return mData;	}
 
 	byte* getColumnData(fixed_t x) const
+	{	return mColumnLookup[x >> FRACBITS];	}
+
+	byte* getColumnDataTiled(fixed_t x) const
 	{	return mColumnLookup[(x & mWidthMask) >> FRACBITS];	}
 
 	fixed_t getWidth() const
@@ -212,6 +215,7 @@ public:
 	void precache();
 
 	texhandle_t getHandle(const char* name, Texture::TextureSourceType type);
+	texhandle_t getHandle(unsigned int lumpnum, Texture::TextureSourceType type);
 	const Texture* getTexture(texhandle_t handle);
 
 	texhandle_t createSpecialUseHandle();
@@ -230,6 +234,11 @@ private:
 	void generateNotFoundTexture();
 	void readPNamesDirectory();
 	void addTextureDirectory(const char* lumpname); 
+
+	// patches
+	texhandle_t getPatchHandle(unsigned int lumpnum);
+	texhandle_t getPatchHandle(const char* name);
+	void cachePatch(texhandle_t handle);
 
 	// flats
 	texhandle_t getFlatHandle(unsigned int lumpnum);

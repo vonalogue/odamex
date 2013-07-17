@@ -156,6 +156,12 @@ static inline void R_BlastMaskedSegColumn(void (*drawfunc)())
 		drawfunc();
 }
 
+inline void MaskedColumnBlaster()
+{
+	R_BlastMaskedSegColumn(colfunc);
+}
+
+
 //
 // R_BlastSolidSegColumn
 //
@@ -175,21 +181,6 @@ static inline void R_BlastSolidSegColumn(void (*drawfunc)())
 inline void SolidColumnBlaster()
 {
 	R_BlastSolidSegColumn(colfunc);
-}
-
-inline void SolidHColumnBlaster()
-{
-	R_BlastSolidSegColumn(hcolfunc_pre);
-}
-
-inline void MaskedColumnBlaster()
-{
-	R_BlastMaskedSegColumn(colfunc);
-}
-
-inline void MaskedHColumnBlaster()
-{
-	R_BlastMaskedSegColumn(hcolfunc_pre);
 }
 
 inline void R_ColumnSetup(int x, int* top, int* bottom, tallpost_t** posts, bool calc_light)
@@ -228,151 +219,9 @@ static inline int R_ColumnRangeMaximumHeight(int start, int stop, int* bottom)
 // R_RenderColumnRange
 //
 // Renders a range of columns to the screen.
-// If r_columnmethod is enabled, the columns are renderd using a temporary
-// buffer to write the columns horizontally and then blit to the screen.
-// Writing columns horizontally utilizes the cache much better than writing
-// columns vertically to the screen buffer.
+// Columns are written to the screen buffer in 64x64 tiles for better cache
+// usage.
 //
-// [RH] This is a cache optimized version of R_RenderSegLoop(). It first
-//		draws columns into a temporary buffer with a pitch of 4 and then
-//		copies them to the framebuffer using a bunch of byte, word, and
-//		longword moves. This may seem like a lot of extra work just to
-//		draw columns to the screen (and it is), but it's actually faster
-//		than drawing them directly to the screen like R_RenderSegLoop1().
-//		On a Pentium II 300, using this code with rendering functions in
-//		C is about twice as fast as using R_RenderSegLoop1() with an
-//		assembly rendering function.
-//
-void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
-		tallpost_t** posts, void (*colblast)(), void (*hcolblast)(), bool calc_light, int columnmethod)
-{
-	if (start > stop)
-		return;
-
-	if (calc_light)
-	{
-		if (fixedlightlev)
-		{
-			dc_colormap = basecolormap.with(fixedlightlev);
-			calc_light = false;
-		}
-		else if (fixedcolormap.isValid())
-		{
-			dc_colormap = fixedcolormap;	
-			calc_light = false;
-		}
-		else
-		{
-			if (!walllights)
-				walllights = scalelight[0];
-		}
-	}
-
-	if (columnmethod == 0)
-	{
-		for (dc_x = start; dc_x <= stop; dc_x++)
-		{
-			R_ColumnSetup(dc_x, top, bottom, posts, calc_light);
-			colblast();
-			rw_light += rw_lightstep;
-		}
-	}
-	else if (columnmethod == 1)
-	{
-		dc_x = start;
-		int blockend = (stop + 1) & ~3;
-
-		// blit until dc_x is DWORD aligned
-		while ((dc_x < blockend) && (dc_x & 3))
-		{
-			R_ColumnSetup(dc_x, top, bottom, posts, calc_light);
-			colblast();	
-			dc_x++;
-			rw_light += rw_lightstep;
-		}
-
-		// blit in DWORD blocks to a temporary buffer horizontally, with
-		// the columns interleaved, eg write to buf[0], buf[4], buf[8]
-		while (dc_x < blockend)
-		{
-			rt_initcols();
-			R_ColumnSetup(dc_x, top, bottom, posts, calc_light);
-			hcolblast();
-			dc_x++;
-			rw_light += rw_lightstep;
-			R_ColumnSetup(dc_x, top, bottom, posts, calc_light);
-			hcolblast();
-			dc_x++;
-			rw_light += rw_lightstep;
-			R_ColumnSetup(dc_x, top, bottom, posts, calc_light);
-			hcolblast();
-			dc_x++;
-			rw_light += rw_lightstep;
-			R_ColumnSetup(dc_x, top, bottom, posts, calc_light);
-			hcolblast();
-			dc_x++;
-			rw_light += rw_lightstep;
-			rt_draw4cols(dc_x - 4);
-		}
-
-		// blit any remaining pixels
-		while (dc_x <= stop)
-		{
-			R_ColumnSetup(dc_x, top, bottom, posts, calc_light);
-			colblast();	
-			dc_x++;
-			rw_light += rw_lightstep;
-		}
-	}
-	else if (columnmethod == 2)
-	{
-		#define BLOCKBITS 6
-		#define BLOCKSIZE (1 << BLOCKBITS)
-		#define BLOCKMASK (BLOCKSIZE - 1)
-
-		// pre-calculate the color map number for lighting for each screen column 
-		static int light_lookup[MAXWIDTH];
-		if (calc_light)
-		{
-			for (int x = start; x <= stop; x++)
-			{
-				light_lookup[x] = walllights[MIN(rw_light >> LIGHTSCALESHIFT, MAXLIGHTSCALE - 1)];
-				rw_light += rw_lightstep;
-			}
-		}
-			
-		// [SL] Render the range of columns in 64x64 pixel blocks, aligned to a grid
-		// on the screen. This is to make better use of spatial locality in the cache.
-		for (int bx = start; bx <= stop; bx = (bx & ~BLOCKMASK) + BLOCKSIZE)
-		{
-			int blockstartx = bx;
-			int blockstopx = MIN((bx & ~BLOCKMASK) + BLOCKSIZE - 1, stop);
-
-			int miny = R_ColumnRangeMinimumHeight(blockstartx, blockstopx, top);
-			int maxy = R_ColumnRangeMaximumHeight(blockstartx, blockstopx, bottom);
-
-			for (int by = miny; by <= maxy; by = (by & ~BLOCKMASK) + BLOCKSIZE)
-			{
-				int blockstarty = by;
-				int blockstopy = (by & ~BLOCKMASK) + BLOCKSIZE - 1;
-
-				for (int x = blockstartx; x <= blockstopx; x++)
-				{
-					if (calc_light)
-						dc_colormap = basecolormap.with(light_lookup[x]);
-
-					dc_x = x;
-					dc_yl = MAX(top[x], blockstarty);
-					dc_yh = MIN(bottom[x], blockstopy);
-					dc_post = posts[x];
-					colblast();
-				}
-			}
-		}
-	}
-}
-
-
 void R_RenderColumnRange(int start, int stop, int* top, int* bottom, byte** cols, void (*colblast)(), bool calc_light)
 {
 	if (start > stop)
@@ -441,6 +290,8 @@ void R_RenderColumnRange(int start, int stop, int* top, int* bottom, byte** cols
 		}
 	}
 }
+
+
 //
 // R_RenderSolidSegRange
 //
@@ -643,7 +494,7 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 		for (int x = x1; x <= x2; x++)
 		{
 			top[x] = ds->sprtopclip[x];
-			bottom[x] = MIN(((centeryfrac - FixedMul(dc_texturemid - texheight, scalefrac)) >> FRACBITS) - 1, ds->sprbottomclip[x] - 1);
+			bottom[x] = MIN((centeryfrac - FixedMul(dc_texturemid - texheight, scalefrac)) >> FRACBITS, ds->sprbottomclip[x]) - 1;
 
 			wallscalex[x] = scalefrac;
 			scalefrac += scalestep;
@@ -763,17 +614,17 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 		if (toptexture)
 		{
 			fixed_t colnum = FixedMul(colfrac, toptexture->getScaleX()); 
-			topcols[x] = toptexture->getColumnData(colnum);
+			topcols[x] = toptexture->getColumnDataTiled(colnum);
 		}
 		if (midtexture)
 		{
 			fixed_t colnum = FixedMul(colfrac, midtexture->getScaleX()); 
-			midcols[x] = midtexture->getColumnData(colnum);
+			midcols[x] = midtexture->getColumnDataTiled(colnum);
 		}
 		if (bottomtexture)
 		{
 			fixed_t colnum = FixedMul(colfrac, bottomtexture->getScaleX()); 
-			bottomcols[x] = bottomtexture->getColumnData(colnum);
+			bottomcols[x] = bottomtexture->getColumnDataTiled(colnum);
 		}
 
 		uinvz += uinvzstep;

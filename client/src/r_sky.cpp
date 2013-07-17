@@ -152,11 +152,6 @@ inline void SkyColumnBlaster()
 	R_BlastSkyColumn(colfunc);
 }
 
-inline void SkyHColumnBlaster()
-{
-	R_BlastSkyColumn(hcolfunc_pre);
-}
-
 //
 // R_IsSkyFlat
 //
@@ -263,7 +258,7 @@ void R_RenderSkyRange(visplane_t* pl)
 	for (int x = pl->minx; x <= pl->maxx; x++)
 	{
 		int colnum = (((viewangle + xtoviewangle[x]) ^ skyflip) >> sky1shift) + front_offset;
-		skycols[x] = texture->getColumnData(colnum);
+		skycols[x] = texture->getColumnDataTiled(colnum);
 	}
 
 	R_RenderColumnRange(pl->minx, pl->maxx, (int*)pl->top, (int*)pl->bottom, skycols, SkyColumnBlaster, false);

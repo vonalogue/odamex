@@ -89,16 +89,6 @@ void (*R_DrawSlopeSpan)(void);
 void (*R_FillColumn)(void);
 void (*R_FillSpan)(void);
 void (*R_FillTranslucentSpan)(void);
-void (*rt_copy1col) (int hx, int sx, int yl, int yh);
-void (*rt_copy4cols) (int sx, int yl, int yh);
-void (*rt_map1col) (int hx, int sx, int yl, int yh);
-void (*rt_map4cols) (int sx, int yl, int yh);
-void (*rt_lucent1col) (int hx, int sx, int yl, int yh);
-void (*rt_lucent4cols) (int sx, int yl, int yh);
-void (*rt_tlate1col) (int hx, int sx, int yl, int yh);
-void (*rt_tlate4cols) (int sx, int yl, int yh);
-void (*rt_tlatelucent1col) (int hx, int sx, int yl, int yh);
-void (*rt_tlatelucent4cols) (int sx, int yl, int yh);
 
 // Possibly vectorized functions:
 void (*R_DrawSpanD)(void);
@@ -1103,54 +1093,6 @@ void R_DrawTlatedLucentColumnP()
 		FB_COLPITCH_P);
 }
 
-//
-// R_FillColumnHorizP
-//
-// Fills a column in an 8bpp palettized buffer dc_temp with a solid color,
-// determined by dc_color. Performs no shading.
-//
-void R_FillColumnHorizP()
-{
-	const int x = dc_x & 3;
-	unsigned int **span = &dc_ctspan[x];
-
-	(*span)[0] = dc_yl;
-	(*span)[1] = dc_yh;
-	*span += 2;
-	palindex_t* dest = &dc_temp[x + 4*dc_yl];
-	
-	R_FillColumnGeneric<palindex_t, PaletteFunc>(
-		dest,
-		dc_color,
-		dc_yl, dc_yh,
-		4);
-}
-
-//
-// R_DrawColumnHorizP
-//
-// Renders a column to an 8bpp palettized buffer dc_temp from the source buffer
-// dc_source and scaled by dc_iscale. The column is rendered to the buffer in
-// an interleaved format, writing to every 4th byte of the buffer. Performs
-// no shading. 
-//
-void R_DrawColumnHorizP()
-{
-	const int x = dc_x & 3;
-	unsigned int **span = &dc_ctspan[x];
-
-	(*span)[0] = dc_yl;
-	(*span)[1] = dc_yh;
-	*span += 2;
-	palindex_t* dest = &dc_temp[x + 4*dc_yl];
-
-	R_DrawColumnGeneric<palindex_t, PaletteFunc>(
-		dest,
-		dc_source,
-		dc_yl, dc_yh,
-		4);
-}
-
 
 // ----------------------------------------------------------------------------
 //
@@ -1864,8 +1806,6 @@ void R_InitDrawers ()
 	if (optimize_kind == OPTIMIZE_SSE2)
 	{
 #ifdef __SSE2__
-		rtv_lucent4colsP        = rtv_lucent4cols_SSE2;
-		rtv_lucent4colsD        = rtv_lucent4cols_SSE2;
 		R_DrawSpanD				= R_DrawSpanD_SSE2;
 		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_SSE2;
 		r_dimpatchD             = r_dimpatchD_SSE2;
@@ -1878,8 +1818,6 @@ void R_InitDrawers ()
 	else if (optimize_kind == OPTIMIZE_MMX)
 	{
 #ifdef __MMX__
-		rtv_lucent4colsP        = rtv_lucent4cols_MMX;
-		rtv_lucent4colsD        = rtv_lucent4cols_MMX;
 		R_DrawSpanD				= R_DrawSpanD_c;		// TODO
 		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_c;	// TODO
 		r_dimpatchD             = r_dimpatchD_MMX;
@@ -1892,8 +1830,6 @@ void R_InitDrawers ()
 	else if (optimize_kind == OPTIMIZE_ALTIVEC)
 	{
 #ifdef __ALTIVEC__
-		rtv_lucent4colsP        = rtv_lucent4cols_ALTIVEC;
-		rtv_lucent4colsD        = rtv_lucent4cols_ALTIVEC;
 		R_DrawSpanD				= R_DrawSpanD_c;		// TODO
 		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_c;	// TODO
 		r_dimpatchD             = r_dimpatchD_ALTIVEC;
@@ -1907,16 +1843,12 @@ void R_InitDrawers ()
 	{
 		// No CPU vectorization available.
 setNone:
-		rtv_lucent4colsP        = rtv_lucent4cols_c;
-		rtv_lucent4colsD        = rtv_lucent4cols_c;
 		R_DrawSpanD				= R_DrawSpanD_c;
 		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_c;
 		r_dimpatchD             = r_dimpatchD_c;
 	}
 
 	// Check that all pointers are definitely assigned!
-	assert(rtv_lucent4colsP != NULL);
-	assert(rtv_lucent4colsD != NULL);
 	assert(R_DrawSpanD != NULL);
 	assert(R_DrawSlopeSpanD != NULL);
 	assert(r_dimpatchD != NULL);
@@ -1927,9 +1859,6 @@ void R_InitColumnDrawers ()
 {
 	if (!screen)
 		return;
-
-	// NOTE(jsd): It's okay to use R_DrawColumnHorizP because it renders to a temp buffer first.
-	R_DrawColumnHoriz		= R_DrawColumnHorizP;
 
 	if (screen->is8bit())
 	{
@@ -1942,17 +1871,6 @@ void R_InitColumnDrawers ()
 		R_FillColumn			= R_FillColumnP;
 		R_FillSpan				= R_FillSpanP;
 		R_FillTranslucentSpan	= R_FillTranslucentSpanP;
-
-		rt_copy1col				= rt_copy1colP;
-		rt_copy4cols			= rt_copy4colsP;
-		rt_map1col				= rt_map1colP;
-		rt_map4cols				= rt_map4colsP;
-		rt_lucent1col			= rt_lucent1colP;
-		rt_lucent4cols			= rt_lucent4colsP;
-		rt_tlate1col			= rt_tlate1colP;
-		rt_tlate4cols			= rt_tlate4colsP;
-		rt_tlatelucent1col		= rt_tlatelucent1colP;
-		rt_tlatelucent4cols		= rt_tlatelucent4colsP;
 	}
 	else
 	{
@@ -1966,17 +1884,20 @@ void R_InitColumnDrawers ()
 		R_FillColumn			= R_FillColumnD;
 		R_FillSpan				= R_FillSpanD;
 		R_FillTranslucentSpan	= R_FillTranslucentSpanD;
-		
-		rt_copy1col				= rt_copy1colD;
-		rt_copy4cols			= rt_copy4colsD;
-		rt_map1col				= rt_map1colD;
-		rt_map4cols				= rt_map4colsD;
-		rt_lucent1col			= rt_lucent1colD;
-		rt_lucent4cols			= rt_lucent4colsD;
-		rt_tlate1col			= rt_tlate1colD;
-		rt_tlate4cols			= rt_tlate4colsD;
-		rt_tlatelucent1col		= rt_tlatelucent1colD;
-		rt_tlatelucent4cols		= rt_tlatelucent4colsD;
+	}
+}
+
+void r_dimpatchD_c(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h)
+{
+	int dpitch = cvs->pitch / sizeof(argb_t);
+	argb_t* line = (argb_t *)cvs->buffer + y1 * dpitch;
+
+	for (int y = y1; y < y1 + h; y++)
+	{
+		for (int x = x1; x < x1 + w; x++)
+			line[x] = alphablend1a(line[x], color, alpha);
+
+		line += dpitch;
 	}
 }
 

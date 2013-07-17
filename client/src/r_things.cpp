@@ -643,62 +643,22 @@ int*			mceilingclip;
 fixed_t 		spryscale;
 fixed_t 		sprtopscreen;
 
-void R_BlastSpriteColumn(void (*drawfunc)())
+//
+// R_BlastSpriteColumn
+//
+static inline void R_BlastSpriteColumn(void (*drawfunc)())
 {
-	tallpost_t* post = dc_post;
+	// TODO: dc_texturefrac should take y-scaling of textures into account
+	dc_texturefrac = dc_texturemid + FixedMul((dc_yl - centery + 1) << FRACBITS, dc_iscale);
 
-	while (!post->end())
-	{
-		if (post->length > 0)
-		{
-			// calculate unclipped screen coordinates for post
-			int topscreen = sprtopscreen + spryscale * post->topdelta + 1;
-
-			dc_yl = (topscreen + FRACUNIT) >> FRACBITS;
-			dc_yh = (topscreen + spryscale * post->length) >> FRACBITS;
-
-			dc_yl = MAX(dc_yl, mceilingclip[dc_x] + 1);
-			dc_yh = MIN(dc_yh, mfloorclip[dc_x] - 1);
-
-			if (dc_yl >= 0 && dc_yh < viewheight && dc_yl <= dc_yh)
-			{
-				dc_texturefrac = dc_texturemid - (post->topdelta << FRACBITS)
-					+ (dc_yl*dc_iscale) - FixedMul(centeryfrac-FRACUNIT, dc_iscale);
-
-				if (dc_texturefrac < 0)
-				{
-					int cnt = (FixedDiv(-dc_texturefrac, dc_iscale) + FRACUNIT - 1) >> FRACBITS;
-					dc_yl += cnt;
-					dc_texturefrac += cnt * dc_iscale;
-				}
-
-				const fixed_t endfrac = dc_texturefrac + (dc_yh-dc_yl)*dc_iscale;
-				const fixed_t maxfrac = post->length << FRACBITS;
-				
-				if (endfrac >= maxfrac)
-				{
-					int cnt = (FixedDiv(endfrac - maxfrac - 1, dc_iscale) + FRACUNIT - 1) >> FRACBITS;
-					dc_yh -= cnt;
-				}
-
-				dc_source = post->data();
-
-				drawfunc();
-			}
-		}
-		
-		post = post->next();
-	}
+	if (dc_yl <= dc_yh)
+		drawfunc();
 }
+
 
 void SpriteColumnBlaster()
 {
 	R_BlastSpriteColumn(colfunc);
-}
-
-void SpriteHColumnBlaster()
-{
-	R_BlastSpriteColumn(hcolfunc_pre);
 }
 
 //
@@ -774,19 +734,27 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 	spryscale = vis->yscale;
 	sprtopscreen = centeryfrac - FixedMul(dc_texturemid, spryscale);
 
+	static int top[MAXWIDTH];
+	static int bottom[MAXWIDTH];
+	static byte* spritecols[MAXWIDTH];
+
+	texhandle_t sprite_handle = texturemanager.getHandle(vis->patch, Texture::TEX_PATCH);
+	const Texture* texture = texturemanager.getTexture(sprite_handle);
+
 	// [SL] set up the array that indicates which patch column to use for each screen column
 	fixed_t colfrac = vis->startfrac;
+	fixed_t texheight = texture->getHeight();
+
 	for (int x = vis->x1; x <= vis->x2; x++)
 	{
-		spriteposts[x] = R_GetPatchColumn(vis->patch, colfrac >> FRACBITS);
+		spritecols[x] = texture->getColumnData(colfrac);
 		colfrac += vis->xiscale;
+
+		top[x] = MAX(mceilingclip[x], (centeryfrac - FixedMul(dc_texturemid, vis->yscale)) >> FRACBITS);
+		bottom[x] = MIN(mfloorclip[x], (centeryfrac - FixedMul(dc_texturemid - texheight, vis->yscale)) >> FRACBITS) - 1;
 	}
 
-	bool rend_multiple_columns = r_columnmethod && !fuzz_effect;
-
-	// TODO: change from negonearray to actual top of sprite
-	R_RenderColumnRange(vis->x1, vis->x2, negonearray, viewheightarray,
-			spriteposts, SpriteColumnBlaster, SpriteHColumnBlaster, false, rend_multiple_columns);
+	R_RenderColumnRange(vis->x1, vis->x2, top, bottom, spritecols, SpriteColumnBlaster, false);
 
 	R_ResetDrawFuncs();
 }

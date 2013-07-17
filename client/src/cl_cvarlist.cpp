@@ -342,8 +342,6 @@ CVAR_FUNC_DECL (gammalevel, "1", "Gamma correction level, 1 - 8",	CVARTYPE_BYTE,
 CVAR_FUNC_DECL (vid_gammatype, "0", "Select between Doom and ZDoom gamma correction",	CVARTYPE_BYTE, CVAR_ARCHIVE | CVAR_NOENABLEDISABLE)
 // Type of crosshair, 0 means none
 CVAR_FUNC_DECL (hud_crosshair, "0", "Type of crosshair, 0 means no crosshair",	CVARTYPE_BYTE, CVAR_ARCHIVE | CVAR_NOENABLEDISABLE)
-// Column optimization method
-CVAR (r_columnmethod, "1", "Column optimization method",	CVARTYPE_BOOL, CVAR_ARCHIVE)
 // Detail level (affects performance)
 CVAR_FUNC_DECL (r_detail, "0", "Detail level (affects performance)",	CVARTYPE_BYTE, CVAR_ARCHIVE | CVAR_NOENABLEDISABLE)
 // Draws flashing colors where there is HOM

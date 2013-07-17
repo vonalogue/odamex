@@ -56,7 +56,6 @@ extern int *walllights;
 extern dyncolormap_t NormalLight;
 extern bool r_fakingunderwater;
 
-EXTERN_CVAR (r_columnmethod)
 EXTERN_CVAR (r_flashhom)
 EXTERN_CVAR (r_viewsize)
 EXTERN_CVAR (sv_allowwidescreen)
@@ -143,10 +142,6 @@ unsigned int	R_OldBlend = ~0;
 void (*colfunc) (void);
 void (*spanfunc) (void);
 void (*spanslopefunc) (void);
-
-void (*hcolfunc_pre) (void);
-void (*hcolfunc_post1) (int hx, int sx, int yl, int yh);
-void (*hcolfunc_post4) (int sx, int yl, int yh);
 
 // [AM] Number of fineangles in a default 90 degree FOV at a 4:3 resolution.
 int FieldOfView = 2048;
@@ -640,24 +635,13 @@ void R_ExecuteSetViewSize (void)
 	int startmap;
 
 	setsizeneeded = false;
-/*
+
 	if (setdetail >= 0)
 	{
-		if (!r_columnmethod)
-		{
-			R_RenderSegLoop = R_RenderSegLoop1;
-			// [RH] x-doubling only works with the standard column drawer
-			detailxshift = setdetail & 1;
-		}
-		else
-		{
-			R_RenderSegLoop = R_RenderSegLoop2;
-			detailxshift = 0;
-		}
+		detailxshift = setdetail & 1;
 		detailyshift = (setdetail >> 1) & 1;
 		setdetail = -1;
 	}
-*/
 
 	if (setblocks == 11 || setblocks == 12)
 	{
@@ -1010,12 +994,6 @@ void R_SetupFrame (player_t *player)
 void R_SetFlatDrawFuncs()
 {
 	colfunc = R_FillColumn;
-	// palettized version of hcolfunc_pre is ok because the columns are written
-	// to a temporary 8bpp buffer, which is later copied to the screen with the
-	// appropriate 8bpp or 32bpp function. 
-	hcolfunc_pre = R_FillColumnHorizP;
-	hcolfunc_post1 = rt_copy1col;
-	hcolfunc_post4 = rt_copy4cols;
 	spanfunc = R_FillSpan;
 	spanslopefunc = R_FillSpan;
 }
@@ -1029,9 +1007,6 @@ void R_SetFlatDrawFuncs()
 void R_SetBlankDrawFuncs()
 {
 	colfunc = R_BlankColumn;
-	hcolfunc_pre = R_BlankColumn; 
-	hcolfunc_post1 = rt_draw1blankcol; 
-	hcolfunc_post4 = rt_draw4blankcols;
 	spanfunc = spanslopefunc = R_BlankSpan;
 }
 
@@ -1051,9 +1026,6 @@ void R_ResetDrawFuncs()
 	else
 	{
 		colfunc = R_DrawColumn;
-		hcolfunc_pre = R_DrawColumnHoriz;
-		hcolfunc_post1 = rt_map1col;
-		hcolfunc_post4 = rt_map4cols;
 		spanfunc = R_DrawSpan;
 		spanslopefunc = R_DrawSlopeSpan;
 	}
@@ -1072,9 +1044,6 @@ void R_SetFuzzDrawFuncs()
 	else
 	{
 		colfunc = R_DrawFuzzColumn;
-		hcolfunc_pre = R_DrawColumnHoriz;
-		hcolfunc_post1 = rt_map1col;
-		hcolfunc_post4 = rt_map4cols;
 		spanfunc = R_DrawSpan;
 		spanslopefunc = R_DrawSlopeSpan;
 	}
@@ -1093,9 +1062,6 @@ void R_SetLucentDrawFuncs()
 	else
 	{
 		colfunc = R_DrawTranslucentColumn;
-		hcolfunc_pre = R_DrawColumnHoriz;
-		hcolfunc_post1 = rt_lucent1col;
-		hcolfunc_post4 = rt_lucent4cols;
 	}
 }
 
@@ -1112,9 +1078,6 @@ void R_SetTranslatedDrawFuncs()
 	else
 	{
 		colfunc = R_DrawTranslatedColumn;
-		hcolfunc_pre = R_DrawColumnHoriz;
-		hcolfunc_post1 = rt_tlate1col;
-		hcolfunc_post4 = rt_tlate4cols;
 	}
 }
 
@@ -1131,9 +1094,6 @@ void R_SetTranslatedLucentDrawFuncs()
 	else
 	{
 		colfunc = R_DrawTlatedLucentColumn;
-		hcolfunc_pre = R_DrawColumnHoriz;
-		hcolfunc_post1 = rt_tlatelucent1col;
-		hcolfunc_post4 = rt_tlatelucent4cols;
 	}
 }
 

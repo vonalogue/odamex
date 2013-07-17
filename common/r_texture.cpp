@@ -358,6 +358,91 @@ texhandle_t TextureManager::createSpecialUseHandle()
 }
 
 //
+// TextureManager::getPatchHandle
+//
+// Returns the handle for the patch with the given WAD lump number.
+//
+texhandle_t TextureManager::getPatchHandle(unsigned int lumpnum)
+{
+	if (lumpnum >= numlumps)
+		return NOT_FOUND_TEXTURE_HANDLE;
+
+	if (W_LumpLength(lumpnum) == 0)
+		return NOT_FOUND_TEXTURE_HANDLE;
+
+	return (texhandle_t)lumpnum | PATCH_HANDLE_MASK;
+}
+
+texhandle_t TextureManager::getPatchHandle(const char* name)
+{
+	int lumpnum = W_CheckNumForName(name);
+	if (lumpnum >= 0)
+		return getFlatHandle(lumpnum);
+	return NOT_FOUND_TEXTURE_HANDLE;
+}
+
+//
+// TextureManger::cachePatch
+//
+void TextureManager::cachePatch(texhandle_t handle)
+{
+	unsigned int lumpnum = handle & ~PATCH_HANDLE_MASK;
+
+	unsigned int lumplen = W_LumpLength(lumpnum);
+	byte* rawlumpdata = new byte[lumplen];
+	W_ReadLump(lumpnum, rawlumpdata);
+
+	const patch_t* patch = (patch_t*)rawlumpdata;
+	const int* colofs = (int*)(rawlumpdata + 8);
+
+	int width = patch->width();
+	int height = patch->height();
+
+	Texture** owner = &mHandleMap[handle];
+	size_t texture_size = Texture::calculateSize(width, height);
+	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
+	texture->init(width, height);
+
+	// TODO: remove this once proper masking is in place
+	memset(texture->mData, 0, width * height);
+
+	for (int x = 0; x < width; x++)
+	{
+		int abstopdelta = 0;
+
+		post_t* post = (post_t*)(rawlumpdata + colofs[x]);
+		while (post->topdelta != 0xFF)
+		{
+			// handle DeePsea tall patches where topdelta is treated as a relative
+			// offset instead of an absolute offset
+			if (post->topdelta <= abstopdelta)
+				abstopdelta += post->topdelta;
+			else
+				abstopdelta = post->topdelta;
+
+			int y1 = abstopdelta;
+			int y2 = abstopdelta + post->length - 1;
+
+			if (y1 <= y2)
+			{
+				byte* dest = texture->mColumnLookup[x] + y1;
+				const byte* source = (byte*)post + 3;
+				memcpy(dest, source, y2 - y1 + 1);
+
+				// set up the mask
+				memset(texture->mMaskColumnLookup[x] + y1, 1, y2 - y1 + 1);	
+			}
+		
+			post = (post_t*)((byte*)post + post->length + 4);
+		}
+	}
+
+	delete [] rawlumpdata;
+
+	texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
+}
+
+//
 // TextureManager::getFlatHandle
 //
 // Returns the handle for the flat with the given WAD lump number.
@@ -562,6 +647,8 @@ texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceTy
 		handle = getFlatHandle(uname);
 	else if (type == Texture::TEX_WALLTEXTURE)
 		handle = getWallTextureHandle(uname);
+	else if (type == Texture::TEX_PATCH)
+		handle = getPatchHandle(uname);
 
 	// not found? check elsewhere
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
@@ -572,6 +659,25 @@ texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceTy
 	return handle;
 }
 
+texhandle_t TextureManager::getHandle(unsigned int lumpnum, Texture::TextureSourceType type)
+{
+	texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
+
+	if (type == Texture::TEX_FLAT)
+		handle = getFlatHandle(lumpnum);
+	else if (type == Texture::TEX_WALLTEXTURE)
+		handle = getWallTextureHandle(lumpnum);
+	else if (type == Texture::TEX_PATCH)
+		handle = getPatchHandle(lumpnum);
+
+	// not found? check elsewhere
+	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
+		handle = getFlatHandle(lumpnum);
+	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_WALLTEXTURE)
+		handle = getWallTextureHandle(lumpnum);
+
+	return handle;
+}
 
 //
 // TextureManager::getTexture
@@ -589,6 +695,8 @@ const Texture* TextureManager::getTexture(texhandle_t handle)
 			cacheFlat(handle);
 		else if (handle & WALLTEXTURE_HANDLE_MASK)
 			cacheWallTexture(handle);
+		else if (handle & PATCH_HANDLE_MASK)
+			cachePatch(handle);
 
 		texture = mHandleMap[handle];
 	}
