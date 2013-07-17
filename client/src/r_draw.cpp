@@ -80,6 +80,7 @@ int				detailyshift;		// [RH] Y shift for vertical detail level
 //		These get changed depending on the current
 //		screen depth.
 void (*R_DrawColumn)(void);
+void (*R_DrawMaskedColumn)(void);
 void (*R_DrawColumnHoriz)(void);
 void (*R_DrawFuzzColumn)(void);
 void (*R_DrawTranslucentColumn)(void);
@@ -115,6 +116,8 @@ fixed_t			dc_translevel;
 
 // first pixel in a column (possibly virtual) 
 byte*			dc_source;				
+
+byte*			dc_masksource;
 
 tallpost_t*		dc_post;
 
@@ -634,6 +637,54 @@ static forceinline void R_DrawColumnGeneric(
 
 
 //
+// R_DrawMaskedColumnGeneric
+//
+// Templated version of a column mapping function.
+// The data type of the destination pixels and a color-remapping functor
+// are passed as template parameters. Masking is performed to allow the
+// image to have transparent regions.
+//
+template<typename PIXEL_T, typename COLORFUNC>
+static forceinline void R_DrawMaskedColumnGeneric(
+		PIXEL_T* dest,
+		const palindex_t* source,
+		int yl, int yh,
+		int pitch)
+{
+#ifdef RANGECHECK 
+	if (dc_x >= screen->width || yl < 0 || yh >= screen->height) {
+		Printf (PRINT_HIGH, "R_DrawMaskedColumn: %i to %i at %i\n", yl, yh, dc_x);
+		return;
+	}
+#endif
+
+	int count = yh - yl + 1;
+	if (count <= 0)
+		return;
+
+	const fixed_t fracstep = dc_iscale; 
+	fixed_t frac = dc_texturefrac;
+
+	COLORFUNC colorfunc(&dc_colormap);
+
+	while (count--)
+	{
+		PIXEL_T tempdest;
+		colorfunc(source[frac >> FRACBITS], &tempdest);
+
+		// [SL] negating an unsigned number is a quick way to expand 0x01 to 0xFF
+		PIXEL_T sourcemask = -dc_masksource[frac >> FRACBITS];
+		PIXEL_T destmask = ~sourcemask;
+		// [SL] perform masking without branching
+		*dest = (*dest & destmask) | (tempdest & sourcemask);
+
+		dest += pitch; frac += fracstep;
+	}
+}
+
+
+
+//
 // R_FillSpanGeneric
 //
 // Templated version of a function to fill a span with a solid color.
@@ -1006,6 +1057,22 @@ void R_DrawColumnP()
 }
 
 //
+// R_DrawMaskedColumnP
+//
+// Renders a column to the 8bpp palettized screen buffer from the source buffer
+// dc_source and scaled by dc_iscale. Shading is performed using dc_colormap.
+// Pixels identified with a 0 in dc_masksource are not drawn.
+//
+void R_DrawMaskedColumnP()
+{
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteColormapFunc>(
+		FB_COLDEST_P,
+		dc_source,
+		dc_yl, dc_yh,
+		FB_COLPITCH_P);
+}
+
+//
 // R_StretchColumnP
 //
 // Renders a column to the 8bpp palettized screen buffer from the source buffer
@@ -1319,6 +1386,22 @@ void R_FillColumnD()
 void R_DrawColumnD()
 {
 	R_DrawColumnGeneric<argb_t, DirectColormapFunc>(
+		FB_COLDEST_D,
+		dc_source,
+		dc_yl, dc_yh,
+		FB_COLPITCH_D);
+}
+
+//
+// R_DrawMaskedColumnD
+//
+// Renders a column to the 32bpp ARGB8888 screen buffer from the source buffer
+// dc_source and scaled by dc_iscale. Shading is performed using dc_colormap.
+// Pixels identified with a 0 in dc_masksource are not drawn.
+//
+void R_DrawMaskedColumnD()
+{
+	R_DrawMaskedColumnGeneric<argb_t, DirectColormapFunc>(
 		FB_COLDEST_D,
 		dc_source,
 		dc_yl, dc_yh,
@@ -1863,6 +1946,7 @@ void R_InitColumnDrawers ()
 	if (screen->is8bit())
 	{
 		R_DrawColumn			= R_DrawColumnP;
+		R_DrawMaskedColumn		= R_DrawMaskedColumnP;
 		R_DrawFuzzColumn		= R_DrawFuzzColumnP;
 		R_DrawTranslucentColumn	= R_DrawTranslucentColumnP;
 		R_DrawTranslatedColumn	= R_DrawTranslatedColumnP;
@@ -1876,6 +1960,7 @@ void R_InitColumnDrawers ()
 	{
 		// 32bpp rendering functions:
 		R_DrawColumn			= R_DrawColumnD;
+		R_DrawMaskedColumn		= R_DrawMaskedColumnD;
 		R_DrawFuzzColumn		= R_DrawFuzzColumnD;
 		R_DrawTranslucentColumn	= R_DrawTranslucentColumnD;
 		R_DrawTranslatedColumn	= R_DrawTranslatedColumnD;

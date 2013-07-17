@@ -127,12 +127,8 @@ void TextureManager::clear()
 		delete mTextureDefinitions[i];
 	mTextureDefinitions.clear();
 
-	for (std::map<texhandle_t, Texture*>::iterator it = mHandleMap.begin(); it != mHandleMap.end(); ++it)
-	{
-		Texture* texture = it->second;
-		if (texture)
-			Z_Free(texture);
-	}
+	// [SL] the zone memory manager takes care of freeing all allocated
+	// memory for Textures.
 
 	mHandleMap.clear();
 }
@@ -405,6 +401,9 @@ void TextureManager::cachePatch(texhandle_t handle)
 
 	// TODO: remove this once proper masking is in place
 	memset(texture->mData, 0, width * height);
+
+	// initialize the mask to entirely transparent 
+	memset(texture->mMask, 0, width * height);
 
 	for (int x = 0; x < width; x++)
 	{

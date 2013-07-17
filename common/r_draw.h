@@ -47,16 +47,10 @@ extern "C" fixed_t		dc_translevel;
 // first pixel in a column
 extern "C" byte*			dc_source;
 
+extern "C" byte*			dc_masksource;
+
 extern "C" tallpost_t*		dc_post;
 
-// [RH] Temporary buffer for column drawing
-extern "C" byte			dc_temp[MAXHEIGHT * 4];
-extern "C" unsigned int	dc_tspans[4][256];
-extern "C" unsigned int	*dc_ctspan[4];
-extern "C" unsigned int	horizspans[4];
-
-void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
-		tallpost_t** posts, void (*colblast)(), void (*hcolblast)(), bool calc_light, int columnmethod);
 void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
 		byte** cols, void (*colblast)(), bool calc_light);
 
@@ -65,6 +59,8 @@ void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
 // The span blitting interface.
 // Hook in assembler or system specific BLT here.
 extern void (*R_DrawColumn)(void);
+
+extern void (*R_DrawMaskedColumn)(void);
 
 // The Spectre/Invisibility effect.
 extern void (*R_DrawFuzzColumn)(void);

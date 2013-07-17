@@ -111,6 +111,15 @@ public:
 	byte* getColumnDataTiled(fixed_t x) const
 	{	return mColumnLookup[(x & mWidthMask) >> FRACBITS];	}
 
+	byte* getMaskData() const
+	{	return mMask;	}
+
+	byte* getMaskColumnData(fixed_t x) const
+	{	return mMaskColumnLookup[x >> FRACBITS];	}
+
+	byte* getMaskColumnDataTiled(fixed_t x) const
+	{	return mMaskColumnLookup[(x >> FRACBITS) & mWidthMask];	}
+
 	fixed_t getWidth() const
 	{	return mWidth;	}
 

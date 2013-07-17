@@ -640,8 +640,7 @@ vissprite_t *R_NewVisSprite (void)
 int*			mfloorclip;
 int*			mceilingclip;
 
-fixed_t 		spryscale;
-fixed_t 		sprtopscreen;
+byte* maskedcols[MAXWIDTH];
 
 //
 // R_BlastSpriteColumn
@@ -651,6 +650,8 @@ static inline void R_BlastSpriteColumn(void (*drawfunc)())
 	// TODO: dc_texturefrac should take y-scaling of textures into account
 	dc_texturefrac = dc_texturemid + FixedMul((dc_yl - centery + 1) << FRACBITS, dc_iscale);
 
+	dc_masksource = maskedcols[dc_x];
+
 	if (dc_yl <= dc_yh)
 		drawfunc();
 }
@@ -658,7 +659,8 @@ static inline void R_BlastSpriteColumn(void (*drawfunc)())
 
 void SpriteColumnBlaster()
 {
-	R_BlastSpriteColumn(colfunc);
+//	R_BlastSpriteColumn(colfunc);
+	R_BlastSpriteColumn(R_DrawMaskedColumn);
 }
 
 //
@@ -731,8 +733,6 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 
 	dc_iscale = 0xffffffffu / (unsigned)vis->yscale;
 	dc_texturemid = vis->texturemid;
-	spryscale = vis->yscale;
-	sprtopscreen = centeryfrac - FixedMul(dc_texturemid, spryscale);
 
 	static int top[MAXWIDTH];
 	static int bottom[MAXWIDTH];
@@ -748,6 +748,7 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 	for (int x = vis->x1; x <= vis->x2; x++)
 	{
 		spritecols[x] = texture->getColumnData(colfrac);
+		maskedcols[x] = texture->getMaskColumnData(colfrac);
 		colfrac += vis->xiscale;
 
 		top[x] = MAX(mceilingclip[x], (centeryfrac - FixedMul(dc_texturemid, vis->yscale)) >> FRACBITS);
