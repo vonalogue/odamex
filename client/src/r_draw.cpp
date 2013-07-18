@@ -57,6 +57,12 @@ extern	int		ST_Y;
 //	and the total size == width*height*depth/8.,
 //
 
+extern "C" {
+drawcolumn_t dcol;
+drawspan_t dspan;
+}
+
+
 
 byte*			viewimage;
 extern "C" {
@@ -79,15 +85,20 @@ int				detailyshift;		// [RH] Y shift for vertical detail level
 // [RH] Pointers to the different column drawers.
 //		These get changed depending on the current
 //		screen depth.
+void (*R_FillColumn)(void);
+void (*R_FillMaskedColumn)(void);
 void (*R_DrawColumn)(void);
 void (*R_DrawMaskedColumn)(void);
-void (*R_DrawColumnHoriz)(void);
 void (*R_DrawFuzzColumn)(void);
+void (*R_DrawFuzzMaskedColumn)(void);
 void (*R_DrawTranslucentColumn)(void);
+void (*R_DrawTranslucentMaskedColumn)(void);
 void (*R_DrawTranslatedColumn)(void);
+void (*R_DrawTranslatedMaskedColumn)(void);
+void (*R_DrawTranslatedTranslucentColumn)(void);
+void (*R_DrawTranslatedTranslucentMaskedColumn)(void);
 void (*R_DrawSpan)(void);
 void (*R_DrawSlopeSpan)(void);
-void (*R_FillColumn)(void);
 void (*R_FillSpan)(void);
 void (*R_FillTranslucentSpan)(void);
 
@@ -95,36 +106,6 @@ void (*R_FillTranslucentSpan)(void);
 void (*R_DrawSpanD)(void);
 void (*R_DrawSlopeSpanD)(void);
 void (*r_dimpatchD)(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h);
-
-//
-// R_DrawColumn
-// Source is the top of the column to scale.
-//
-extern "C" {
-int				dc_pitch=0x12345678;	// [RH] Distance between rows
-
-shaderef_t		dc_colormap;
-int 			dc_x; 
-int 			dc_yl; 
-int 			dc_yh; 
-fixed_t 		dc_iscale; 
-fixed_t 		dc_texturemid;
-fixed_t			dc_texturefrac;
-fixed_t			dc_textureheight;
-int				dc_color;				// [RH] Color for column filler
-fixed_t			dc_translevel;
-
-// first pixel in a column (possibly virtual) 
-byte*			dc_source;				
-
-byte*			dc_masksource;
-
-tallpost_t*		dc_post;
-
-// just for profiling 
-int 			dccount;
-}
-
 
 // ============================================================================
 //
@@ -229,7 +210,6 @@ algorithm that uses RGB tables.
 //
 // ============================================================================
 
-translationref_t dc_translation;
 byte* translationtables;
 argb_t translationRGB[MAXPLAYERS+1][16];
 byte *Ranges;
@@ -424,41 +404,6 @@ void R_BuildPlayerTranslation (int player, int color)
 //
 // ============================================================================
 
-extern "C" {
-int						ds_colsize=0xdeadbeef;	// [RH] Distance between columns
-int						ds_color;				// [RH] color for non-textured spans
-
-int 					ds_y; 
-int 					ds_x1; 
-int 					ds_x2;
-
-shaderef_t				ds_colormap; 
-
-dsfixed_t 				ds_xfrac; 
-dsfixed_t 				ds_yfrac; 
-dsfixed_t 				ds_xstep; 
-dsfixed_t 				ds_ystep;
-
-// start of a 64*64 tile image 
-byte*					ds_source;		
-fixed_t					ds_texturewidth;
-fixed_t					ds_textureheight;
-int						ds_texturewidthbits;
-int						ds_textureheightbits;
-
-// just for profiling
-int 					dscount;
-
-// [SL] 2012-03-19 - For sloped planes
-float					ds_iu;
-float					ds_iv;
-float					ds_iustep;
-float					ds_ivstep;
-float					ds_id;
-float					ds_idstep;
-shaderef_t				slopelighting[MAXWIDTH];
-}
-
 
 // ============================================================================
 //
@@ -496,24 +441,23 @@ void R_BlankSpan()
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_FillColumnGeneric(
-		PIXEL_T* dest,
-		const palindex_t color,
-		int yl, int yh,
-		int pitch)
+static forceinline void R_FillColumnGeneric(PIXEL_T* dest, const drawcolumn_t& drawcolumn)
 {
 #ifdef RANGECHECK 
-	if (dc_x >= screen->width || yl < 0 || yh >= screen->height) {
-		Printf (PRINT_HIGH, "R_FillColumn: %i to %i at %i\n", yl, yh, dc_x);
+	if (drawcolumn.x >= screen->width || drawcolumn.yl < 0 || drawcolumn.yh >= screen->height)
+	{
+		Printf (PRINT_HIGH, "R_FillColumn: %i to %i at %i\n", drawcolumn.yl, drawcolumn.yh, drawcolumn.x);
 		return;
 	}
 #endif
 
-	int count = yh - yl + 1;
+	int color = drawcolumn.color;
+	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	int count = drawcolumn.yh - drawcolumn.yl + 1;
 	if (count <= 0)
 		return;
 
-	COLORFUNC colorfunc(&basecolormap);
+	COLORFUNC colorfunc(drawcolumn);
 
 	do {
 		colorfunc(color, dest);
@@ -521,6 +465,50 @@ static forceinline void R_FillColumnGeneric(
 	} while (--count);
 } 
 
+//
+// R_FillMaskedColumnGeneric
+//
+// Templated version of a function to fill a column with a solid color using
+// masking.  The data type of the destination pixels and a color-remapping
+// functor are passed as template parameters.
+//
+template<typename PIXEL_T, typename COLORFUNC>
+static forceinline void R_FillMaskedColumnGeneric(PIXEL_T* dest, const drawcolumn_t& drawcolumn)
+{
+#ifdef RANGECHECK 
+	if (drawcolumn.x >= screen->width || drawcolumn.yl < 0 || drawcolumn.yh >= screen->height)
+	{
+		Printf (PRINT_HIGH, "R_FillMaskedColumn: %i to %i at %i\n", drawcolumn.yl, drawcolumn.yh, drawcolumn.x);
+		return;
+	}
+#endif
+
+	const byte* mask = drawcolumn.mask;
+	int color = drawcolumn.color;
+	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	int count = drawcolumn.yh - drawcolumn.yl + 1;
+	if (count <= 0)
+		return;
+
+	const fixed_t fracstep = drawcolumn.iscale; 
+	fixed_t frac = drawcolumn.texturefrac;
+
+	COLORFUNC colorfunc(drawcolumn);
+
+	do
+	{
+		PIXEL_T tempdest;
+		colorfunc(color, &tempdest);
+
+		// [SL] negating an unsigned number is a quick way to expand 0x01 to 0xFF
+		PIXEL_T sourcemask = -mask[frac >> FRACBITS];
+		PIXEL_T destmask = ~sourcemask;
+		// [SL] perform masking without branching
+		*dest = (*dest & destmask) | (tempdest & sourcemask);
+
+		dest += pitch; frac += fracstep;
+	} while (--count);
+}
 
 //
 // R_DrawColumnGeneric
@@ -536,30 +524,29 @@ static forceinline void R_FillColumnGeneric(
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_DrawColumnGeneric(
-		PIXEL_T* dest,
-		const palindex_t* source,
-		int yl, int yh,
-		int pitch)
+static forceinline void R_DrawColumnGeneric(PIXEL_T* dest, const drawcolumn_t& drawcolumn)
 {
 #ifdef RANGECHECK 
-	if (dc_x >= screen->width || yl < 0 || yh >= screen->height) {
-		Printf (PRINT_HIGH, "R_DrawColumn: %i to %i at %i\n", yl, yh, dc_x);
+	if (drawcolumn.x >= screen->width || drawcolumn.yl < 0 || drawcolumn.yh >= screen->height)
+	{
+		Printf (PRINT_HIGH, "R_DrawColumn: %i to %i at %i\n", drawcolumn.yl, drawcolumn.yh, drawcolumn.x);
 		return;
 	}
 #endif
 
-	int count = yh - yl + 1;
+	palindex_t* source = drawcolumn.source;
+	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	int count = drawcolumn.yh - drawcolumn.yl + 1;
 	if (count <= 0)
 		return;
 
-	const fixed_t fracstep = dc_iscale; 
-	fixed_t frac = dc_texturefrac;
+	const fixed_t fracstep = drawcolumn.iscale; 
+	fixed_t frac = drawcolumn.texturefrac;
 
-	const int texheight = dc_textureheight;
+	const int texheight = drawcolumn.textureheight;
 	const int mask = (texheight >> FRACBITS) - 1;
 
-	COLORFUNC colorfunc(&dc_colormap);
+	COLORFUNC colorfunc(drawcolumn);
 
 	// [SL] Properly tile textures whose heights are not a power-of-2,
 	// avoiding a tutti-frutti effect.  From Eternity Engine.
@@ -645,41 +632,40 @@ static forceinline void R_DrawColumnGeneric(
 // image to have transparent regions.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_DrawMaskedColumnGeneric(
-		PIXEL_T* dest,
-		const palindex_t* source,
-		int yl, int yh,
-		int pitch)
+static forceinline void R_DrawMaskedColumnGeneric(PIXEL_T* dest, const drawcolumn_t& drawcolumn)
 {
 #ifdef RANGECHECK 
-	if (dc_x >= screen->width || yl < 0 || yh >= screen->height) {
-		Printf (PRINT_HIGH, "R_DrawMaskedColumn: %i to %i at %i\n", yl, yh, dc_x);
+	if (drawcolumn.x >= screen->width || drawcolumn.yl < 0 || drawcolumn.yh >= screen->height) {
+		Printf (PRINT_HIGH, "R_DrawMaskedColumn: %i to %i at %i\n", drawcolumn.yl, drawcolumn.yh, drawcolumn.x);
 		return;
 	}
 #endif
 
-	int count = yh - yl + 1;
+	const byte* mask = drawcolumn.mask;
+	const palindex_t* source = drawcolumn.source;
+	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	int count = drawcolumn.yh - drawcolumn.yl + 1;
 	if (count <= 0)
 		return;
 
-	const fixed_t fracstep = dc_iscale; 
-	fixed_t frac = dc_texturefrac;
+	const fixed_t fracstep = drawcolumn.iscale; 
+	fixed_t frac = drawcolumn.texturefrac;
 
-	COLORFUNC colorfunc(&dc_colormap);
+	COLORFUNC colorfunc(drawcolumn);
 
-	while (count--)
+	do
 	{
 		PIXEL_T tempdest;
 		colorfunc(source[frac >> FRACBITS], &tempdest);
 
 		// [SL] negating an unsigned number is a quick way to expand 0x01 to 0xFF
-		PIXEL_T sourcemask = -dc_masksource[frac >> FRACBITS];
+		PIXEL_T sourcemask = -mask[frac >> FRACBITS];
 		PIXEL_T destmask = ~sourcemask;
 		// [SL] perform masking without branching
 		*dest = (*dest & destmask) | (tempdest & sourcemask);
 
 		dest += pitch; frac += fracstep;
-	}
+	} while (--count);
 }
 
 
@@ -692,24 +678,24 @@ static forceinline void R_DrawMaskedColumnGeneric(
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_FillSpanGeneric(
-		PIXEL_T* dest,
-		const palindex_t color,
-		int x1, int x2,
-		int colsize)
+static forceinline void R_FillSpanGeneric(PIXEL_T* dest, const drawspan_t& drawspan)
 {
 #ifdef RANGECHECK
-	if (x2 < x1 || x1 < 0 || x2 >= viewwidth || ds_y >= viewheight || ds_y < 0) {
-		Printf(PRINT_HIGH, "R_FillSpan: %i to %i at %i", x1, x2, ds_y);
+	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= viewwidth ||
+		drawspan.y >= viewheight || drawspan.y < 0)
+	{
+		Printf(PRINT_HIGH, "R_FillSpan: %i to %i at %i", drawspan.x1, drawspan.x2, drawspan.y);
 		return;
 	}
 #endif
 
-	int count = x2 - x1 + 1;
+	int color = drawspan.color;
+	int colsize = drawspan.colsize;
+	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
 
-	COLORFUNC colorfunc(&basecolormap);
+	COLORFUNC colorfunc(drawspan);
 
 	do {
 		colorfunc(color, dest);
@@ -726,36 +712,36 @@ static forceinline void R_FillSpanGeneric(
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_DrawLevelSpanGeneric(
-		PIXEL_T* dest,
-		const palindex_t* source,
-		int x1, int x2,
-		int colsize)
+static forceinline void R_DrawLevelSpanGeneric(PIXEL_T* dest, const drawspan_t& drawspan)
 {
 #ifdef RANGECHECK
-	if (x2 < x1 || x1 < 0 || x2 >= viewwidth || ds_y >= viewheight || ds_y < 0) {
-		Printf(PRINT_HIGH, "R_DrawLevelSpan: %i to %i at %i", x1, x2, ds_y);
+	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= viewwidth ||
+		drawspan.y >= viewheight || drawspan.y < 0)
+	{
+		Printf(PRINT_HIGH, "R_DrawLevelSpan: %i to %i at %i", drawspan.x1, drawspan.x2, drawspan.y);
 		return;
 	}
 #endif
 
-	int count = x2 - x1 + 1;
+	palindex_t* source = drawspan.source;
+	int colsize = drawspan.colsize;
+	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
 	
-	dsfixed_t ufrac = ds_xfrac;
-	dsfixed_t vfrac = ds_yfrac;
-	const dsfixed_t ustep = ds_xstep;
-	const dsfixed_t vstep = ds_ystep;
+	dsfixed_t ufrac = dspan.xfrac;
+	dsfixed_t vfrac = dspan.yfrac;
+	const dsfixed_t ustep = dspan.xstep;
+	const dsfixed_t vstep = dspan.ystep;
 
-	COLORFUNC colorfunc(&ds_colormap);
+	COLORFUNC colorfunc(drawspan);
 
 	// [SL] Note that the texture orientation differs from typical Doom span
 	// drawers since flats are stored in column major format now. The roles
 	// of ufrac and vfrac have been reversed to accomodate this.
-	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
-	const int vmask = (1 << ds_textureheightbits) - 1;
-	const int ushift = FRACBITS - ds_textureheightbits; 
+	const int umask = ((1 << drawspan.texturewidthbits) - 1) << drawspan.textureheightbits;
+	const int vmask = (1 << drawspan.textureheightbits) - 1;
+	const int ushift = FRACBITS - drawspan.textureheightbits; 
 	const int vshift = FRACBITS;
  
 	do {
@@ -787,39 +773,39 @@ static forceinline void R_DrawLevelSpanGeneric(
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_DrawSlopedSpanGeneric(
-		PIXEL_T* dest,
-		const palindex_t* source,
-		int x1, int x2,
-		int colsize)
+static forceinline void R_DrawSlopedSpanGeneric(PIXEL_T* dest, const drawspan_t& drawspan)
 {
 #ifdef RANGECHECK
-	if (x2 < x1 || x1 < 0 || x2 >= viewwidth || ds_y >= viewheight || ds_y < 0) {
-		Printf(PRINT_HIGH, "R_DrawSlopedSpan: %i to %i at %i", x1, x2, ds_y);
+	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= viewwidth ||
+		drawspan.y >= viewheight || drawspan.y < 0)
+	{
+		Printf(PRINT_HIGH, "R_DrawSlopedSpan: %i to %i at %i", drawspan.x1, drawspan.x2, drawspan.y);
 		return;
 	}
 #endif
 
-	int count = x2 - x1 + 1;
+	palindex_t* source = drawspan.source;
+	int colsize = drawspan.colsize;
+	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
 	
 	// [SL] Note that the texture orientation differs from typical Doom span
 	// drawers since flats are stored in column major format now. The roles
 	// of xfrac and yfrac have been reversed to accomodate this.
-	const int umask = ((1 << ds_texturewidthbits) - 1) << ds_textureheightbits;
-	const int vmask = (1 << ds_textureheightbits) - 1;
-	const int ushift = FRACBITS - ds_textureheightbits; 
+	const int umask = ((1 << drawspan.texturewidthbits) - 1) << drawspan.textureheightbits;
+	const int vmask = (1 << drawspan.textureheightbits) - 1;
+	const int ushift = FRACBITS - drawspan.textureheightbits; 
 	const int vshift = FRACBITS;
  
-	float iu = ds_iu, iv = ds_iv;
-	const float ius = ds_iustep, ivs = ds_ivstep;
-	float id = ds_id, ids = ds_idstep;
+	float iu = drawspan.iu, iv = drawspan.iv;
+	const float ius = drawspan.iustep, ivs = drawspan.ivstep;
+	float id = drawspan.id, ids = drawspan.idstep;
 	
 	int ltindex = 0;
 
 	shaderef_t colormap;
-	COLORFUNC colorfunc(&colormap);
+	COLORFUNC colorfunc(drawspan);
 
 	while (count >= SPANJUMP)
 	{
@@ -845,7 +831,7 @@ static forceinline void R_DrawSlopedSpanGeneric(
 		int incount = SPANJUMP;
 		while (incount--)
 		{
-			colormap = slopelighting[ltindex++];
+			colormap = drawspan.slopelighting[ltindex++];
 
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			colorfunc(source[spot], dest);
@@ -881,7 +867,7 @@ static forceinline void R_DrawSlopedSpanGeneric(
 		int incount = count;
 		while (incount--)
 		{
-			colormap = slopelighting[ltindex++];
+			colormap = drawspan.slopelighting[ltindex++];
 
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			colorfunc(source[spot], dest);
@@ -908,14 +894,15 @@ static forceinline void R_DrawSlopedSpanGeneric(
 // buffer.
 //
 // The functors are instantiated with a shaderef_t* parameter (typically
-// dc_colormap or ds_colormap) that will be used to shade the pixel.
+// dcol.colormap or ds_colormap) that will be used to shade the pixel.
 //
 // ----------------------------------------------------------------------------
 
 class PaletteFunc
 {
 public:
-	PaletteFunc(shaderef_t* map) { }
+	PaletteFunc(const drawcolumn_t& drawcolumn) { }
+	PaletteFunc(const drawspan_t& drawspan) { }
 
 	forceinline void operator()(byte c, palindex_t* dest) const
 	{
@@ -926,21 +913,25 @@ public:
 class PaletteColormapFunc
 {
 public:
-	PaletteColormapFunc(shaderef_t* map) : colormap(map) { }
+	PaletteColormapFunc(const drawcolumn_t& drawcolumn) :
+			colormap(drawcolumn.colormap) { }
+	PaletteColormapFunc(const drawspan_t& drawspan) :
+			colormap(drawspan.colormap) { }
 
 	forceinline void operator()(byte c, palindex_t* dest) const
 	{
-		*dest = colormap->index(c);
+		*dest = colormap.index(c);
 	}
 
 private:
-	shaderef_t* colormap;
+	const shaderef_t& colormap;
 };
 
 class PaletteFuzzyFunc
 {
 public:
-	PaletteFuzzyFunc(shaderef_t* map) : colormap(&GetDefaultPalette()->maps, 6) { }
+	PaletteFuzzyFunc(const drawcolumn_t& drawcolum) :
+			colormap(&GetDefaultPalette()->maps, 6) { }
 
 	forceinline void operator()(byte c, palindex_t* dest) const
 	{
@@ -955,65 +946,83 @@ private:
 class PaletteTranslucentColormapFunc
 {
 public:
-	PaletteTranslucentColormapFunc(shaderef_t* map) : colormap(map)
+	PaletteTranslucentColormapFunc(const drawcolumn_t& drawcolumn) :
+			colormap(drawcolumn.colormap)
 	{
-		fga = (dc_translevel & ~0x03FF) >> 8;
-		bga = 255 - fga;
+		calculate_alpha(drawcolumn.translevel);
+	}
+
+	PaletteTranslucentColormapFunc(const drawspan_t& drawspan) :
+			colormap(drawspan.colormap)
+	{
+		calculate_alpha(drawspan.translevel);
 	}
 
 	forceinline void operator()(byte c, palindex_t* dest) const
 	{
-		const palindex_t fg = colormap->index(c);
+		const palindex_t fg = colormap.index(c);
 		const palindex_t bg = *dest;
 				
 		*dest = rt_blend2<palindex_t>(bg, bga, fg, fga);
 	}
 
 private:
-	shaderef_t* colormap;
+	void calculate_alpha(fixed_t translevel)
+	{
+		fga = (translevel & ~0x03FF) >> 8;
+		bga = 255 - fga;
+	}
+
+	const shaderef_t& colormap;
 	int fga, bga;
 };
 
 class PaletteTranslatedColormapFunc
 {
 public:
-	PaletteTranslatedColormapFunc(shaderef_t* map) : colormap(map) { }
+	PaletteTranslatedColormapFunc(const drawcolumn_t& drawcolumn) : 
+			colormap(drawcolumn.colormap), translation(drawcolumn.translation) { }
 
 	forceinline void operator()(byte c, palindex_t* dest) const
 	{
-		*dest = colormap->index(dc_translation.tlate(c));
+		*dest = colormap.index(translation.tlate(c));
 	}
 
 private:
-	shaderef_t* colormap;
+	const shaderef_t& colormap;
+	const translationref_t& translation;
 };
 
 class PaletteTranslatedTranslucentColormapFunc
 {
 public:
-	PaletteTranslatedTranslucentColormapFunc(shaderef_t* map) : tlatefunc(map) { }
+	PaletteTranslatedTranslucentColormapFunc(const drawcolumn_t& drawcolumn) :
+			tlatefunc(drawcolumn), translation(drawcolumn.translation) { }
 
 	forceinline void operator()(byte c, palindex_t* dest) const
 	{
-		tlatefunc(dc_translation.tlate(c), dest);
+		tlatefunc(translation.tlate(c), dest);
 	}
 
 private:
 	PaletteTranslucentColormapFunc tlatefunc;
+	const translationref_t& translation;
 };
 
 class PaletteSlopeColormapFunc
 {
 public:
-	PaletteSlopeColormapFunc(shaderef_t* map) : colormap(map) { }
+	PaletteSlopeColormapFunc(const drawspan_t& drawspan) :
+			colormap(drawspan.slopelighting) { }
 
-	forceinline void operator()(byte c, palindex_t* dest) const
+	forceinline void operator()(byte c, palindex_t* dest)
 	{
 		*dest = colormap->index(c);
+		colormap++;
 	}
 
 private:
-	shaderef_t* colormap;
+	const shaderef_t* colormap;
 };
 
 
@@ -1023,37 +1032,40 @@ private:
 //
 // ----------------------------------------------------------------------------
 
-#define FB_COLDEST_P ((palindex_t*)(ylookup[dc_yl] + columnofs[dc_x]))
-#define FB_COLPITCH_P (dc_pitch / sizeof(palindex_t))
+#define FB_COLDEST_P ((palindex_t*)(ylookup[dcol.yl] + columnofs[dcol.x]))
 
 //
 // R_FillColumnP
 //
 // Fills a column in the 8bpp palettized screen buffer with a solid color,
-// determined by dc_color. Performs no shading.
+// determined by dcol.color. Performs no shading.
 //
 void R_FillColumnP()
 {
-	R_FillColumnGeneric<palindex_t, PaletteFunc>(
-		FB_COLDEST_P,
-		dc_color,
-		dc_yl, dc_yh,
-		FB_COLPITCH_P);
+	R_FillColumnGeneric<palindex_t, PaletteFunc>(FB_COLDEST_P, dcol);
+}
+
+//
+// R_FillMaskedColumnP
+//
+// Fills a column in the 8bpp palettized screen buffer with a solid color,
+// determined by dcol.color. Performs no shading.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_FillMaskedColumnP()
+{
+	R_FillMaskedColumnGeneric<palindex_t, PaletteFunc>(FB_COLDEST_P, dcol);
 }
 
 //
 // R_DrawColumnP
 //
 // Renders a column to the 8bpp palettized screen buffer from the source buffer
-// dc_source and scaled by dc_iscale. Shading is performed using dc_colormap.
+// dcol.source and scaled by dcol.iscale. Shading is performed using dcol.colormap.
 //
 void R_DrawColumnP()
 {
-	R_DrawColumnGeneric<palindex_t, PaletteColormapFunc>(
-		FB_COLDEST_P,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_P);
+	R_DrawColumnGeneric<palindex_t, PaletteColormapFunc>(FB_COLDEST_P, dcol);
 }
 
 //
@@ -1061,30 +1073,11 @@ void R_DrawColumnP()
 //
 // Renders a column to the 8bpp palettized screen buffer from the source buffer
 // dc_source and scaled by dc_iscale. Shading is performed using dc_colormap.
-// Pixels identified with a 0 in dc_masksource are not drawn.
+// Pixels identified with a 0 in dcol.mask are not drawn.
 //
 void R_DrawMaskedColumnP()
 {
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteColormapFunc>(
-		FB_COLDEST_P,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_P);
-}
-
-//
-// R_StretchColumnP
-//
-// Renders a column to the 8bpp palettized screen buffer from the source buffer
-// dc_source and scaled by dc_iscale. Performs no shading.
-//
-void R_StretchColumnP()
-{
-	R_DrawColumnGeneric<palindex_t, PaletteFunc>(
-		FB_COLDEST_P,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_P);
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteColormapFunc>(FB_COLDEST_P, dcol);
 }
 
 //
@@ -1097,69 +1090,113 @@ void R_StretchColumnP()
 void R_DrawFuzzColumnP()
 {
 	// adjust the borders (prevent buffer over/under-reads)
-	if (dc_yl <= 0)
-		dc_yl = 1;
-	if (dc_yh >= realviewheight - 1)
-		dc_yh = realviewheight - 2;
+	if (dcol.yl <= 0)
+		dcol.yl = 1;
+	if (dcol.yh >= realviewheight - 1)
+		dcol.yh = realviewheight - 2;
 
-	R_FillColumnGeneric<palindex_t, PaletteFuzzyFunc>(
-		FB_COLDEST_P,
-		0,		// no color needed for fuzz effect
-		dc_yl, dc_yh,	
-		FB_COLPITCH_P);
+	R_FillColumnGeneric<palindex_t, PaletteFuzzyFunc>(FB_COLDEST_P, dcol);
+}
+
+//
+// R_DrawFuzzMaskedColumnP
+//
+// Alters a column in the 8bpp palettized screen buffer using Doom's partial
+// invisibility effect, which shades the column and rearranges the ordering
+// the pixels to create distortion. Shading is performed using colormap 6.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_DrawFuzzMaskedColumnP()
+{
+	// adjust the borders (prevent buffer over/under-reads)
+	if (dcol.yl <= 0)
+		dcol.yl = 1;
+	if (dcol.yh >= realviewheight - 1)
+		dcol.yh = realviewheight - 2;
+
+	R_FillMaskedColumnGeneric<palindex_t, PaletteFuzzyFunc>(FB_COLDEST_P, dcol);
 }
 
 //
 // R_DrawTranslucentColumnP
 //
 // Renders a translucent column to the 8bpp palettized screen buffer from the
-// source buffer dc_source and scaled by dc_iscale. The amount of
-// translucency is controlled by dc_translevel. Shading is performed using
-// dc_colormap.
+// source buffer dcol.source and scaled by dcol.iscale. The amount of
+// translucency is controlled by dcol.translevel. Shading is performed using
+// dcol.colormap.
 //
 void R_DrawTranslucentColumnP()
 {
-	R_DrawColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(
-		FB_COLDEST_P,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_P);
+	R_DrawColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(FB_COLDEST_P, dcol);
+}
+
+//
+// R_DrawTranslucentMaskedColumnP
+//
+// Renders a translucent column to the 8bpp palettized screen buffer from the
+// source buffer dcol.source and scaled by dcol.iscale. The amount of
+// translucency is controlled by dcol.translevel. Shading is performed using
+// dcol.colormap.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_DrawTranslucentMaskedColumnP()
+{
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(FB_COLDEST_P, dcol);
 }
 
 //
 // R_DrawTranslatedColumnP
 //
 // Renders a column to the 8bpp palettized screen buffer with color-remapping
-// from the source buffer dc_source and scaled by dc_iscale. The translation
-// table is supplied by dc_translation. Shading is performed using dc_colormap.
+// from the source buffer dcol.source and scaled by dcol.iscale. The translation
+// table is supplied by dcol.translation. Shading is performed using dcol.colormap.
 //
 void R_DrawTranslatedColumnP()
 {
-	R_DrawColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(
-		FB_COLDEST_P,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_P);
+	R_DrawColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(FB_COLDEST_P, dcol);
 }
 
 //
-// R_DrawTlatedLucentColumnP
+// R_DrawTranslatedMaskedColumnP
+//
+// Renders a column to the 8bpp palettized screen buffer with color-remapping
+// from the source buffer dcol.source and scaled by dcol.iscale. The translation
+// table is supplied by dcol.translation. Shading is performed using dcol.colormap.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_DrawTranslatedMaskedColumnP()
+{
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(FB_COLDEST_P, dcol);
+}
+
+//
+// R_DrawTranslatedTranslucentColumnP
 //
 // Renders a translucent column to the 8bpp palettized screen buffer with
-// color-remapping from the source buffer dc_source and scaled by dc_iscale. 
-// The translation table is supplied by dc_translation and the amount of
-// translucency is controlled by dc_translevel. Shading is performed using
-// dc_colormap.
+// color-remapping from the source buffer dcol.source and scaled by dcol.iscale. 
+// The translation table is supplied by dcol.translation and the amount of
+// translucency is controlled by dcol.translevel. Shading is performed using
+// dcol.colormap.
 //
-void R_DrawTlatedLucentColumnP()
+void R_DrawTranslatedTranslucentColumnP()
 {
-	R_DrawColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(
-		FB_COLDEST_P,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_P);
+	R_DrawColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(FB_COLDEST_P, dcol);
 }
 
+//
+// R_DrawTranslatedTranslucentMaskedColumnP
+//
+// Renders a translucent column to the 8bpp palettized screen buffer with
+// color-remapping from the source buffer dcol.source and scaled by dcol.iscale. 
+// The translation table is supplied by dcol.translation and the amount of
+// translucency is controlled by dcol.translevel. Shading is performed using
+// dcol.colormap.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_DrawTranslatedTranslucentMaskedColumnP()
+{
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(FB_COLDEST_P, dcol);
+}
 
 // ----------------------------------------------------------------------------
 //
@@ -1167,8 +1204,7 @@ void R_DrawTlatedLucentColumnP()
 //
 // ----------------------------------------------------------------------------
 
-#define FB_SPANDEST_P ((palindex_t*)(ylookup[ds_y] + columnofs[ds_x1]))
-#define FB_SPANPITCH_P (ds_colsize)
+#define FB_SPANDEST_P ((palindex_t*)(ylookup[dspan.y] + columnofs[dspan.x1]))
 
 //
 // R_FillSpanP
@@ -1178,11 +1214,7 @@ void R_DrawTlatedLucentColumnP()
 //
 void R_FillSpanP()
 {
-	R_FillSpanGeneric<palindex_t, PaletteFunc>(
-		FB_SPANDEST_P,
-		ds_color,
-		ds_x1, ds_x2,
-		FB_SPANPITCH_P);
+	R_FillSpanGeneric<palindex_t, PaletteFunc>(FB_SPANDEST_P, dspan);
 }
 
 //
@@ -1194,11 +1226,7 @@ void R_FillSpanP()
 //
 void R_FillTranslucentSpanP()
 {
-	R_FillSpanGeneric<palindex_t, PaletteTranslucentColormapFunc>(
-		FB_SPANDEST_P,
-		ds_color,
-		ds_x1, ds_x2,
-		FB_SPANPITCH_P);
+	R_FillSpanGeneric<palindex_t, PaletteTranslucentColormapFunc>(FB_SPANDEST_P, dspan);
 }
 
 //
@@ -1209,11 +1237,7 @@ void R_FillTranslucentSpanP()
 //
 void R_DrawSpanP()
 {
-	R_DrawLevelSpanGeneric<palindex_t, PaletteColormapFunc>(
-		FB_SPANDEST_P,
-		ds_source,
-		ds_x1, ds_x2,
-		FB_SPANPITCH_P);
+	R_DrawLevelSpanGeneric<palindex_t, PaletteColormapFunc>(FB_SPANDEST_P, dspan);
 }
 
 //
@@ -1224,11 +1248,7 @@ void R_DrawSpanP()
 //
 void R_DrawSlopeSpanP()
 {
-	R_DrawSlopedSpanGeneric<palindex_t, PaletteSlopeColormapFunc>(
-		FB_SPANDEST_P,
-		ds_source,
-		ds_x1, ds_x2,
-		FB_SPANPITCH_P);
+	R_DrawSlopedSpanGeneric<palindex_t, PaletteSlopeColormapFunc>(FB_SPANDEST_P, dspan);
 }
 
 
@@ -1247,14 +1267,15 @@ void R_DrawSlopeSpanP()
 // buffer.
 //
 // The functors are instantiated with a shaderef_t* parameter (typically
-// dc_colormap or ds_colormap) that will be used to shade the pixel.
+// dcol.colormap or ds_colormap) that will be used to shade the pixel.
 //
 // ----------------------------------------------------------------------------
 
 class DirectFunc
 {
 public:
-	DirectFunc(shaderef_t* map) { }
+	DirectFunc(const drawcolumn_t& drawcolumn) { }
+	DirectFunc(const drawspan_t& drawspan) { }
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
@@ -1265,21 +1286,24 @@ public:
 class DirectColormapFunc
 {
 public:
-	DirectColormapFunc(shaderef_t* map) : colormap(map) { }
+	DirectColormapFunc(const drawcolumn_t& drawcolumn) :
+			colormap(drawcolumn.colormap) { }
+	DirectColormapFunc(const drawspan_t& drawspan) :
+			colormap(drawspan.colormap) { }
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
-		*dest = colormap->shade(c);
+		*dest = colormap.shade(c);
 	}
 
 private:
-	shaderef_t* colormap;
+	const shaderef_t& colormap;
 };
 
 class DirectFuzzyFunc
 {
 public:
-	DirectFuzzyFunc(shaderef_t* map) { }
+	DirectFuzzyFunc(const drawcolumn_t& drawcolumn) { }
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
@@ -1292,64 +1316,82 @@ public:
 class DirectTranslucentColormapFunc
 {
 public:
-	DirectTranslucentColormapFunc(shaderef_t* map) : colormap(map)
+	DirectTranslucentColormapFunc(const drawcolumn_t& drawcolumn) :
+			colormap(drawcolumn.colormap)
 	{
-		fga = (dc_translevel & ~0x03FF) >> 8;
-		bga = 255 - fga;
+		calculate_alpha(drawcolumn.translevel);
+	}
+
+	DirectTranslucentColormapFunc(const drawspan_t& drawspan) :
+			colormap(drawspan.colormap)
+	{
+		calculate_alpha(drawspan.translevel);
 	}
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
-		argb_t fg = colormap->shade(c);
+		argb_t fg = colormap.shade(c);
 		argb_t bg = *dest;
 		*dest = alphablend2a(bg, bga, fg, fga);	
 	}
 
 private:
-	shaderef_t* colormap;
+	void calculate_alpha(fixed_t translevel)
+	{
+		fga = (translevel & ~0x03FF) >> 8;
+		bga = 255 - fga;
+	}
+
+	const shaderef_t& colormap;
 	int fga, bga;
 };
 
 class DirectTranslatedColormapFunc
 {
 public:
-	DirectTranslatedColormapFunc(shaderef_t* map) : colormap(map) { }
+	DirectTranslatedColormapFunc(const drawcolumn_t& drawcolumn) :
+			colormap(drawcolumn.colormap), translation(drawcolumn.translation) { }
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
-		*dest = colormap->tlate(dc_translation, c);
+		*dest = colormap.tlate(translation, c);
 	}
 
 private:
-	shaderef_t* colormap;
+	const shaderef_t& colormap;
+	const translationref_t& translation;
 };
 
 class DirectTranslatedTranslucentColormapFunc
 {
 public:
-	DirectTranslatedTranslucentColormapFunc(shaderef_t* map) : tlatefunc(map) { }
+	DirectTranslatedTranslucentColormapFunc(const drawcolumn_t& drawcolumn) :
+			tlatefunc(drawcolumn), translation(drawcolumn.translation) { }
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
-		tlatefunc(dc_translation.tlate(c), dest);
+		tlatefunc(translation.tlate(c), dest);
 	}
 
 private:
 	DirectTranslucentColormapFunc tlatefunc;
+	const translationref_t& translation;
 };
 
 class DirectSlopeColormapFunc
 {
 public:
-	DirectSlopeColormapFunc(shaderef_t* map) : colormap(map) { }
+	DirectSlopeColormapFunc(const drawspan_t& drawspan) :
+			colormap(drawspan.slopelighting) { }
 
-	forceinline void operator()(byte c, argb_t* dest) const
+	forceinline void operator()(byte c, argb_t* dest)
 	{
 		*dest = colormap->shade(c);
+		colormap++;
 	}
 
 private:
-	shaderef_t* colormap;
+	const shaderef_t* colormap;
 };
 
 
@@ -1359,37 +1401,40 @@ private:
 //
 // ----------------------------------------------------------------------------
 
-#define FB_COLDEST_D ((argb_t*)(ylookup[dc_yl] + columnofs[dc_x]))
-#define FB_COLPITCH_D (dc_pitch / sizeof(argb_t))
+#define FB_COLDEST_D ((argb_t*)(ylookup[dcol.yl] + columnofs[dcol.x]))
 
 //
 // R_FillColumnD
 //
 // Fills a column in the 32bpp ARGB8888 screen buffer with a solid color,
-// determined by dc_color. Performs no shading.
+// determined by dcol.color. Performs no shading.
 //
 void R_FillColumnD()
 {
-	R_FillColumnGeneric<argb_t, DirectFunc>(
-		FB_COLDEST_D,
-		dc_color,
-		dc_yl, dc_yh,
-		FB_COLPITCH_D);
+	R_FillColumnGeneric<argb_t, DirectFunc>(FB_COLDEST_D, dcol);
+}
+
+//
+// R_FillMaskedColumnD
+//
+// Fills a column in the 32bpp ARGB8888 screen buffer with a solid color,
+// determined by dcol.color. Performs no shading.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_FillMaskedColumnD()
+{
+	R_FillMaskedColumnGeneric<argb_t, DirectFunc>(FB_COLDEST_D, dcol);
 }
 
 //
 // R_DrawColumnD
 //
 // Renders a column to the 32bpp ARGB8888 screen buffer from the source buffer
-// dc_source and scaled by dc_iscale. Shading is performed using dc_colormap.
+// dcol.source and scaled by dcol.iscale. Shading is performed using dcol.colormap.
 //
 void R_DrawColumnD()
 {
-	R_DrawColumnGeneric<argb_t, DirectColormapFunc>(
-		FB_COLDEST_D,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_D);
+	R_DrawColumnGeneric<argb_t, DirectColormapFunc>(FB_COLDEST_D, dcol);
 }
 
 //
@@ -1397,15 +1442,11 @@ void R_DrawColumnD()
 //
 // Renders a column to the 32bpp ARGB8888 screen buffer from the source buffer
 // dc_source and scaled by dc_iscale. Shading is performed using dc_colormap.
-// Pixels identified with a 0 in dc_masksource are not drawn.
+// Pixels identified with a 0 in dcol.mask are not drawn.
 //
 void R_DrawMaskedColumnD()
 {
-	R_DrawMaskedColumnGeneric<argb_t, DirectColormapFunc>(
-		FB_COLDEST_D,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_D);
+	R_DrawMaskedColumnGeneric<argb_t, DirectColormapFunc>(FB_COLDEST_D, dcol);
 }
 
 //
@@ -1418,69 +1459,113 @@ void R_DrawMaskedColumnD()
 void R_DrawFuzzColumnD()
 {
 	// adjust the borders (prevent buffer over/under-reads)
-	if (dc_yl <= 0)
-		dc_yl = 1;
-	if (dc_yh >= realviewheight - 1)
-		dc_yh = realviewheight - 2;
+	if (dcol.yl <= 0)
+		dcol.yl = 1;
+	if (dcol.yh >= realviewheight - 1)
+		dcol.yh = realviewheight - 2;
 
-	R_FillColumnGeneric<argb_t, DirectFuzzyFunc>(
-		FB_COLDEST_D,
-		dc_color,
-		dc_yl, dc_yh,
-		FB_COLPITCH_D);
+	R_FillColumnGeneric<argb_t, DirectFuzzyFunc>(FB_COLDEST_D, dcol);
+}
+
+//
+// R_DrawFuzzMaskedColumnD
+//
+// Alters a column in the 32bpp ARGB8888 screen buffer using Doom's partial
+// invisibility effect, which shades the column and rearranges the ordering
+// the pixels to create distortion. Shading is performed using colormap 6.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_DrawFuzzMaskedColumnD()
+{
+	// adjust the borders (prevent buffer over/under-reads)
+	if (dcol.yl <= 0)
+		dcol.yl = 1;
+	if (dcol.yh >= realviewheight - 1)
+		dcol.yh = realviewheight - 2;
+
+	R_FillMaskedColumnGeneric<argb_t, DirectFuzzyFunc>(FB_COLDEST_D, dcol);
 }
 
 //
 // R_DrawTranslucentColumnD
 //
 // Renders a translucent column to the 32bpp ARGB8888 screen buffer from the
-// source buffer dc_source and scaled by dc_iscale. The amount of
-// translucency is controlled by dc_translevel. Shading is performed using
-// dc_colormap.
+// source buffer dcol.source and scaled by dcol.iscale. The amount of
+// translucency is controlled by dcol.translevel. Shading is performed using
+// dcol.colormap.
 //
 void R_DrawTranslucentColumnD()
 {
-	R_DrawColumnGeneric<argb_t, DirectTranslucentColormapFunc>(
-		FB_COLDEST_D,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_D);
+	R_DrawColumnGeneric<argb_t, DirectTranslucentColormapFunc>(FB_COLDEST_D, dcol);
+}
+
+//
+// R_DrawTranslucentMaskedColumnD
+//
+// Renders a translucent column to the 32bpp ARGB8888 screen buffer from the
+// source buffer dcol.source and scaled by dcol.iscale. The amount of
+// translucency is controlled by dcol.translevel. Shading is performed using
+// dcol.colormap.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_DrawTranslucentMaskedColumnD()
+{
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslucentColormapFunc>(FB_COLDEST_D, dcol);
 }
 
 //
 // R_DrawTranslatedColumnD
 //
 // Renders a column to the 32bpp ARGB8888 screen buffer with color-remapping
-// from the source buffer dc_source and scaled by dc_iscale. The translation
-// table is supplied by dc_translation. Shading is performed using dc_colormap.
+// from the source buffer dcol.source and scaled by dcol.iscale. The translation
+// table is supplied by dcol.translation. Shading is performed using dcol.colormap.
 //
 void R_DrawTranslatedColumnD()
 {
-	R_DrawColumnGeneric<argb_t, DirectTranslatedColormapFunc>(
-		FB_COLDEST_D,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_D);
+	R_DrawColumnGeneric<argb_t, DirectTranslatedColormapFunc>(FB_COLDEST_D, dcol);
 }
 
 //
-// R_DrawTlatedLucentColumnD
+// R_DrawTranslatedMaskedColumnD
+//
+// Renders a column to the 32bpp ARGB8888 screen buffer with color-remapping
+// from the source buffer dcol.source and scaled by dcol.iscale. The translation
+// table is supplied by dcol.translation. Shading is performed using dcol.colormap.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_DrawTranslatedMaskedColumnD()
+{
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedColormapFunc>(FB_COLDEST_D, dcol);
+}
+
+//
+// R_DrawTranslatedTranslucentColumnD
 //
 // Renders a translucent column to the 32bpp ARGB8888 screen buffer with
-// color-remapping from the source buffer dc_source and scaled by dc_iscale. 
-// The translation table is supplied by dc_translation and the amount of
-// translucency is controlled by dc_translevel. Shading is performed using
-// dc_colormap.
+// color-remapping from the source buffer dcol.source and scaled by dcol.iscale. 
+// The translation table is supplied by dcol.translation and the amount of
+// translucency is controlled by dcol.translevel. Shading is performed using
+// dcol.colormap.
 //
-void R_DrawTlatedLucentColumnD()
+void R_DrawTranslatedTranslucentColumnD()
 {
-	R_DrawColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(
-		FB_COLDEST_D,
-		dc_source,
-		dc_yl, dc_yh,
-		FB_COLPITCH_D);
+	R_DrawColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(FB_COLDEST_D, dcol);
 }
 
+//
+// R_DrawTranslatedTranslucentMaskedColumnD
+//
+// Renders a translucent column to the 32bpp ARGB8888 screen buffer with
+// color-remapping from the source buffer dcol.source and scaled by dcol.iscale. 
+// The translation table is supplied by dcol.translation and the amount of
+// translucency is controlled by dcol.translevel. Shading is performed using
+// dcol.colormap.
+// Pixels identified with a 0 in dcol.mask are not drawn.
+//
+void R_DrawTranslatedTranslucentMaskedColumnD()
+{
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(FB_COLDEST_D, dcol);
+}
 
 // ----------------------------------------------------------------------------
 //
@@ -1488,8 +1573,7 @@ void R_DrawTlatedLucentColumnD()
 //
 // ----------------------------------------------------------------------------
 
-#define FB_SPANDEST_D ((argb_t*)(ylookup[ds_y] + columnofs[ds_x1]))
-#define FB_SPANPITCH_D (ds_colsize)
+#define FB_SPANDEST_D ((argb_t*)(ylookup[dspan.y] + columnofs[dspan.x1]))
 
 //
 // R_FillSpanD
@@ -1499,11 +1583,7 @@ void R_DrawTlatedLucentColumnD()
 //
 void R_FillSpanD()
 {
-	R_FillSpanGeneric<argb_t, DirectFunc>(
-		FB_SPANDEST_D,
-		ds_color,
-		ds_x1, ds_x2,
-		FB_SPANPITCH_D);
+	R_FillSpanGeneric<argb_t, DirectFunc>(FB_SPANDEST_D, dspan);
 }
 
 //
@@ -1515,11 +1595,7 @@ void R_FillSpanD()
 //
 void R_FillTranslucentSpanD()
 {
-	R_FillSpanGeneric<argb_t, DirectTranslucentColormapFunc>(
-		FB_SPANDEST_D,
-		ds_color,
-		ds_x1, ds_x2,
-		FB_SPANPITCH_D);
+	R_FillSpanGeneric<argb_t, DirectTranslucentColormapFunc>(FB_SPANDEST_D, dspan);
 }
 
 //
@@ -1530,11 +1606,7 @@ void R_FillTranslucentSpanD()
 //
 void R_DrawSpanD_c()
 {
-	R_DrawLevelSpanGeneric<argb_t, DirectColormapFunc>(
-		FB_SPANDEST_D,
-		ds_source,
-		ds_x1, ds_x2,
-		FB_SPANPITCH_D);
+	R_DrawLevelSpanGeneric<argb_t, DirectColormapFunc>(FB_SPANDEST_D, dspan);
 }
 
 //
@@ -1545,11 +1617,7 @@ void R_DrawSpanD_c()
 //
 void R_DrawSlopeSpanD_c()
 {
-	R_DrawSlopedSpanGeneric<argb_t, DirectSlopeColormapFunc>(
-		FB_SPANDEST_D,
-		ds_source,
-		ds_x1, ds_x2,
-		FB_SPANPITCH_D);
+	R_DrawSlopedSpanGeneric<argb_t, DirectSlopeColormapFunc>(FB_SPANDEST_D, dspan);
 }
 
 
@@ -1945,30 +2013,42 @@ void R_InitColumnDrawers ()
 
 	if (screen->is8bit())
 	{
-		R_DrawColumn			= R_DrawColumnP;
-		R_DrawMaskedColumn		= R_DrawMaskedColumnP;
-		R_DrawFuzzColumn		= R_DrawFuzzColumnP;
-		R_DrawTranslucentColumn	= R_DrawTranslucentColumnP;
-		R_DrawTranslatedColumn	= R_DrawTranslatedColumnP;
-		R_DrawSlopeSpan			= R_DrawSlopeSpanP;
-		R_DrawSpan				= R_DrawSpanP;
-		R_FillColumn			= R_FillColumnP;
-		R_FillSpan				= R_FillSpanP;
-		R_FillTranslucentSpan	= R_FillTranslucentSpanP;
+		R_FillColumn					= R_FillColumnP;
+		R_FillMaskedColumn				= R_FillMaskedColumnP;
+		R_DrawColumn					= R_DrawColumnP;
+		R_DrawMaskedColumn				= R_DrawMaskedColumnP;
+		R_DrawFuzzColumn				= R_DrawFuzzColumnP;
+		R_DrawFuzzMaskedColumn			= R_DrawFuzzMaskedColumnP;
+		R_DrawTranslucentColumn			= R_DrawTranslucentColumnP;
+		R_DrawTranslucentMaskedColumn	= R_DrawTranslucentMaskedColumnP;
+		R_DrawTranslatedColumn			= R_DrawTranslatedColumnP;
+		R_DrawTranslatedMaskedColumn	= R_DrawTranslatedMaskedColumnP;
+		R_DrawSlopeSpan					= R_DrawSlopeSpanP;
+		R_DrawSpan						= R_DrawSpanP;
+		R_FillSpan						= R_FillSpanP;
+		R_FillTranslucentSpan			= R_FillTranslucentSpanP;
+		R_DrawTranslatedTranslucentColumn = R_DrawTranslatedTranslucentColumnP;
+		R_DrawTranslatedTranslucentMaskedColumn = R_DrawTranslatedTranslucentMaskedColumnP;
 	}
 	else
 	{
 		// 32bpp rendering functions:
-		R_DrawColumn			= R_DrawColumnD;
-		R_DrawMaskedColumn		= R_DrawMaskedColumnD;
-		R_DrawFuzzColumn		= R_DrawFuzzColumnD;
-		R_DrawTranslucentColumn	= R_DrawTranslucentColumnD;
-		R_DrawTranslatedColumn	= R_DrawTranslatedColumnD;
-		R_DrawSlopeSpan			= R_DrawSlopeSpanD;
-		R_DrawSpan				= R_DrawSpanD;
-		R_FillColumn			= R_FillColumnD;
-		R_FillSpan				= R_FillSpanD;
-		R_FillTranslucentSpan	= R_FillTranslucentSpanD;
+		R_FillColumn					= R_FillColumnD;
+		R_FillMaskedColumn				= R_FillMaskedColumnD;
+		R_DrawColumn					= R_DrawColumnD;
+		R_DrawMaskedColumn				= R_DrawMaskedColumnD;
+		R_DrawFuzzColumn				= R_DrawFuzzColumnD;
+		R_DrawFuzzMaskedColumn			= R_DrawFuzzMaskedColumnD;
+		R_DrawTranslucentColumn			= R_DrawTranslucentColumnD;
+		R_DrawTranslucentMaskedColumn	= R_DrawTranslucentMaskedColumnD;
+		R_DrawTranslatedColumn			= R_DrawTranslatedColumnD;
+		R_DrawTranslatedMaskedColumn	= R_DrawTranslatedMaskedColumnD;
+		R_DrawSlopeSpan					= R_DrawSlopeSpanD;
+		R_DrawSpan						= R_DrawSpanD;
+		R_FillSpan						= R_FillSpanD;
+		R_FillTranslucentSpan			= R_FillTranslucentSpanD;
+		R_DrawTranslatedTranslucentColumn = R_DrawTranslatedTranslucentColumnD;
+		R_DrawTranslatedTranslucentMaskedColumn = R_DrawTranslatedTranslucentMaskedColumnD;
 	}
 }
 

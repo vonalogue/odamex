@@ -43,6 +43,9 @@
 #include "i_video.h"
 #include "vectors.h"
 
+void R_BeginInterpolation(fixed_t amount);
+void R_EndInterpolation();
+
 #define DISTMAP			2
 
 int negonearray[MAXWIDTH];
@@ -140,6 +143,7 @@ fixed_t			freelookviewheight;
 unsigned int	R_OldBlend = ~0;
 
 void (*colfunc) (void);
+void (*maskedcolfunc) (void);
 void (*spanfunc) (void);
 void (*spanslopefunc) (void);
 
@@ -994,6 +998,7 @@ void R_SetupFrame (player_t *player)
 void R_SetFlatDrawFuncs()
 {
 	colfunc = R_FillColumn;
+	maskedcolfunc = R_FillMaskedColumn;
 	spanfunc = R_FillSpan;
 	spanslopefunc = R_FillSpan;
 }
@@ -1006,7 +1011,7 @@ void R_SetFlatDrawFuncs()
 //
 void R_SetBlankDrawFuncs()
 {
-	colfunc = R_BlankColumn;
+	colfunc = maskedcolfunc = R_BlankColumn;
 	spanfunc = spanslopefunc = R_BlankSpan;
 }
 
@@ -1026,6 +1031,7 @@ void R_ResetDrawFuncs()
 	else
 	{
 		colfunc = R_DrawColumn;
+		maskedcolfunc = R_DrawMaskedColumn;
 		spanfunc = R_DrawSpan;
 		spanslopefunc = R_DrawSlopeSpan;
 	}
@@ -1044,6 +1050,7 @@ void R_SetFuzzDrawFuncs()
 	else
 	{
 		colfunc = R_DrawFuzzColumn;
+		maskedcolfunc = R_DrawFuzzMaskedColumn;
 		spanfunc = R_DrawSpan;
 		spanslopefunc = R_DrawSlopeSpan;
 	}
@@ -1062,6 +1069,7 @@ void R_SetLucentDrawFuncs()
 	else
 	{
 		colfunc = R_DrawTranslucentColumn;
+		maskedcolfunc = R_DrawTranslucentMaskedColumn;
 	}
 }
 
@@ -1078,6 +1086,7 @@ void R_SetTranslatedDrawFuncs()
 	else
 	{
 		colfunc = R_DrawTranslatedColumn;
+		maskedcolfunc = R_DrawTranslatedMaskedColumn;
 	}
 }
 
@@ -1093,7 +1102,8 @@ void R_SetTranslatedLucentDrawFuncs()
 	}
 	else
 	{
-		colfunc = R_DrawTlatedLucentColumn;
+		colfunc = R_DrawTranslatedTranslucentColumn;
+		maskedcolfunc = R_DrawTranslatedTranslucentMaskedColumn;
 	}
 }
 
@@ -1132,6 +1142,8 @@ void R_RenderPlayerView (player_t *player)
 			screen->Clear(x1, y1, x2, y2, basecolormap.shade(color));
 	}
 
+	R_BeginInterpolation(render_lerp_amount);
+
 	// [RH] Setup particles for this frame
 	R_FindParticleSubsectors();
 
@@ -1161,6 +1173,8 @@ void R_RenderPlayerView (player_t *player)
 		unsigned int blend_rgb = MAKERGB(newgamma[BlendR], newgamma[BlendG], newgamma[BlendB]);
 		r_dimpatchD(screen, blend_rgb, BlendA, 0, 0, screen->width, screen->height);
 	}
+
+	R_EndInterpolation();
 }
 
 //

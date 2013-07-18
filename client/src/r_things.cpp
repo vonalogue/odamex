@@ -648,19 +648,18 @@ byte* maskedcols[MAXWIDTH];
 static inline void R_BlastSpriteColumn(void (*drawfunc)())
 {
 	// TODO: dc_texturefrac should take y-scaling of textures into account
-	dc_texturefrac = dc_texturemid + FixedMul((dc_yl - centery + 1) << FRACBITS, dc_iscale);
+	dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
 
-	dc_masksource = maskedcols[dc_x];
+	dcol.mask = maskedcols[dcol.x];
 
-	if (dc_yl <= dc_yh)
+	if (dcol.yl <= dcol.yh)
 		drawfunc();
 }
 
 
 void SpriteColumnBlaster()
 {
-//	R_BlastSpriteColumn(colfunc);
-	R_BlastSpriteColumn(R_DrawMaskedColumn);
+	R_BlastSpriteColumn(maskedcolfunc);
 }
 
 //
@@ -676,7 +675,7 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 	if (vis->yscale <= 0)
 		return;
 
-	dc_textureheight = 256 << FRACBITS;
+	dcol.textureheight = 256 << FRACBITS;
 
 	if (vis->mobjflags & MF_SPECTATOR)
 		return;
@@ -687,12 +686,12 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 		return;
 	}
 
-	dc_colormap = vis->colormap;
+	dcol.colormap = vis->colormap;
 
 	if (vis->translation)
 	{
 		translated = true;
-		dc_translation = vis->translation;
+		dcol.translation = vis->translation;
 	}
 	else if (vis->mobjflags & MF_TRANSLATION)
 	{
@@ -700,7 +699,7 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 		//		used it, but the prefered way to change a thing's colors
 		//		is now with the palette field.
 		translated = true;
-		dc_translation = translationref_t(translationtables + (MAXPLAYERS-1)*256 +
+		dcol.translation = translationref_t(translationtables + (MAXPLAYERS-1)*256 +
 			( (vis->mobjflags & MF_TRANSLATION) >> (MF_TRANSSHIFT-8) ));
 	}
 
@@ -710,13 +709,13 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 		//		a NULL colormap. This allow proper substition of
 		//		translucency with light levels if desired. The original
 		//		code used colormap == NULL to indicate shadows.
-		dc_translevel = FRACUNIT/5;
+		dcol.translevel = FRACUNIT/5;
 		fuzz_effect = true;
 	}
 	else if (vis->translucency < FRACUNIT)
 	{	// [RH] draw translucent column
 		lucent = true;
-		dc_translevel = vis->translucency;
+		dcol.translevel = vis->translucency;
 	}
 
 	// [SL] Select the set of drawing functions to use
@@ -731,8 +730,8 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 	else if (translated)
 		R_SetTranslatedDrawFuncs();
 
-	dc_iscale = 0xffffffffu / (unsigned)vis->yscale;
-	dc_texturemid = vis->texturemid;
+	dcol.iscale = 0xffffffffu / (unsigned)vis->yscale;
+	dcol.texturemid = vis->texturemid;
 
 	static int top[MAXWIDTH];
 	static int bottom[MAXWIDTH];
@@ -751,8 +750,8 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 		maskedcols[x] = texture->getMaskColumnData(colfrac);
 		colfrac += vis->xiscale;
 
-		top[x] = MAX(mceilingclip[x], (centeryfrac - FixedMul(dc_texturemid, vis->yscale)) >> FRACBITS);
-		bottom[x] = MIN(mfloorclip[x], (centeryfrac - FixedMul(dc_texturemid - texheight, vis->yscale)) >> FRACBITS) - 1;
+		top[x] = MAX(mceilingclip[x], (centeryfrac - FixedMul(dcol.texturemid, vis->yscale)) >> FRACBITS);
+		bottom[x] = MIN(mfloorclip[x], (centeryfrac - FixedMul(dcol.texturemid - texheight, vis->yscale)) >> FRACBITS) - 1;
 	}
 
 	R_RenderColumnRange(vis->x1, vis->x2, top, bottom, spritecols, SpriteColumnBlaster, false);
@@ -870,7 +869,7 @@ static vissprite_t* R_GenerateVisSprite(const sector_t* sector, int fakeside,
 // R_ProjectSprite
 // Generates a vissprite for a thing if it might be visible.
 //
-void R_ProjectSprite (AActor *thing, int fakeside)
+void R_ProjectSprite(AActor *thing, int fakeside)
 {
 	spritedef_t*		sprdef;
 	spriteframe_t*		sprframe;
@@ -885,6 +884,7 @@ void R_ProjectSprite (AActor *thing, int fakeside)
 		(thing->player && thing->player->spectator))
 		return;
 
+	// position of the actor after applying interpolation
 	fixed_t thingx = thing->prevx + FixedMul(render_lerp_amount, thing->x - thing->prevx);
 	fixed_t thingy = thing->prevy + FixedMul(render_lerp_amount, thing->y - thing->prevy);
 	fixed_t thingz = thing->prevz + FixedMul(render_lerp_amount, thing->z - thing->prevz);
@@ -928,9 +928,6 @@ void R_ProjectSprite (AActor *thing, int fakeside)
 		R_CacheSprite (sprdef);	// [RH] speeds up game startup time
 
 	sector_t* sector = thing->subsector->sector;
-	fixed_t x = thing->x;
-	fixed_t y = thing->y;
-	fixed_t z = thing->z;
 	fixed_t topoffs = sprframe->topoffset[rot];
 	fixed_t sideoffs = sprframe->offset[rot];
 
@@ -938,7 +935,7 @@ void R_ProjectSprite (AActor *thing, int fakeside)
 	fixed_t height = patch->height() << FRACBITS;
 	fixed_t width = patch->width() << FRACBITS;
 
-	vissprite_t* vis = R_GenerateVisSprite(sector, fakeside, x, y, z, height, width, topoffs, sideoffs, flip);
+	vissprite_t* vis = R_GenerateVisSprite(sector, fakeside, thingx, thingy, thingz, height, width, topoffs, sideoffs, flip);
 
 	if (vis == NULL)
 		return;
@@ -1254,11 +1251,6 @@ void R_DrawSprite (vissprite_t *spr)
 	static int			cliptop[MAXWIDTH];
 	static int			clipbot[MAXWIDTH];
 
-	drawseg_t*			ds;
-	int 				x;
-	int 				r1, r2;
-	fixed_t 			segscale1, segscale2;
-
 	int					topclip = 0, botclip = viewheight;
 	int*				clip1;
 	int*				clip2;
@@ -1324,7 +1316,7 @@ void R_DrawSprite (vissprite_t *spr)
 	// (pointer check was originally nonportable
 	// and buggy, by going past LEFT end of array):
 
-	for (ds = ds_p ; ds-- > drawsegs ; )  // new -- killough
+	for (drawseg_t* ds = ds_p ; ds-- > drawsegs ; )  // new -- killough
 	{
 		// determine if the drawseg obscures the sprite
 		if (ds->x1 > spr->x2 || ds->x2 < spr->x1 ||
@@ -1334,33 +1326,72 @@ void R_DrawSprite (vissprite_t *spr)
 			continue;
 		}
 
-		r1 = MAX<int>(ds->x1, spr->x1);
-		r2 = MIN<int>(ds->x2, spr->x2);
+		// determine which part of the sprite overlaps with the seg
+		int overlap1 = ds->x1, overlap2 = ds->x2;
+		fixed_t segscale1 = ds->scale1, segscale2 = ds->scale2;
 
-		segscale1 = MAX<int>(ds->scale1, ds->scale2);
-		segscale2 = MIN<int>(ds->scale1, ds->scale2);
-
-		// check if the seg is in front of the sprite
-		if (segscale1 < spr->yscale ||
-			(segscale2 < spr->yscale && !R_PointOnSegSide(spr->gx, spr->gy, ds->curline)))
+		if (ds->x1 < spr->x1)
 		{
-			// masked mid texture?
-			if (ds->maskedmidcols)
-				R_RenderMaskedSegRange(ds, r1, r2);
-			// seg is behind sprite
-			continue;
+			overlap1 = spr->x1;
+			segscale1 = ds->scale1 + ds->scalestep * (spr->x1 - ds->x1);
 		}
 
-		// clip this piece of the sprite
-		// killough 3/27/98: optimized and made much shorter
+		if (ds->x2 > spr->x2)
+		{
+			overlap2 = spr->x2;
+			segscale2 = ds->scale2 - ds->scalestep * (ds->x2 - spr->x2);
+		}
 
-		for (x = r1; x <= r2; x++)
+		int clip1 = viewwidth, clip2 = -1;
+		int masked1 = viewwidth, masked2 = -1;
+	
+		if (segscale1 <= spr->yscale &&  segscale2 <= spr->yscale)
+		{
+			// the sprite is entirely in front of the drawseg
+			masked1 = overlap1; masked2 = overlap2;
+		}
+		else if (segscale1 > spr->yscale && segscale2 > spr->yscale)
+		{
+			// the drawseg is entirely in front of the sprite
+			clip1 = overlap1; clip2 = overlap2;
+		}
+		else
+		{
+			// part of the sprite is in front of the drawseg and part is behind...
+
+			#if 0
+			// find out where the intersection column is
+			fixed_t t = FixedDiv(spr->yscale - segscale1, segscale2 - segscale1);
+			int col = overlap1 + FixedMul(overlap2 - overlap1, t);
+
+			if (segscale1 > spr->yscale)
+			{
+				clip1 = overlap1; clip2 = col;
+				masked1 = col + 1; masked2 = overlap2;
+			}
+			else
+			{
+				clip1 = col + 1; clip2 = overlap2;
+				masked1 = overlap1; masked2 = col;
+			}
+			#else
+			clip1 = viewwidth; clip2 = -1;
+			masked1 = overlap1; masked2 = overlap2;	
+			#endif
+		}
+
+		// clip the part of the sprite that's behind the drawseg
+		for (int x = clip1; x <= clip2; x++)
 		{
 			if (ds->silhouette & SIL_BOTTOM && clipbot[x] > ds->sprbottomclip[x])
 				clipbot[x] = ds->sprbottomclip[x];
 			if (ds->silhouette & SIL_TOP && cliptop[x] < ds->sprtopclip[x])
 				cliptop[x] = ds->sprtopclip[x];
 		}
+
+		// render the part of the drawseg's masked midtexture that's behind the sprite
+		if (masked1 <= masked2 && ds->maskedmidcols)
+			R_RenderMaskedSegRange(ds, masked1, masked2);
 	}
 
 	// all clipping has been performed, so draw the sprite
@@ -1573,15 +1604,15 @@ void R_DrawParticle(vissprite_t* vis)
 	int y1 = MAX(vis->y1, MAX(mceilingclip[x1] + 1, mceilingclip[x2] + 1));
 	int y2 = MIN(vis->y2, MIN(mfloorclip[x1] - 1, mfloorclip[x2] - 1));
 
-	ds_x1 = vis->x1;
-	ds_x2 = vis->x2;
-	ds_colormap = vis->colormap;
+	dspan.x1 = vis->x1;
+	dspan.x2 = vis->x2;
+	dspan.colormap = vis->colormap;
 	// vis->mobjflags holds translucency level (0-255)
-	dc_translevel = (vis->mobjflags + 1) << 8;	// TODO: change to ds_translevel
+	dspan.translevel = (vis->mobjflags + 1) << 8;
 	// vis->startfrac holds palette color index
-	ds_color = vis->startfrac;
+	dspan.color = vis->startfrac;
 
-	for (ds_y = y1; ds_y <= y2; ds_y++)
+	for (dspan.y = y1; dspan.y <= y2; dspan.y++)
 		R_FillTranslucentSpan();
 }
 

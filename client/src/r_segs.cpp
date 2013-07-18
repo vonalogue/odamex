@@ -145,14 +145,14 @@ static void R_FillWallHeightArray(
 //
 static inline void R_BlastMaskedSegColumn(void (*drawfunc)())
 {
-	if (wallscalex[dc_x] <= 0)
+	if (wallscalex[dcol.x] <= 0)
 		return;
 
-	dc_iscale = 0xffffffffu / unsigned(wallscalex[dc_x]);
-	// TODO: dc_texturefrac should take y-scaling of textures into account
-	dc_texturefrac = dc_texturemid + FixedMul((dc_yl - centery + 1) << FRACBITS, dc_iscale);
+	dcol.iscale = 0xffffffffu / unsigned(wallscalex[dcol.x]);
+	// TODO: dcol.texturefrac should take y-scaling of textures into account
+	dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
 
-	if (dc_yl <= dc_yh)
+	if (dcol.yl <= dcol.yh)
 		drawfunc();
 }
 
@@ -167,14 +167,14 @@ inline void MaskedColumnBlaster()
 //
 static inline void R_BlastSolidSegColumn(void (*drawfunc)())
 {
-	if (wallscalex[dc_x] <= 0)
+	if (wallscalex[dcol.x] <= 0)
 		return;
 
-	dc_iscale = 0xffffffffu / unsigned(wallscalex[dc_x]);
-	// TODO: dc_texturefrac should take y-scaling of textures into account
-	dc_texturefrac = dc_texturemid + FixedMul((dc_yl - centery + 1) << FRACBITS, dc_iscale);
+	dcol.iscale = 0xffffffffu / unsigned(wallscalex[dcol.x]);
+	// TODO: dcol.texturefrac should take y-scaling of textures into account
+	dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
 
-	if (dc_yl <= dc_yh)
+	if (dcol.yl <= dcol.yh)
 		drawfunc();
 }
 
@@ -188,12 +188,12 @@ inline void R_ColumnSetup(int x, int* top, int* bottom, tallpost_t** posts, bool
 	if (calc_light)
 	{
 		int index = MIN(rw_light >> LIGHTSCALESHIFT, MAXLIGHTSCALE - 1);
-		dc_colormap = basecolormap.with(walllights[index]);
+		dcol.colormap = basecolormap.with(walllights[index]);
 	}
 
-	dc_yl = MAX(top[x], 0);
-	dc_yh = MIN(bottom[x], viewheight - 1);
-	dc_post = posts[x];
+	dcol.yl = MAX(top[x], 0);
+	dcol.yh = MIN(bottom[x], viewheight - 1);
+	dcol.post = posts[x];
 }
 
 
@@ -231,12 +231,12 @@ void R_RenderColumnRange(int start, int stop, int* top, int* bottom, byte** cols
 	{
 		if (fixedlightlev)
 		{
-			dc_colormap = basecolormap.with(fixedlightlev);
+			dcol.colormap = basecolormap.with(fixedlightlev);
 			calc_light = false;
 		}
 		else if (fixedcolormap.isValid())
 		{
-			dc_colormap = fixedcolormap;	
+			dcol.colormap = fixedcolormap;	
 			calc_light = false;
 		}
 		else
@@ -279,12 +279,12 @@ void R_RenderColumnRange(int start, int stop, int* top, int* bottom, byte** cols
 			for (int x = blockstartx; x <= blockstopx; x++)
 			{
 				if (calc_light)
-					dc_colormap = basecolormap.with(light_lookup[x]);
+					dcol.colormap = basecolormap.with(light_lookup[x]);
 
-				dc_x = x;
-				dc_yl = MAX(top[x], blockstarty);
-				dc_yh = MIN(bottom[x], blockstopy);
-				dc_source = cols[x];
+				dcol.x = x;
+				dcol.yl = MAX(top[x], blockstarty);
+				dcol.yh = MIN(bottom[x], blockstopy);
+				dcol.source = cols[x];
 				colblast();
 			}
 		}
@@ -361,9 +361,9 @@ void R_RenderSolidSegRange(int start, int stop)
 		rw_light = initial_light;
 
 		const Texture* texture = texturemanager.getTexture(midtexture);
-		dc_textureheight = texture->getHeight();
+		dcol.textureheight = texture->getHeight();
 
-		dc_texturemid = rw_midtexturemid;
+		dcol.texturemid = rw_midtexturemid;
 
 		R_RenderColumnRange(start, stop, walltopf, lower, midcols, SolidColumnBlaster, true);
 
@@ -385,8 +385,8 @@ void R_RenderSolidSegRange(int start, int stop)
 			}
 
 			const Texture* texture = texturemanager.getTexture(toptexture);
-			dc_textureheight = texture->getHeight();
-			dc_texturemid = rw_toptexturemid;
+			dcol.textureheight = texture->getHeight();
+			dcol.texturemid = rw_toptexturemid;
 
 			R_RenderColumnRange(start, stop, walltopf, lower, topcols, SolidColumnBlaster, true);
 
@@ -410,8 +410,8 @@ void R_RenderSolidSegRange(int start, int stop)
 			}
 
 			const Texture* texture = texturemanager.getTexture(bottomtexture);
-			dc_textureheight = texture->getHeight();
-			dc_texturemid = rw_bottomtexturemid;
+			dcol.textureheight = texture->getHeight();
+			dcol.texturemid = rw_bottomtexturemid;
 
 			R_RenderColumnRange(start, stop, wallbottomb, lower, bottomcols, SolidColumnBlaster, true);
 
@@ -451,7 +451,7 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 	if (curline->linedef->lucency < 240)
 	{
 		R_SetLucentDrawFuncs();
-		dc_translevel = curline->linedef->lucency << 8;
+		dcol.translevel = curline->linedef->lucency << 8;
 	}
 	else
 	{
@@ -473,12 +473,12 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 
 	if (curline->linedef->flags & ML_DONTPEGBOTTOM)
 	{
-		dc_texturemid = MAX(P_FloorHeight(frontsector), P_FloorHeight(backsector))
+		dcol.texturemid = MAX(P_FloorHeight(frontsector), P_FloorHeight(backsector))
 						+ texheight - viewz + curline->sidedef->rowoffset;
 
 		for (int x = x1; x <= x2; x++)
 		{
-			top[x] = MAX((centeryfrac - FixedMul(dc_texturemid, scalefrac)) >> FRACBITS, ds->sprtopclip[x]);
+			top[x] = MAX((centeryfrac - FixedMul(dcol.texturemid, scalefrac)) >> FRACBITS, ds->sprtopclip[x]);
 			bottom[x] = ds->sprbottomclip[x] - 1;
 
 			wallscalex[x] = scalefrac;
@@ -488,13 +488,13 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 	}
 	else
 	{
-		dc_texturemid = MIN(P_CeilingHeight(frontsector), P_CeilingHeight(backsector))
+		dcol.texturemid = MIN(P_CeilingHeight(frontsector), P_CeilingHeight(backsector))
 						- viewz + curline->sidedef->rowoffset;
 
 		for (int x = x1; x <= x2; x++)
 		{
 			top[x] = ds->sprtopclip[x];
-			bottom[x] = MIN((centeryfrac - FixedMul(dc_texturemid - texheight, scalefrac)) >> FRACBITS, ds->sprbottomclip[x]) - 1;
+			bottom[x] = MIN((centeryfrac - FixedMul(dcol.texturemid - texheight, scalefrac)) >> FRACBITS, ds->sprbottomclip[x]) - 1;
 
 			wallscalex[x] = scalefrac;
 			scalefrac += scalestep;
@@ -506,8 +506,8 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 		return;
 
 	maskedmidcols = ds->maskedmidcols;
-	dc_color = (dc_color + 4) & 0xFF;	// color if using r_drawflat
-	dc_textureheight = 256*FRACUNIT;
+	dcol.color = (dcol.color + 4) & 0xFF;	// color if using r_drawflat
+	dcol.textureheight = 256*FRACUNIT;
 
 	basecolormap = frontsector->floorcolormap->maps;	// [RH] Set basecolormap
 

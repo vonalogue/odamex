@@ -140,9 +140,9 @@ void R_InitSkyMap ()
 //
 static inline void R_BlastSkyColumn(void (*drawfunc)(void))
 {
-	if (dc_yl <= dc_yh)
+	if (dcol.yl <= dcol.yh)
 	{
-		dc_texturefrac = dc_texturemid + (dc_yl - centery + 1) * dc_iscale;
+		dcol.texturefrac = dcol.texturemid + (dcol.yl - centery + 1) * dcol.iscale;
 		drawfunc();
 	}
 }
@@ -231,25 +231,25 @@ void R_RenderSkyRange(visplane_t* pl)
 
 	const Texture* texture = texturemanager.getTexture(skytexhandle);
 
-	dc_iscale = skyiscale >> skystretch;
-	dc_texturemid = skytexturemid;
-	dc_textureheight = texture->getHeight();
+	dcol.iscale = skyiscale >> skystretch;
+	dcol.texturemid = skytexturemid;
+	dcol.textureheight = texture->getHeight();
 	skyplane = pl;
 
 	// set up the appropriate colormap for the sky
 	if (fixedlightlev)
 	{
-		dc_colormap = shaderef_t(&pal->maps, fixedlightlev);
+		dcol.colormap = shaderef_t(&pal->maps, fixedlightlev);
 	}
 	else if (fixedcolormap.isValid() && r_skypalette)
 	{
-		dc_colormap = fixedcolormap;
+		dcol.colormap = fixedcolormap;
 	}
 	else
 	{
 		// [SL] 2011-06-28 - Emulate vanilla Doom's handling of skies
 		// when the player has the invulnerability powerup
-		dc_colormap = shaderef_t(&pal->maps, 0);
+		dcol.colormap = shaderef_t(&pal->maps, 0);
 	}
 
 

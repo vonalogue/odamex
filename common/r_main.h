@@ -113,6 +113,7 @@ extern "C" int			detailyshift;
 // Function pointers to switch refresh/drawing functions.
 //
 extern void 			(*colfunc) (void);
+extern void 			(*maskedcolfunc) (void);
 extern void 			(*spanfunc) (void);
 extern void				(*spanslopefunc) (void);
 

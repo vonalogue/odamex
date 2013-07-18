@@ -85,9 +85,18 @@ EXTERN_CVAR (vid_defheight)
 EXTERN_CVAR (vid_32bpp)
 EXTERN_CVAR (vid_autoadjust)
 EXTERN_CVAR (vid_overscan)
-CVAR_FUNC_IMPL (vid_capfps)
+
+CVAR_FUNC_IMPL (vid_uncapfps)
 {
-	capfps = var != 0;
+	capfps = (var == 0);
+}
+
+CVAR_FUNC_IMPL (vid_maxfps)
+{
+	if (var < 35.0f)
+		var.Set(35.0f);
+	else
+		maxfps = var;
 }
 
 EXTERN_CVAR (ui_dimamount)
@@ -433,15 +442,15 @@ void DCanvas::Lock ()
 
 		if (this == screen)
 		{
-			if (dc_pitch != pitch << detailyshift)
+			if (dcol.pitch != pitch << detailyshift)
 			{
-				dc_pitch = pitch << detailyshift;
+				dcol.pitch = pitch << detailyshift;
 				R_InitFuzzTable ();
 			}
 
-			if (1 << detailxshift != ds_colsize)
+			if (1 << detailxshift != dspan.colsize)
 			{
-				ds_colsize = 1 << detailxshift;
+				dspan.colsize = 1 << detailxshift;
 			}
 		}
 	}
