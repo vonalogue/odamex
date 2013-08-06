@@ -64,6 +64,9 @@
 // [RH] Needed for sky scrolling
 #include "r_sky.h"
 
+EXTERN_CVAR(sv_allowexit)
+EXTERN_CVAR(sv_fragexitswitch)
+
 std::list<movingsector_t> movingsectors;
 
 //
@@ -1342,6 +1345,27 @@ void OnActivatedLine (line_t *line, AActor *mo, int side, int activationType);
 //
 
 //
+// P_HandleSpecialRepeat
+//
+// If a line's special function is not supposed to be repeatable,
+// remove the line special function from the line. This takes
+// into account special circumstances like exit specials that are
+// supposed to frag the triggering player during online play.
+//
+void P_HandleSpecialRepeat(line_t* line)
+{
+	// [SL] Don't remove specials from fragging exit line specials
+	if ((line->special == Exit_Normal || line->special == Exit_Secret || 
+		 line->special == Teleport_EndGame || line->special == Teleport_NewMap) &&
+		(!sv_allowexit && sv_fragexitswitch))
+		return;
+
+	if (!(line->flags & ML_REPEAT_SPECIAL))
+		line->special = 0;
+}
+
+
+//
 // P_CrossSpecialLine - TRIGGER
 // Called every time a thing origin is about
 //  to cross a line with a non 0 special.
@@ -1448,7 +1472,8 @@ P_CrossSpecialLine
 	LineSpecials[line->special] (line, thing, line->args[0],
 					line->args[1], line->args[2],
 					line->args[3], line->args[4]);
-	line->special = line->flags & ML_REPEAT_SPECIAL ? line->special : 0;
+
+	P_HandleSpecialRepeat(line);
 
 	OnActivatedLine(line, thing, side, 0);
 }
@@ -1484,7 +1509,8 @@ P_ShootSpecialLine
 					line->args[1], line->args[2],
 					line->args[3], line->args[4]);
 
-	line->special = line->flags & ML_REPEAT_SPECIAL ? line->special : 0;
+	P_HandleSpecialRepeat(line);
+
 	OnActivatedLine(line, thing, 0, 2);
 
 	if(serverside)
@@ -1560,7 +1586,8 @@ P_UseSpecialLine
 					line->args[1], line->args[2],
 					line->args[3], line->args[4]))
 	{
-		line->special = line->flags & ML_REPEAT_SPECIAL ? line->special : 0;
+		P_HandleSpecialRepeat(line);
+
 		OnActivatedLine(line, thing, side, 1);
 
 		if(serverside && GET_SPAC(line->flags) != SPAC_PUSH)
@@ -1625,7 +1652,8 @@ P_PushSpecialLine
 					line->args[1], line->args[2],
 					line->args[3], line->args[4]))
 	{
-		line->special = line->flags & ML_REPEAT_SPECIAL ? line->special : 0;
+		P_HandleSpecialRepeat(line);
+
 		OnActivatedLine(line, thing, side, 3);
 
 		if(serverside)

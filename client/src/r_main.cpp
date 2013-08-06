@@ -42,9 +42,11 @@
 #include "z_zone.h"
 #include "i_video.h"
 #include "vectors.h"
+#include "f_wipe.h"
 
 void R_BeginInterpolation(fixed_t amount);
 void R_EndInterpolation();
+void R_InterpolateCamera(fixed_t amount);
 
 #define DISTMAP			2
 
@@ -505,6 +507,9 @@ void R_InitTextureMapping (void)
 void R_SetFOV(float fov, bool force = false)
 {
 	fov = clamp(fov, 1.0f, 179.0f);
+
+	if (fov == LastFOV && force == false)
+		return;
  
 	LastFOV = fov;
 	FieldOfView = int(fov * FINEANGLES / 360.0f);
@@ -886,21 +891,22 @@ void R_SetupFrame (player_t *player)
 		viewx = CameraX;
 		viewy = CameraY;
 		viewz = CameraZ;
+		viewangle = viewangleoffset + camera->angle;
 	}
 	else
 	{
-		// [SL] interpolate between the current position and the previous position
-		// of the camera. If not using uncapped framerate / interpolation,
-		// render_lerp_amount will be FRACUJNIT.
-		viewx = camera->prevx + FixedMul(render_lerp_amount, camera->x - camera->prevx);
-		viewy = camera->prevy + FixedMul(render_lerp_amount, camera->y - camera->prevy);
-		if (camera->player)
-			viewz = camera->player->prevviewz + FixedMul(render_lerp_amount, camera->player->viewz - camera->player->prevviewz);
+		if (render_lerp_amount < FRACUNIT)
+		{
+			R_InterpolateCamera(render_lerp_amount);
+		}
 		else
-			viewz = camera->prevz + FixedMul(render_lerp_amount, camera->z - camera->prevz);
+		{
+			viewx = camera->x;
+			viewy = camera->y;
+			viewz = camera->player ? camera->player->viewz : camera->z;
+			viewangle = viewangleoffset + camera->angle;
+		}
 	}
-
-	viewangle = camera->prevangle + FixedMul(render_lerp_amount, camera->angle - camera->prevangle) + viewangleoffset;
 
 	if (camera->player && camera->player->xviewshift && !paused)
 	{

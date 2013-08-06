@@ -54,6 +54,7 @@ EXTERN_CVAR (vid_fullscreen)
 EXTERN_CVAR (vid_defwidth)
 EXTERN_CVAR (vid_defheight)
 
+static int mouse_driver_id = -1;
 static MouseInput* mouse_input = NULL;
 
 static bool window_focused = false;
@@ -183,6 +184,7 @@ static void I_UpdateFocus()
 //
 static void I_UpdateInputGrabbing()
 {
+#ifndef GCONSOLE
 	bool can_grab = false;
 	bool grabbed = SDL_WM_GrabInput(SDL_GRAB_QUERY);
 
@@ -215,6 +217,7 @@ static void I_UpdateInputGrabbing()
 		SDL_WM_GrabInput(SDL_GRAB_OFF);
 		I_PauseMouse();
 	}
+#endif
 }
 
 
@@ -482,9 +485,10 @@ bool I_InitInput (void)
 	//g_hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL,  LowLevelKeyboardProc, GetModuleHandle(NULL), 0);
 #endif
 
-	I_InitMouseDriver();
 	I_InitFocus();
-	I_UpdateInputGrabbing();
+
+	// [SL] do not intialize mouse driver here since it will be called from
+	// the mouse_driver CVAR callback
 
 	return true;
 }
@@ -510,10 +514,7 @@ void I_PauseMouse()
 {
 	SDL_ShowCursor(true);
 	if (mouse_input)
-	{
 		mouse_input->pause();
-		mouse_input->center();
-	}
 }
 
 //
@@ -548,9 +549,9 @@ void I_GetEvent()
 
 	// Force SDL to gather events from input devices. This is called
 	// implicitly from SDL_PollEvent but since we're using SDL_PeepEvents to
-	// process only mouse events, SDL_PumpEvents is necessary.
+	// process only non-mouse events, SDL_PumpEvents is necessary.
 	SDL_PumpEvents();
-	int num_events = SDL_PeepEvents(sdl_events, MAX_EVENTS, SDL_GETEVENT, SDL_ALLEVENTS);
+	int num_events = SDL_PeepEvents(sdl_events, MAX_EVENTS, SDL_GETEVENT, SDL_ALLEVENTS & ~SDL_MOUSEEVENTMASK); 
 
 	for (int i = 0; i < num_events; i++)
 	{
@@ -581,6 +582,9 @@ void I_GetEvent()
 		case SDL_ACTIVEEVENT:
 			// need to update our focus state
 			I_UpdateFocus();
+			// pause the mouse when the focus goes away (eg, alt-tab)
+			if (!window_focused)
+				I_PauseMouse();
 			break;
 
 		case SDL_KEYDOWN:
@@ -756,9 +760,26 @@ static bool I_IsMouseDriverValid(int id)
 CVAR_FUNC_IMPL(mouse_driver)
 {
 	if (!I_IsMouseDriverValid(var))
-		var.Set(SDL_MOUSE_DRIVER);
+	{
+		if (var.asInt() == SDL_MOUSE_DRIVER)
+		{
+			// can't initialize SDL_MOUSE_DRIVER so don't use a mouse
+			I_ShutdownMouseDriver();
+			nomouse = true;
+		}
+		else
+		{
+			var.Set(SDL_MOUSE_DRIVER);
+		}
+	}
 	else
-		I_InitMouseDriver();
+	{
+		if (var.asInt() != mouse_driver_id)
+		{
+			mouse_driver_id = var.asInt();
+			I_InitMouseDriver();
+		}
+	}
 }
 
 //
@@ -772,6 +793,20 @@ void I_ShutdownMouseDriver()
 	mouse_input = NULL;
 }
 
+static void I_SetSDLIgnoreMouseEvents()
+{
+	SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
+	SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_IGNORE);
+	SDL_EventState(SDL_MOUSEBUTTONUP, SDL_IGNORE);
+}
+
+static void I_UnsetSDLIgnoreMouseEvents()
+{
+	SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
+	SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_ENABLE);
+	SDL_EventState(SDL_MOUSEBUTTONUP, SDL_ENABLE);
+}
+
 //
 // I_InitMouseDriver
 //
@@ -782,11 +817,14 @@ void I_InitMouseDriver()
 {
 	I_ShutdownMouseDriver();
 
+	// ignore SDL mouse input for now... The mouse driver will change this if needed
+	I_SetSDLIgnoreMouseEvents();
+
 	if (nomouse)
 		return;
 
 	// try to initialize the user's preferred mouse driver
-	MouseDriverInfo_t* info = I_FindMouseDriverInfo(mouse_driver);
+	MouseDriverInfo_t* info = I_FindMouseDriverInfo(mouse_driver_id);
 	if (info)
 	{
 		if (info->create != NULL)
@@ -807,6 +845,7 @@ void I_InitMouseDriver()
 			Printf(PRINT_HIGH, "I_InitMouseDriver: Unable to initialize SDL Mouse input as a fallback.\n");
 	}
 
+	I_FlushInput();
 	I_ResumeMouse();
 }
 
@@ -817,7 +856,7 @@ void I_InitMouseDriver()
 // This is used to determine if the user's version of Windows has the necessary
 // functions availible.
 //
-#ifdef WIN32
+#if defined(WIN32) && !defined(_XBOX)
 static bool I_CheckForProc(const char* dllname, const char* procname)
 {
 	bool avail = false;
@@ -1199,7 +1238,6 @@ void RawWin32Mouse::pause()
 void RawWin32Mouse::resume()
 {
 	mActive = true;
-	center();
 	flushEvents();
 
 	registerMouseDevice();
@@ -1509,6 +1547,7 @@ void SDLMouse::processEvents()
 				D_PostEvent(&button_event);
 			break;
 		}
+
 		case SDL_MOUSEBUTTONUP:
 		{
 			event_t button_event;
@@ -1537,9 +1576,10 @@ void SDLMouse::processEvents()
 	}
 
 	if (movement_event.data2 || movement_event.data3)
+	{
 		D_PostEvent(&movement_event);
-
-	center();
+		center();
+	}
 }
 
 //
@@ -1550,12 +1590,25 @@ void SDLMouse::processEvents()
 //
 void SDLMouse::center()
 {
-	if (screen)
+	// warp the mouse to the center of the screen
+	SDL_WarpMouse(I_GetVideoWidth() / 2, I_GetVideoHeight() / 2);
+
+	// SDL_WarpMouse inserts a mouse event to warp the cursor to the center of the screen
+	// we need to filter out this event
+	SDL_PumpEvents();
+	int num_events = SDL_PeepEvents(mEvents, MAX_EVENTS, SDL_GETEVENT, SDL_MOUSEMOTIONMASK);
+
+	for (int i = 0; i < num_events; i++)
 	{
-		// warp the mouse to the center of the screen
-		SDL_WarpMouse(I_GetVideoWidth() / 2, I_GetVideoHeight() / 2);
-		// SDL_WarpMouse creates a new event in the queue and needs to be thrown out
-		flushEvents();
+		SDL_Event* sdl_ev = &mEvents[i];
+		if (sdl_ev->type != SDL_MOUSEMOTION ||
+			sdl_ev->motion.x != I_GetVideoWidth() / 2 ||
+			sdl_ev->motion.y != I_GetVideoHeight() / 2)
+		{
+			// this event is not the event caused by SDL_WarpMouse so add it back
+			// to the event queue
+			SDL_PushEvent(sdl_ev);
+		}
 	}
 }
 
@@ -1569,13 +1622,14 @@ bool SDLMouse::paused() const
 void SDLMouse::pause()
 {
 	mActive = false;
+	I_SetSDLIgnoreMouseEvents();
 }
 
 
 void SDLMouse::resume()
 {
 	mActive = true;
-	center();
+	I_UnsetSDLIgnoreMouseEvents();
 }
 
 
@@ -1584,7 +1638,7 @@ void SDLMouse::resume()
 //
 void SDLMouse::debug() const
 {
-#ifdef WIN32
+#if defined(WIN32) && !defined(_XBOX)
 	// get a handle to the window
 	SDL_SysWMinfo wminfo;
 	SDL_VERSION(&wminfo.version)

@@ -244,49 +244,6 @@ forceinline T clamp (const T in, const T min, const T max)
 	return in <= min ? min : in >= max ? max : in;
 }
 
-
-#define MAKERGB(r,g,b)		(((r)<<16)|((g)<<8)|(b))
-#define MAKEARGB(a,r,g,b)	(((a)<<24)|((r)<<16)|((g)<<8)|(b))
-
-#define APART(c)			(((c)>>24)&0xff)
-#define RPART(c)			(((c)>>16)&0xff)
-#define GPART(c)			(((c)>>8)&0xff)
-#define BPART(c)			((c)&0xff)
-
-
-// Alpha blend between two RGB colors with only dest alpha value
-// 0 <=   toa <= 255
-forceinline argb_t alphablend1a(const argb_t from, const argb_t to, const int toa)
-{
-	const int fr = RPART(from);
-	const int fg = GPART(from);
-	const int fb = BPART(from);
-
-	const int dr = RPART(to) - fr;
-	const int dg = GPART(to) - fg;
-	const int db = BPART(to) - fb;
-
-	return MAKERGB(
-		fr + ((dr * toa) >> 8),
-		fg + ((dg * toa) >> 8),
-		fb + ((db * toa) >> 8)
-	);
-}
-
-// Alpha blend between two RGB colors with two alpha values
-// 0 <= froma <= 255
-// 0 <=   toa <= 255
-forceinline argb_t alphablend2a(const argb_t from, const int froma, const argb_t to, const int toa)
-{
-	return MAKERGB(
-		(RPART(from) * froma + RPART(to) * toa) >> 8,
-		(GPART(from) * froma + GPART(to) * toa) >> 8,
-		(BPART(from) * froma + BPART(to) * toa) >> 8
-	);
-}
-
-
-
 class translationref_t
 {
 	const palindex_t *m_table;

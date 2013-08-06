@@ -48,6 +48,11 @@
 EXTERN_CVAR (vid_autoadjust)
 EXTERN_CVAR (vid_vsync)
 
+CVAR_FUNC_IMPL(vid_vsync)
+{
+	setmodeneeded = true;
+}
+
 SDLVideo::SDLVideo(int parm)
 {
 	const SDL_version *SDLVersion = SDL_Linked_Version();
@@ -217,17 +222,14 @@ bool SDLVideo::SetOverscan (float scale)
 
 bool SDLVideo::SetMode(int width, int height, int bits, bool fullscreen)
 {
-	Uint32 flags = SDL_SWSURFACE;
-
-	// SoM: I'm not sure if we should request a software or hardware surface yet... So I'm
-	// just ganna let SDL decide.
+	Uint32 flags = (vid_vsync ? SDL_HWSURFACE | SDL_DOUBLEBUF : SDL_SWSURFACE);
 
 	if (fullscreen && !vidModeList.empty())
 		flags |= SDL_FULLSCREEN;
 	else
 		flags |= SDL_RESIZABLE;
 
-	if (bits == 8)
+	if (fullscreen && bits == 8)
 		flags |= SDL_HWPALETTE;
 
 	// TODO: check for multicore
@@ -238,7 +240,18 @@ bool SDLVideo::SetMode(int width, int height, int bits, bool fullscreen)
 	// disable them prior to reinitalizing DirectInput...
 	I_PauseMouse();
 
-   if (!(sdlScreen = SDL_SetVideoMode(width, height, bits, flags)))
+	int sbits = bits;
+
+	#ifdef WIN32
+	// fullscreen directx requires a 32-bit mode to fix broken palette
+	// [Russell] - Use for gdi as well, fixes d2 map02 water
+	if (fullscreen)
+		sbits = 32;
+	#endif
+
+	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, vid_vsync);
+
+	if (!(sdlScreen = SDL_SetVideoMode(width, height, sbits, flags)))
 		return false;
 
 	// [SL] ...and re-enable RawWin32Mouse's input handlers after
@@ -369,29 +382,9 @@ DCanvas *SDLVideo::AllocateSurface(int width, int height, int bits, bool primary
 	scrn->buffer = NULL;
 
 	SDL_Surface* new_surface;
-
-	unsigned int rmask = 0;
-	unsigned int gmask = 0;
-	unsigned int bmask = 0;
-
-	if (bits == 32)
-	{
-		// SDL interprets each pixel as a 32-bit number, so our masks must depend
-		// on the endianness (byte order) of the machine
-		#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-		rmask = 0x0000ff00;
-		gmask = 0x00ff0000;
-		bmask = 0xff000000;
-		#else
-		rmask = 0x00ff0000;
-		gmask = 0x0000ff00;
-		bmask = 0x000000ff;
-		#endif
-	}
-
 	Uint32 flags = SDL_SWSURFACE;
 
-	new_surface = SDL_CreateRGBSurface(flags, width, height, bits, rmask, gmask, bmask, 0);
+	new_surface = SDL_CreateRGBSurface(flags, width, height, bits, 0, 0, 0, 0);
 
 	if (!new_surface)
 		I_FatalError("SDLVideo::AllocateSurface failed to allocate an SDL surface.");
@@ -399,9 +392,27 @@ DCanvas *SDLVideo::AllocateSurface(int width, int height, int bits, bool primary
 	if (new_surface->pitch != (width * (bits / 8)) && vid_autoadjust)
 		Printf(PRINT_HIGH, "Warning: SDLVideo::AllocateSurface got a surface with an abnormally wide pitch.\n");
 
+	// determine format of 32bpp pixels
+	if (bits == 32)
+	{
+		SDL_PixelFormat* fmt = new_surface->format;
+		// find which byte is not used and use it for alpha (SDL always reports 0 for alpha)
+		scrn->setAlphaShift(48 - (fmt->Rshift + fmt->Gshift + fmt->Bshift));
+		scrn->setRedShift(fmt->Rshift);
+		scrn->setGreenShift(fmt->Gshift);
+		scrn->setBlueShift(fmt->Bshift);
+	}
+	else
+	{
+		scrn->setAlphaShift(24);
+		scrn->setRedShift(16);
+		scrn->setGreenShift(8);
+		scrn->setBlueShift(0);
+	}
+
 	scrn->m_Private = new_surface;
 	scrn->pitch = new_surface->pitch;
-	
+
 	surfaceList.push_back(scrn);
 
 	return scrn;

@@ -30,6 +30,11 @@
 #include <stdarg.h>
 #include <math.h>
 
+#ifdef OSX
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 #include "win32inc.h"
 #ifdef WIN32
     #include <conio.h>
@@ -174,7 +179,16 @@ void I_EndRead(void)
 //
 uint64_t I_GetTime()
 {
-#if defined UNIX
+#if defined OSX
+	clock_serv_t cclock;
+	mach_timespec_t mts;
+
+	host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &cclock);
+	clock_get_time(cclock, &mts);
+	mach_port_deallocate(mach_task_self(), cclock);
+	return mts.tv_sec * 1000LL * 1000LL * 1000LL + mts.tv_nsec;
+
+#elif defined UNIX
 	timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return ts.tv_sec * 1000LL * 1000LL * 1000LL + ts.tv_nsec;
@@ -200,20 +214,6 @@ uint64_t I_GetTime()
 
 	return nanoseconds_per_count * (current_count - initial_count);
 
-#else
-	// [SL] use SDL_GetTicks, but account for the fact that after
-	// 49 days, it wraps around since it returns a 32-bit int
-	static const uint64_t mask = 0xFFFFFFFFLL;
-	static uint64_t last_time = 0LL;
-	uint64_t current_time = SDL_GetTicks();
-
-	if (current_time < (last_time & mask))      // just wrapped around
-		last_time += mask + 1 - (last_time & mask) + current_time;
-	else
-		last_time = current_time;
-
-	return last_time * 1000000LL;
-
 #endif
 }
 
@@ -232,52 +232,18 @@ QWORD I_MSTime()
 //
 void I_Sleep(uint64_t sleep_time)
 {
-	const uint64_t one_billion = 1000LL * 1000LL * 1000LL;
-
 #if defined UNIX
-	uint64_t start_time = I_GetTime();
-	int result;
+	usleep(sleep_time / 1000LL);
 
-	// loop to finish sleeping  if select() gets interrupted by the signal handler
-	do
-	{
-		uint64_t current_time = I_GetTime();
-		sleep_time -= current_time - start_time;
-
-		struct timeval timeout;
-		timeout.tv_sec = sleep_time / one_billion;
-		timeout.tv_usec = (sleep_time % one_billion) / 1000;
-
-		result = select(0, NULL, NULL, NULL, &timeout);
-	} while (result == -1 && errno == EINTR);
-
-#elif defined WIN32
-	uint64_t start_time = I_GetTime();
-	if (sleep_time > 5000000LL)
-		sleep_time -= 500000LL;		// [SL] hack to get the timing right for 35Hz
-
-	// have to create a dummy socket for select to work on Windows
-	static bool initialized = false;
-	static fd_set dummy;
-
-	if (!initialized)
-	{
-		SOCKET s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-		FD_ZERO(&dummy);
-		FD_SET(s, &dummy);
-	}
-
-	struct timeval timeout;
-	timeout.tv_sec = sleep_time / one_billion;
-	timeout.tv_usec = (sleep_time % one_billion) / 1000;
-
-	select(0, NULL, NULL, &dummy, &timeout);
+#elif defined(WIN32) && !defined(_XBOX)
+	Sleep(sleep_time / 1000000LL);
 
 #else
 	SDL_Delay(sleep_time / 1000000LL);
 
 #endif
 }
+
 
 //
 // I_Yield
