@@ -69,26 +69,23 @@ template <> struct hashfunc<unsigned long long>
 template <> struct hashfunc<signed long long>
 {	size_t operator()(signed long long val) const { return val; }	};
 
-template <> struct hashfunc<const char*>
-{	size_t operator()(const char* cstr) const
-	{
-		size_t val = 0;
-		while (*cstr != 0)
-			val = val * 101 + *cstr++;
-		return val;	
-	}
-};
+static inline size_t __hash_cstring(const char* str)
+{
+	size_t val = 0;
+	while (*str != 0)
+		val = val * 101 + *str++;
+	return val;	
+}
 
-template <> struct hashfunc<const std::string&>
-{	size_t operator()(const std::string& str) const
-	{
-		const char* cstr = str.c_str();
-		size_t val = 0;
-		while (*cstr != 0)
-			val = val * 101 + *cstr++;
-		return val;
-	}
-};
+template <> struct hashfunc<char*>
+{	size_t operator()(const char* str) const { return __hash_cstring(str); } };
+
+template <> struct hashfunc<const char*>
+{	size_t operator()(const char* str) const { return __hash_cstring(str); } };
+
+template <> struct hashfunc<std::string>
+{	size_t operator()(const std::string& str) const { return __hash_cstring(str.c_str()); } };
+
 
 // ----------------------------------------------------------------------------
 // HashTable interface & inline implementation
@@ -103,14 +100,15 @@ template <typename KT, typename VT, typename HF = hashfunc<KT> >
 class HashTable
 {
 private:
-	typedef std::pair<KT, VT> HashPair;
+	typedef std::pair<KT, VT> HashPairType;
+	typedef HashTable<KT, VT, HF> HashTableType;
 
 	class Node
 	{
 	public:
 		Node() : mChainNext(NULL), mChainPrev(NULL), mItrPrev(NULL), mItrNext(NULL) { }
 		
-		HashPair			mKeyValuePair;
+		HashPairType		mKeyValuePair;
 		Node*				mChainNext;
 		Node*				mChainPrev;
 		Node*				mItrPrev;
@@ -122,7 +120,11 @@ public:
 	// HashTable::iterator & const_iterator implementation
 	// ------------------------------------------------------------------------
 
-	template <typename IteratorType>
+	template <typename IteratorValueType> class generic_iterator;
+	typedef generic_iterator<HashPairType> iterator;
+	typedef generic_iterator<const HashPairType> const_iterator;
+
+	template <typename IteratorValueType>
 	class generic_iterator : public std::iterator<std::forward_iterator_tag, HashTable>
 	{
 	public:
@@ -130,47 +132,39 @@ public:
 			mNode(NULL), mHashTable(NULL)
 		{ }
 
-		generic_iterator(const generic_iterator& other) :
-			mNode(other.mNode), mHashTable(other.mHashTable)
-		{ }
-
-		generic_iterator& operator= (const generic_iterator& other)
+		// allow implicit converstion from iterator to const_iterator
+		operator generic_iterator<const IteratorValueType>() const
 		{
-			if (&other != this)
-			{
-				mNode = other.mNode;
-				mHashTable = other.mHashTable;
-			}
-			return *this;
+			return generic_iterator<const IteratorValueType>(mNode, mHashTable);
 		}
 
-		bool operator== (const generic_iterator& other) const
+		bool operator== (const generic_iterator<IteratorValueType>& other) const
 		{
 			return mNode == other.mNode && mHashTable == other.mHashTable;
 		}
 
-		bool operator!= (const generic_iterator& other) const
+		bool operator!= (const generic_iterator<IteratorValueType>& other) const
 		{
-			return mNode != other.mNode || mHashTable != other.mHashTable;
+			return !(operator==(other));
 		}
 
-		std::pair<KT, VT>& operator* ()
+		IteratorValueType& operator* ()
 		{
 			return mNode->mKeyValuePair;
 		}
 
-		std::pair<KT, VT>* operator-> ()
+		IteratorValueType* operator-> ()
 		{
 			return &(mNode->mKeyValuePair);
 		}
 
-		generic_iterator& operator++ ()
+		generic_iterator<IteratorValueType>& operator++ ()
 		{
 			mNode = mNode->mItrNext;
 			return *this;
 		}
 
-		generic_iterator operator++ (int)
+		generic_iterator<IteratorValueType> operator++ (int)
 		{
 			generic_iterator temp(*this);
 			mNode = mNode->mItrNext;
@@ -180,16 +174,14 @@ public:
 		friend class HashTable<KT, VT, HF>;
 
 	private:
-		generic_iterator(typename HashTable<KT, VT, HF>::Node* node, HashTable<KT, VT, HF>* hashtable) :
+		generic_iterator(const HashTableType::Node* node, const HashTableType* hashtable) :
 			mNode(node), mHashTable(hashtable)
 		{ }
 
-		typename HashTable<KT, VT, HF>::Node*	mNode;
-		HashTable<KT, VT, HF>*					mHashTable;	
+		const HashTableType::Node*	mNode;
+		const HashTableType*		mHashTable;	
 	};
 
-	typedef generic_iterator< std::pair<KT, VT> > iterator;
-	typedef generic_iterator< const std::pair<KT, VT> > const_iterator;
 
 
 	// ------------------------------------------------------------------------
@@ -246,7 +238,7 @@ public:
 
 	size_t count(const KT& key) const
 	{
-		return 1;
+		return findNode(key) ? 1 : 0;
 	}
 
 	void clear()
@@ -284,19 +276,13 @@ public:
 	iterator find(const KT& key)
 	{
 		const Node* node = findNode(key);
-		if (node)
-			return iterator(node, this);
-	
-		return end();
+		return (node ? iterator(node, this) : end());
 	}
 
 	const_iterator find(const KT& key) const
 	{
 		const Node* node = findNode(key);
-		if (node)
-			return const_iterator(node, this);
-	
-		return end();
+		return (node ? const_iterator(node, this) : end());
 	}
 
 	VT& operator[](const KT& key)
@@ -308,13 +294,13 @@ public:
 		return node->mKeyValuePair.second;
 	}
 
-	std::pair<iterator, bool> insert(const HashPair& hp)
+	std::pair<iterator, bool> insert(const HashPairType& hp)
 	{
 		const KT& key = hp.first;
 		const VT& value = hp.second;
 		bool inserted = false;
 
-		Node* node = findNode(key);
+		const Node* node = findNode(key);
 		if (!node)
 		{
 			node = insertNode(key, value);
@@ -340,7 +326,8 @@ public:
 
 	void erase(iterator it)
 	{
-		eraseNode(it.mNode);
+		const KT& key = it.mNode->mKeyValuePair.first;
+		erase(key);	
 	}
 
 	size_t erase(const KT& key)
@@ -378,7 +365,7 @@ private:
 
 		delete [] mHashTable;
 		mHashTable = new Node*[mSize];
-		for (int i = 0; i < mSize; i++)
+		for (size_t i = 0; i < mSize; i++)
 			mHashTable[i] = NULL;
 
 		Node* itr = mHashItrList;
@@ -396,9 +383,23 @@ private:
 		}
 	}
 
-	Node* findNode(const KT& key) const
+	Node* findNode(const KT& key) 
 	{
 		Node* node = mHashTable[hashKey(key)];
+		while (node)
+		{
+			if (node->mKeyValuePair.first == key)
+				return node;
+			node = node->mChainNext;
+		}
+
+		// node not found
+		return NULL;
+	}
+
+	const Node* findNode(const KT& key) const
+	{
+		const Node* node = mHashTable[hashKey(key)];
 		while (node)
 		{
 			if (node->mKeyValuePair.first == key)
