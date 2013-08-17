@@ -45,6 +45,10 @@ public:
 	SocketAddress& operator=(const SocketAddress& other);
 	bool operator==(const SocketAddress& other) const;
 	bool operator!=(const SocketAddress& other) const;
+	bool operator<(const SocketAddress& other) const;
+	bool operator<=(const SocketAddress& other) const;
+	bool operator>(const SocketAddress& other) const;
+	bool operator>=(const SocketAddress& other) const;
 	operator std::string () const;
 
 	void setIPAddress(uint8_t oct1, uint8_t oct2, uint8_t oct3, uint8_t oct4);
@@ -53,6 +57,7 @@ public:
 	uint32_t getIPAddress() const;
 	uint16_t getPort() const;
 
+	void clear();
 	bool isValid() const;
 
 	struct sockaddr_in toSockAddr() const;

@@ -151,6 +151,26 @@ bool SocketAddress::operator!=(const SocketAddress& other) const
 	return !(operator==(other));
 }
 
+bool SocketAddress::operator<(const SocketAddress& other) const
+{
+	return (mIP < other.mIP) || (mIP == other.mIP && mPort < other.mPort);
+}
+
+bool SocketAddress::operator<=(const SocketAddress& other) const
+{
+	return (mIP < other.mIP) || (mIP == other.mIP && mPort <= other.mPort);
+}
+
+bool SocketAddress::operator>(const SocketAddress& other) const
+{
+	return !(operator<=(other));
+}
+
+bool SocketAddress::operator>=(const SocketAddress& other) const
+{
+	return !(operator<(other));
+}
+
 SocketAddress::operator std::string () const
 {
 	if (!isValid())
@@ -185,6 +205,11 @@ uint32_t SocketAddress::getIPAddress() const
 uint16_t SocketAddress::getPort() const
 {
 	return mPort;
+}
+
+void SocketAddress::clear()
+{
+	mIP = mPort = 0;
 }
 
 bool SocketAddress::isValid() const
