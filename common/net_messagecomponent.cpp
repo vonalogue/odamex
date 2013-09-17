@@ -18,15 +18,15 @@
 //
 // DESCRIPTION:
 // 
-// MessageFields are building-block elements that comprise Messages.
-// MessageFields use the Composite Pattern to treat composite MessageFields
-// such as MessageFieldGroup the same as primative MessageFields such as
-// StringMessageField.
+// MessageComponents are building-block elements that comprise Messages.
+// MessageComponents use the Composite Pattern to treat composite MessageComponents
+// such as MessageComponentGroup the same as primative MessageComponents such as
+// StringMessageComponent.
 //
-// MessageFields are data types that know how to serialize and deserialize
+// MessageComponents are data types that know how to serialize and deserialize
 // themselves to and from a BitStream.
 //
-// MessageFields have a clone operation to create a new instance of themselves.
+// MessageComponents have a clone operation to create a new instance of themselves.
 // This is part of the Prototype Patter and is a mechanism that allows
 // a prototype instance of each Message type to be built
 //
@@ -34,17 +34,55 @@
 
 #include "net_log.h"
 #include "net_common.h"
-#include "net_messagefield.h"
+#include "net_messagecomponent.h"
+#include "hashtable.h"
+
+typedef HashTable<std::string, const MessageComponent*> MessageComponentTypeTable;
+static MessageComponentTypeTable RegisteredMessageComponentTypes;
+
+
+static void RegisterMessageComponentType(const std::string& name, const MessageComponent* type)
+{
+	RegisteredMessageComponentTypes.insert(std::pair<std::string, const MessageComponent*>(name, type));
+}
+
+//
+// Register a prototype of each of the predefined MessageComponent types.
+//
+void RegisterPredefinedMessageComponents()
+{
+	RegisterMessageComponentType("bool", new BoolMessageComponent);
+	RegisterMessageComponentType("u8", new U8MessageComponent);
+	RegisterMessageComponentType("s8", new S8MessageComponent);
+	RegisterMessageComponentType("u16", new U16MessageComponent);
+	RegisterMessageComponentType("s16", new S16MessageComponent);
+	RegisterMessageComponentType("u32", new U32MessageComponent);
+	RegisterMessageComponentType("s32", new S32MessageComponent);
+	RegisterMessageComponentType("float", new FloatMessageComponent);
+	RegisterMessageComponentType("string", new StringMessageComponent);
+	RegisterMessageComponentType("bitfield", new BitFieldMessageComponent);
+}
+
+void ClearRegisteredMessageComponentTypes()
+{
+	for (MessageComponentTypeTable::const_iterator it = RegisteredMessageComponentTypes.begin();
+		it != RegisteredMessageComponentTypes.end(); ++it)
+	{
+		delete it->second;
+	}
+
+	RegisteredMessageComponentTypes.clear();
+}
 
 // ----------------------------------------------------------------------------
 
 // ============================================================================
 //
-// RangeMessageField implementation
+// RangeMessageComponent implementation
 // 
 // ============================================================================
 
-RangeMessageField::RangeMessageField(int32_t lowerbound, int32_t upperbound, int32_t value) :
+RangeMessageComponent::RangeMessageComponent(int32_t lowerbound, int32_t upperbound, int32_t value) :
 	mCachedSizeValid(false), mCachedSize(0),	
 	mValue(value), mLowerBound(lowerbound), mUpperBound(upperbound)
 {
@@ -53,12 +91,12 @@ RangeMessageField::RangeMessageField(int32_t lowerbound, int32_t upperbound, int
 }
 
 //
-// RangeMessageField::size
+// RangeMessageComponent::size
 //
 // Returns the total size of the message fields in bits. The size is cached for
 // fast retrieval in the future;
 //
-uint16_t RangeMessageField::size() const
+uint16_t RangeMessageComponent::size() const
 {
 	if (!mCachedSizeValid)
 	{
@@ -71,9 +109,9 @@ uint16_t RangeMessageField::size() const
 
 
 //
-// RangeMessageField::read
+// RangeMessageComponent::read
 //
-uint16_t RangeMessageField::read(BitStream& stream)
+uint16_t RangeMessageComponent::read(BitStream& stream)
 {
 	mValue = mLowerBound + stream.readBits(size());
 	return size();
@@ -81,9 +119,9 @@ uint16_t RangeMessageField::read(BitStream& stream)
 
 
 //
-// RangeMessageField::write
+// RangeMessageComponent::write
 //
-uint16_t RangeMessageField::write(BitStream& stream) const
+uint16_t RangeMessageComponent::write(BitStream& stream) const
 {
 	stream.writeBits(mValue - mLowerBound, size());
 	return size();
@@ -92,19 +130,19 @@ uint16_t RangeMessageField::write(BitStream& stream) const
 
 // ============================================================================
 //
-// BitFieldMessageField implementation
+// BitFieldMessageComponent implementation
 // 
 // ============================================================================
 
-BitFieldMessageField::BitFieldMessageField(uint32_t num_fields) :
+BitFieldMessageComponent::BitFieldMessageComponent(uint32_t num_fields) :
 	mBitField(num_fields)
 { }
 
-BitFieldMessageField::BitFieldMessageField(const BitField& value) :
+BitFieldMessageComponent::BitFieldMessageComponent(const BitField& value) :
 	mValid(false), mBitField(value)
 { }
 
-uint16_t BitFieldMessageField::read(BitStream& stream)
+uint16_t BitFieldMessageComponent::read(BitStream& stream)
 {
 	mBitField.clear();
 	for (size_t i = 0; i < mBitField.size(); ++i)
@@ -114,7 +152,7 @@ uint16_t BitFieldMessageField::read(BitStream& stream)
 	return mBitField.size();
 }
 
-uint16_t BitFieldMessageField::write(BitStream& stream) const
+uint16_t BitFieldMessageComponent::write(BitStream& stream) const
 {
 	for (size_t i = 0; i < mBitField.size(); ++i)
 		stream.writeBit(mBitField.get(i));
@@ -125,27 +163,27 @@ uint16_t BitFieldMessageField::write(BitStream& stream) const
 
 // ============================================================================
 //
-// Md5SumMessageField implementation
+// Md5SumMessageComponent implementation
 // 
 // ============================================================================
 
 
-Md5SumMessageField::Md5SumMessageField() : 
+Md5SumMessageComponent::Md5SumMessageComponent() : 
 	mValid(false)
 {
 	clear();
 }
 
-Md5SumMessageField::Md5SumMessageField(const std::string& value)
+Md5SumMessageComponent::Md5SumMessageComponent(const std::string& value)
 {
 	setFromString(value);
 }
 
 
 //
-// Md5SumMessageField::read
+// Md5SumMessageComponent::read
 //
-uint16_t Md5SumMessageField::read(BitStream& stream)
+uint16_t Md5SumMessageComponent::read(BitStream& stream)
 {
 	for (size_t i = 0; i < NUMBYTES; ++i)
 		mValue[i] = stream.readU8();
@@ -156,9 +194,9 @@ uint16_t Md5SumMessageField::read(BitStream& stream)
 
 
 //
-// Md5SumMessageField::write
+// Md5SumMessageComponent::write
 //
-uint16_t Md5SumMessageField::write(BitStream& stream) const
+uint16_t Md5SumMessageComponent::write(BitStream& stream) const
 {
 	for (size_t i = 0; i < NUMBYTES; ++i)
 		stream.writeU8(mValue[i]);
@@ -168,11 +206,11 @@ uint16_t Md5SumMessageField::write(BitStream& stream) const
 
 
 //
-// Md5SumMessageField::clear
+// Md5SumMessageComponent::clear
 //
 // Sets the value to all zeros and indicates that the value is not valid
 //
-void Md5SumMessageField::clear()
+void Md5SumMessageComponent::clear()
 {
 	memset(mValue, 0, sizeof(mValue));
 	mCachedString.clear();
@@ -180,11 +218,11 @@ void Md5SumMessageField::clear()
 }
 
 //
-// Md5SumMessageField::setFromString
+// Md5SumMessageComponent::setFromString
 //
 // Converts a std::string version of a MD5SUM into the compact internal format.
 //
-void Md5SumMessageField::setFromString(const std::string& value)
+void Md5SumMessageComponent::setFromString(const std::string& value)
 {
 	clear();
 
@@ -218,11 +256,11 @@ void Md5SumMessageField::setFromString(const std::string& value)
 
 
 //
-// Md5SumMessageField::cacheString
+// Md5SumMessageComponent::cacheString
 //
 // Builds a std::string version of the MD5SUM and caches it.
 //
-void Md5SumMessageField::cacheString()
+void Md5SumMessageComponent::cacheString()
 {
 	static const char hextable[] = {
 		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
@@ -245,15 +283,15 @@ void Md5SumMessageField::cacheString()
 
 // ============================================================================
 //
-// MessageFieldGroup implementation
+// MessageComponentGroup implementation
 // 
 // ============================================================================
 
-MessageFieldGroup::MessageFieldGroup() :
+MessageComponentGroup::MessageComponentGroup() :
 	mCachedSizeValid(false), mCachedSize(0), mValid(false)
 { }
 
-MessageFieldGroup::MessageFieldGroup(const MessageFieldGroup& other) :
+MessageComponentGroup::MessageComponentGroup(const MessageComponentGroup& other) :
 	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize),
 	mValid(other.mValid),
 	mOptionalIndicator(other.mOptionalIndicator)
@@ -264,7 +302,7 @@ MessageFieldGroup::MessageFieldGroup(const MessageFieldGroup& other) :
 		mRequiredFields.push_back(other.mRequiredFields[i]->clone());
 }
 
-MessageFieldGroup::~MessageFieldGroup()
+MessageComponentGroup::~MessageComponentGroup()
 {
 	for (size_t i = 0; i < mOptionalFields.size(); ++i)
 		delete mOptionalFields[i];
@@ -274,12 +312,12 @@ MessageFieldGroup::~MessageFieldGroup()
 
 
 //
-// MessageFieldGroup::size
+// MessageComponentGroup::size
 //
 // Returns the total size of the message fields in bits. The size is cached for
 // fast retrieval in the future;
 //
-uint16_t MessageFieldGroup::size() const
+uint16_t MessageComponentGroup::size() const
 {
 	if (!mCachedSizeValid)
 	{
@@ -298,12 +336,12 @@ uint16_t MessageFieldGroup::size() const
 
 
 //
-// MessageFieldGroup::read
+// MessageComponentGroup::read
 //
-// Reads a group of required and optional MessageFields from a BitStream.
+// Reads a group of required and optional MessageComponents from a BitStream.
 // Returns the number of bits read.
 //
-uint16_t MessageFieldGroup::read(BitStream& stream)
+uint16_t MessageComponentGroup::read(BitStream& stream)
 {
 	uint16_t read_size = 0;
 	clear();
@@ -327,12 +365,12 @@ uint16_t MessageFieldGroup::read(BitStream& stream)
 
 
 //
-// MessageFieldGroup::write
+// MessageComponentGroup::write
 //
-// Writes a group of required and optional MessageFields from a BitStream.
+// Writes a group of required and optional MessageComponents from a BitStream.
 // Returns the number of bits written.
 //
-uint16_t MessageFieldGroup::write(BitStream& stream) const
+uint16_t MessageComponentGroup::write(BitStream& stream) const
 {
 	uint16_t write_size = 0;
 	const BitField& bitfield = mOptionalIndicator.get();
@@ -355,11 +393,11 @@ uint16_t MessageFieldGroup::write(BitStream& stream) const
 
 
 //
-// MessageFieldGroup::clear
+// MessageComponentGroup::clear
 //
-// Clears all of the MessageFields in this group.
+// Clears all of the MessageComponents in this group.
 //
-void MessageFieldGroup::clear()
+void MessageComponentGroup::clear()
 {
 	// clear the optional fields
 	mOptionalIndicator.clear();
@@ -375,11 +413,11 @@ void MessageFieldGroup::clear()
 
 
 //
-// MessageFieldGroup::addField
+// MessageComponentGroup::addField
 //
 // Adds a field to the container.
 //
-void MessageFieldGroup::addField(MessageField* field, bool optional)
+void MessageComponentGroup::addField(MessageComponent* field, bool optional)
 {
 	if (field == NULL)
 		return;
@@ -388,12 +426,12 @@ void MessageFieldGroup::addField(MessageField* field, bool optional)
 	NameTable::const_iterator itr = mNameTable.find(field->getFieldName());
 	if (itr != mNameTable.end())
 	{
-		Net_Warning("MessageFieldGroup::addField: field name %s already exists.\n", field->getFieldName().c_str());
+		Net_Warning("MessageComponentGroup::addField: field name %s already exists.\n", field->getFieldName().c_str());
 		return;
 	}
 
 	// add it to the name table
-	mNameTable.insert(std::pair<std::string, MessageField*>(field->getFieldName(), field));
+	mNameTable.insert(std::pair<std::string, MessageComponent*>(field->getFieldName(), field));
 
 	if (optional)
 	{
@@ -408,16 +446,16 @@ void MessageFieldGroup::addField(MessageField* field, bool optional)
 
 // ============================================================================
 //
-// MessageFieldArray implementation
+// MessageComponentArray implementation
 // 
 // ============================================================================
 
-MessageFieldArray::MessageFieldArray(uint32_t mincnt, uint32_t maxcnt) :
+MessageComponentArray::MessageComponentArray(uint32_t mincnt, uint32_t maxcnt) :
 	mCachedSizeValid(false), mCachedSize(0), mValid(mincnt == 0),
 	mMinCount(mincnt), mMaxCount(maxcnt), mCountField(0, mincnt, maxcnt)
 { }
 
-MessageFieldArray::MessageFieldArray(const MessageFieldArray& other) :
+MessageComponentArray::MessageComponentArray(const MessageComponentArray& other) :
 	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize),
 	mValid(other.mValid),
 	mMinCount(other.mMinCount), mMaxCount(other.mMaxCount),
@@ -427,14 +465,14 @@ MessageFieldArray::MessageFieldArray(const MessageFieldArray& other) :
 		mFields.push_back(other.mFields[i]->clone());
 }
 
-MessageFieldArray::~MessageFieldArray()
+MessageComponentArray::~MessageComponentArray()
 {
 	for (size_t i = 0; i < mFields.size(); ++i)
 		delete mFields[i];
 }
 
 
-MessageFieldArray& MessageFieldArray::operator=(const MessageFieldArray& other)
+MessageComponentArray& MessageComponentArray::operator=(const MessageComponentArray& other)
 {
 	if (&other != this)
 	{
@@ -457,12 +495,12 @@ MessageFieldArray& MessageFieldArray::operator=(const MessageFieldArray& other)
 }
 
 //
-// MessageFieldArray::size
+// MessageComponentArray::size
 //
 // Returns the total size of the message fields in bits. The size is cached for
 // fast retrieval in the future;
 //
-uint16_t MessageFieldArray::size() const
+uint16_t MessageComponentArray::size() const
 {
 	if (!mCachedSizeValid)
 	{
@@ -482,12 +520,12 @@ uint16_t MessageFieldArray::size() const
 
 
 //
-// MessageFieldArray::read
+// MessageComponentArray::read
 //
 // Reads an array of message fields from a BitStream. Returns the number of
 // bits read.
 //
-uint16_t MessageFieldArray::read(BitStream& stream)
+uint16_t MessageComponentArray::read(BitStream& stream)
 {
 	uint16_t read_size = 0;
 	clear();
@@ -506,12 +544,12 @@ uint16_t MessageFieldArray::read(BitStream& stream)
 
 
 //
-// MessageFieldArray::write
+// MessageComponentArray::write
 //
 // Writes an array of message fields from a BitStream. Returns the number of
 // bits written
 //
-uint16_t MessageFieldArray::write(BitStream& stream) const
+uint16_t MessageComponentArray::write(BitStream& stream) const
 {
 	uint16_t write_size = 0;
 	
@@ -526,11 +564,11 @@ uint16_t MessageFieldArray::write(BitStream& stream) const
 
 
 //
-// MessageFieldArray::clear
+// MessageComponentArray::clear
 //
-// Clears all of the repeated MessageFields .
+// Clears all of the repeated MessageComponents .
 //
-void MessageFieldArray::clear()
+void MessageComponentArray::clear()
 {
 	mCountField.set(0);
 	for (size_t i = 0; i < mFields.size(); ++i)
