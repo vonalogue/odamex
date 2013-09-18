@@ -355,54 +355,32 @@ void NetInterface::openInterface(const std::string& ip_string, uint16_t desired_
 	WSAStartup(MAKEWORD(2,2), &wsad);
 	#endif
 
-	// determine which interface IP address to bind to
-	uint32_t desired_ip = INADDR_ANY;	// use any availible interface IP address
-	if (!ip_string.empty() && !iequals(ip_string, "localhost"))
+	// determine which interface IP address to bind to based on ip_string
+	uint32_t desired_ip = 0;
+	struct addrinfo hints;
+	struct addrinfo* ai;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
+	getaddrinfo(ip_string.c_str(), NULL, &hints, &ai);
+
+	if (ai)
 	{
-		// resolve 'address' into an integer IP address
-		SocketAddress tmpaddr(ip_string + ":1");
-		if (tmpaddr.isValid())
-			desired_ip = tmpaddr.getIPAddress();
+		struct sockaddr_in* addr = (struct sockaddr_in*)(ai->ai_addr);
+		desired_ip = ntohl(addr->sin_addr.s_addr);
 	}
-
-	// retreive hostname
-	static const size_t MAX_HOSTNAME_LEN = 256;
-	static char buf[MAX_HOSTNAME_LEN];
-	gethostname(buf, MAX_HOSTNAME_LEN);
-	buf[MAX_HOSTNAME_LEN - 1] = 0;		// ensure properly terminated string
-
-	// Search the availible interface addresses for one matching the desired_ip.
-	// If any address is acceptible or a match is not found, the first availible
-	// address is used (often 127.0.0.1).
-	hostent* ent = gethostbyname(buf);
-	if (ent && ent->h_addrtype == AF_INET && ent->h_addr_list[0] != NULL)
+	else
 	{
-		struct sockaddr_in sockaddr;
-		*(int *)&sockaddr.sin_addr = *(int *)ent->h_addr_list[0];
-
-		SocketAddress first_address = sockaddr, current_address = sockaddr;
-
-		if (desired_ip != INADDR_ANY)
-		{
-			for (int i = 1; ent->h_addr_list[i] != NULL; i++)
-			{
-				*(int *)&sockaddr.sin_addr = *(int *)ent->h_addr_list[i];
-				current_address = sockaddr;	
-				if (current_address.getIPAddress() == desired_ip)
-					break;
-				else
-					current_address = first_address;
-			}
-		}
-
-		desired_ip = current_address.getIPAddress();
+		Net_Error("NetInterface::openInterface: unable to find interface matching address %s!", ip_string.c_str());
+		return;
 	}
 
 	// open a socket and bind it to a port and set mLocalAddress
 	openSocket(desired_ip, desired_port);
 	if (!mLocalAddress.isValid())
 	{
-     	Net_Error("NetInterface::openInterface: unable to create socket for %s:%u!", ip_string.c_str(), desired_port);
+		Net_Error("NetInterface::openInterface: unable to create socket for %s:%u!", ip_string.c_str(), desired_port);
 		return;
 	}
 
