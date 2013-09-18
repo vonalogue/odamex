@@ -53,7 +53,7 @@ static const uint32_t TERMINATION_TIMEOUT = 4*ONE_SECOND;
 
 Connection::Connection(const ConnectionId& connection_id, NetInterface* interface, const SocketAddress& adr) :
 	mConnectionId(connection_id),
-	mInterface(interface), mRemoteAddress(adr), mRemoteAddressString(std::string(adr)),
+	mInterface(interface), mRemoteAddress(adr), mRemoteAddressString(adr.getCString()),
 	mCreationTS(Net_CurrentTime()),
 	mTimeOutTS(Net_CurrentTime() + CONNECTION_TIMEOUT),
 	mConnectionAttempt(0), mConnectionAttemptTimeOutTS(0),

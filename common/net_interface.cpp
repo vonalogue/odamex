@@ -162,7 +162,7 @@ void NetInterface::setPassword(const std::string& password)
 //
 ConnectionId NetInterface::requestConnection(const SocketAddress& remote_address)
 {
-	Net_LogPrintf("NetInterface::requestConnection: requesting connection to %s.", std::string(remote_address).c_str());
+	Net_LogPrintf("NetInterface::requestConnection: requesting connection to %s.", remote_address.getCString());
 
 	Connection* conn = createNewConnection(remote_address);
 	conn->openConnection();
@@ -414,7 +414,7 @@ void NetInterface::openInterface(const std::string& ip_string, uint16_t desired_
 		Net_Error("NetInterface::openInterface: ioctl FIONBIO: %s", strerror(errno));
 	}
 
-	Net_Printf("NetInterface: Opened socket at %s.", std::string(mLocalAddress).c_str());
+	Net_Printf("NetInterface: Opened socket at %s.", mLocalAddress.getCString());
 
 	#ifdef ODA_HAVE_MINIUPNP
 	// TODO: add UPNP support
@@ -478,25 +478,22 @@ void NetInterface::openSocket(uint32_t desired_ip, uint16_t desired_port)
 	if (mSocket == INVALID_SOCKET)
 		return;
 
-	struct sockaddr_in sockaddress;
-	memset(&sockaddress, 0, sizeof(sockaddress));
-	sockaddress.sin_family = AF_INET;
-	sockaddress.sin_addr.s_addr = htonl(desired_ip);
+	mLocalAddress.setIPAddress(desired_ip);
 
 	// try up to 16 port numbers until we find an unbound one
 	for (uint16_t port = desired_port; port < desired_port + 16; port++)
 	{
-		sockaddress.sin_port = htons(port);
+		mLocalAddress.setPort(port);
+		const struct sockaddr_in& sockaddress = mLocalAddress.getSockAddrIn();
+
 		int result = bind(mSocket, (sockaddr *)&sockaddress, sizeof(sockaddress));
 
 		if (result != SOCKET_ERROR)
-		{
-			mLocalAddress = sockaddress;
-			return;
-		}
+			return;		// success!
 	}
 
 	// unable to bind to a port
+	mLocalAddress.clear();
 	closeSocket();
 }
 
@@ -523,20 +520,19 @@ void NetInterface::closeSocket()
 //
 bool NetInterface::socketSend(const SocketAddress& dest, const uint8_t* data, uint16_t size)
 {
-	Net_LogPrintf("NetInterface::socketSend: sending %u bytes to %s.", size, std::string(dest).c_str());
+	Net_LogPrintf("NetInterface::socketSend: sending %u bytes to %s.", size, dest.getCString());
 
 	if (size == 0 || !dest.isValid())
 		return false;
 
-	struct sockaddr_in saddr = dest.toSockAddr();
+	const struct sockaddr_in& saddr = dest.getSockAddrIn();
 
 	// pass the packet data off to the IP stack
-	int ret = sendto(mSocket, data, size, 0, (struct sockaddr *)&saddr, sizeof(saddr));
+	int ret = sendto(mSocket, data, size, 0, (const struct sockaddr *)&saddr, sizeof(saddr));
 
 	if (ret == -1)
 	{
-		Net_Warning("NetInterface::socketSend: Unable to send packet to destination %s", 
-				std::string(dest).c_str());
+		Net_Warning("NetInterface::socketSend: Unable to send packet to destination %s.", dest.getCString()); 
 
 		#ifdef _WIN32
 		int err = WSAGetLastError();
@@ -585,7 +581,7 @@ bool NetInterface::socketRecv(SocketAddress& source, uint8_t* data, uint16_t& si
 		if (errno == WSAEMSGSIZE)
 		{
 			std::string adrstr(fromadr);
-			Net_Warning("NetInterface::socketRecv: Warning: Oversize packet from %s", std::string(source).c_str());
+			Net_Warning("NetInterface::socketRecv: Warning: Oversize packet from %s", source.getCString());
 			return false;
 		}
 		#else
@@ -602,7 +598,7 @@ bool NetInterface::socketRecv(SocketAddress& source, uint8_t* data, uint16_t& si
 	if (ret > 0)
 	{
 		size = ret;
-		Net_LogPrintf("NetInterface::socketRecv: received %u bytes from %s.", size, std::string(source).c_str());
+		Net_LogPrintf("NetInterface::socketRecv: received %u bytes from %s.", size, source.getCString());
 	}
 
 	return (size > 0);
@@ -670,7 +666,7 @@ void NetInterface::processPacket(const SocketAddress& remote_address, BitStream&
 	else if (mHostType == HOST_SERVER)
 	{
 		// packet from an unknown host
-		Net_LogPrintf("NetInterface::processPacket: received packet from an unknown host %s.", std::string(remote_address).c_str());
+		Net_LogPrintf("NetInterface::processPacket: received packet from an unknown host %s.", remote_address.getCString());
 		conn = createNewConnection(remote_address);
 	}
 	else

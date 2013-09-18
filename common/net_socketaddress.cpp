@@ -76,13 +76,13 @@
 // ============================================================================
 
 SocketAddress::SocketAddress() :
-	mIP(0), mPort(0)
+	mIP(0), mPort(0), mIsSockDirty(true), mIsStringDirty(true)
 {
 }
 
 SocketAddress::SocketAddress(uint8_t oct1, uint8_t oct2, uint8_t oct3, uint8_t oct4, uint16_t port) :
 	mIP((oct1 << 24) | (oct2 << 16) | (oct3 << 8) | oct4),
-	mPort(port)
+	mPort(port), mIsSockDirty(true), mIsStringDirty(true)
 {
 }
 
@@ -90,6 +90,7 @@ SocketAddress::SocketAddress(const SocketAddress& other)
 {
 	mIP = other.mIP;
 	mPort = other.mPort;
+	mIsSockDirty = mIsStringDirty = true;
 }
 
 SocketAddress::SocketAddress(const std::string& stradr)
@@ -122,12 +123,14 @@ SocketAddress::SocketAddress(const std::string& stradr)
 
 	mIP = ntohl(sadr.sin_addr.s_addr);
 	mPort = ntohs(sadr.sin_port);
+	mIsSockDirty = mIsStringDirty = true;
 }
 
 SocketAddress::SocketAddress(const struct sockaddr_in sadr)
 {
 	mIP = ntohl(sadr.sin_addr.s_addr);
 	mPort = ntohs(sadr.sin_port);
+	mIsSockDirty = mIsStringDirty = true;
 }
 
 SocketAddress& SocketAddress::operator=(const SocketAddress& other)
@@ -136,6 +139,7 @@ SocketAddress& SocketAddress::operator=(const SocketAddress& other)
 	{
 		mIP = other.mIP;
 		mPort = other.mPort;
+		mIsSockDirty = mIsStringDirty = true;
 	}
    
 	return *this;
@@ -171,30 +175,22 @@ bool SocketAddress::operator>=(const SocketAddress& other) const
 	return !(operator<(other));
 }
 
-SocketAddress::operator std::string () const
+void SocketAddress::setIPAddress(uint32_t ip)
 {
-	if (!isValid())
-		return std::string();
-
-	char buf[22];
-	sprintf(buf, "%u.%u.%u.%u:%u",
-			(mIP >> 24) & 0xFF,
-			(mIP >> 16) & 0xFF,
-			(mIP >> 8 ) & 0xFF,
-			(mIP      ) & 0xFF,
-			mPort);
-
-	return std::string(buf);
+	mIP = ip;
+	mIsSockDirty = mIsStringDirty = true;
 }
 
 void SocketAddress::setIPAddress(uint8_t oct1, uint8_t oct2, uint8_t oct3, uint8_t oct4)
 {
 	mIP = (oct1 << 24) | (oct2 << 16) | (oct3 << 8) | (oct4);
+	mIsSockDirty = mIsStringDirty = true;
 }
 
 void SocketAddress::setPort(uint16_t port)
 {
 	mPort = port;
+	mIsSockDirty = mIsStringDirty = true;
 }
 
 uint32_t SocketAddress::getIPAddress() const
@@ -210,6 +206,7 @@ uint16_t SocketAddress::getPort() const
 void SocketAddress::clear()
 {
 	mIP = mPort = 0;
+	mIsSockDirty = mIsStringDirty = true;
 }
 
 bool SocketAddress::isValid() const
@@ -217,15 +214,42 @@ bool SocketAddress::isValid() const
 	return mIP > 0 && mPort > 0;
 }
 
-struct sockaddr_in SocketAddress::toSockAddr() const
+const struct sockaddr_in& SocketAddress::getSockAddrIn() const
 {
-	struct sockaddr_in s;
-	memset(&s, 0, sizeof(struct sockaddr_in));
-	s.sin_family = AF_INET;
-	s.sin_addr.s_addr = htonl(mIP);
-	s.sin_port = htons(mPort);
+	if (mIsSockDirty)
+	{
+		memset(&mSockAddrIn, 0, sizeof(mSockAddrIn));
+		mSockAddrIn.sin_family = AF_INET;
+		mSockAddrIn.sin_addr.s_addr = htonl(mIP);
+		mSockAddrIn.sin_port = htons(mPort);
+		mIsSockDirty = false;
+	}
 
-	return s;
+	return mSockAddrIn;
+}
+
+const std::string& SocketAddress::getString() const
+{
+	if (mIsStringDirty)
+	{
+		char buf[22];
+		sprintf(buf, "%u.%u.%u.%u:%u",
+				(mIP >> 24) & 0xFF,
+				(mIP >> 16) & 0xFF,
+				(mIP >> 8 ) & 0xFF,
+				(mIP      ) & 0xFF,
+				mPort);
+
+		mString = buf;
+		mIsStringDirty = false;
+	}
+
+	return mString;
+}
+
+const char* SocketAddress::getCString() const
+{
+	return getString().c_str();
 }
 
 VERSION_CONTROL (net_socketaddress_cpp, "$Id$")

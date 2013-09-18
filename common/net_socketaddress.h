@@ -27,6 +27,33 @@
 #include "doomdef.h"
 #include "doomtype.h"
 
+#ifdef _WIN32
+	#define WIN32_LEAN_AND_MEAN
+	#ifdef _XBOX
+		#include <xtl.h>
+	#else
+		#include <windows.h>
+		#include <winsock2.h>
+		#include <ws2tcpip.h>
+	#endif // !_XBOX
+#else
+	#ifdef GEKKO // Wii/GC
+		#include <network.h>
+	#else
+		#include <sys/socket.h>
+		#include <netinet/in.h>
+		#include <arpa/inet.h>
+		#include <netdb.h>
+		#include <sys/ioctl.h>
+	#endif // GEKKO
+
+	#include <sys/types.h>
+	#include <errno.h>
+	#include <unistd.h>
+	#include <sys/time.h>
+#endif // WIN32
+
+
 // ============================================================================
 //
 // SocketAddress Interface
@@ -49,8 +76,8 @@ public:
 	bool operator<=(const SocketAddress& other) const;
 	bool operator>(const SocketAddress& other) const;
 	bool operator>=(const SocketAddress& other) const;
-	operator std::string () const;
 
+	void setIPAddress(uint32_t ip);
 	void setIPAddress(uint8_t oct1, uint8_t oct2, uint8_t oct3, uint8_t oct4);
 	void setPort(uint16_t port);
 
@@ -60,11 +87,18 @@ public:
 	void clear();
 	bool isValid() const;
 
-	struct sockaddr_in toSockAddr() const;
+	const struct sockaddr_in& getSockAddrIn() const;
+	const std::string& getString() const;
+	const char* getCString() const;
 
 private:
 	uint32_t    mIP;
 	uint16_t    mPort;
+
+	mutable bool					mIsSockDirty;
+	mutable struct sockaddr_in		mSockAddrIn;
+	mutable bool					mIsStringDirty;
+	mutable std::string 			mString;
 };
 
 #endif	// __NET_SOCKETADDRESS_H__
