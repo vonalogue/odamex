@@ -434,6 +434,9 @@ typedef int socklen_t;
 
 int NET_GetPacket (void)
 {
+	return 0;
+
+/*
     int                  ret;
     struct sockaddr_in   from;
     socklen_t            fromlen;
@@ -476,10 +479,15 @@ int NET_GetPacket (void)
     SockadrToNetadr (&from, &net_from);
 
     return ret;
+*/
 }
 
 void NET_SendPacket (buf_t &buf, netadr_t &to)
 {
+	buf.clear();
+	return;
+
+/*
     int                   ret;
     struct sockaddr_in    addr;
 
@@ -513,6 +521,7 @@ void NET_SendPacket (buf_t &buf, netadr_t &to)
           Printf (PRINT_HIGH, "NET_SendPacket: %s\n", strerror(errno));
 #endif
     }
+*/
 }
 
 
