@@ -84,6 +84,7 @@ void Net_Printf(const char* str, ...)
 	va_end(args);
 
 	Printf(PRINT_HIGH, printbuf);
+	Printf(PRINT_HIGH, "\n");
 }
 
 

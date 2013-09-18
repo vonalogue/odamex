@@ -1005,6 +1005,7 @@ void InitNetMessageFormats()
 //
 void InitNetCommon(void)
 {
+/*
    unsigned long _true = true;
 
 #ifdef _WIN32
@@ -1026,6 +1027,7 @@ void InitNetCommon(void)
 	InitNetMessageFormats();
 
    SZ_Clear(&net_message);
+*/
 }
 
 //

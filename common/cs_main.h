@@ -33,7 +33,7 @@ void CS_CloseNetInterface();
 void CS_ServiceNetInterface();
 
 
-void CS_OpenConnection(const std::string& address_string, uint16_t port);
+void CS_OpenConnection(const std::string& socket_address_string);
 void CS_CloseConnection();
 bool CS_IsConnected();
 

@@ -77,6 +77,8 @@
 #include "i_xbox.h"
 #endif
 
+#include "cs_main.h"
+
 #if _MSC_VER == 1310
 #pragma optimize("",off)
 #endif
@@ -385,13 +387,7 @@ void Host_EndGame(const char *msg)
 
 void CL_QuitNetGame(void)
 {
-	if(connected)
-	{
-		MSG_WriteMarker(&net_buffer, clc_disconnect);
-		NET_SendPacket(net_buffer, serveraddr);
-		SZ_Clear(&net_buffer);
-		sv_gametype = GM_COOP;
-	}
+	sv_gametype = GM_COOP;
 	
 	if (paused)
 	{
@@ -454,6 +450,9 @@ void CL_QuitNetGame(void)
 			}
 		}
 	}
+
+	CS_CloseConnection();
+	CS_CloseNetInterface();
 
 	cvar_t::C_RestoreCVars();
 }
@@ -770,18 +769,8 @@ BEGIN_COMMAND (connect)
             connectpasshash = "";
         }
 
-		if(NET_StringToAdr (target.c_str(), &serveraddr))
-		{
-			if (!serveraddr.port)
-				I_SetPort(serveraddr, SERVERPORT);
-
-			lastconaddr = serveraddr;
-		}
-		else
-		{
-			Printf(PRINT_HIGH, "Could not resolve host %s\n", target.c_str());
-			memset(&serveraddr, 0, sizeof(serveraddr));
-		}
+		CS_OpenNetInterface("localhost", 10667);
+		CS_OpenConnection(target);
 	}
 
 	connecttimeout = 0;

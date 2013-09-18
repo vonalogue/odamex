@@ -104,7 +104,10 @@ void CS_ServiceNetInterface()
 //
 void CS_CloseConnection()
 {
-	interface->closeConnection(client_connection_id);
+	if (interface)
+	{
+		interface->closeConnection(client_connection_id);
+	}
 }
 
 
@@ -117,8 +120,11 @@ void CS_CloseConnection()
 //
 void CS_OpenConnection(const std::string& socket_address_string)
 {
-	SocketAddress socket_address(socket_address_string);
-	client_connection_id = interface->requestConnection(socket_address);
+	if (interface)
+	{
+		SocketAddress socket_address(socket_address_string);
+		client_connection_id = interface->requestConnection(socket_address);
+	}
 }
 
 

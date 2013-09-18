@@ -112,7 +112,7 @@ EXTERN_CVAR(net_maxrate)
 // ----------------------------------------------------------------------------
 
 NetInterface::NetInterface(const std::string& address, uint16_t desired_port) :
-	mInitialized(false), mSocket(0)
+	mInitialized(false), mSocket(INVALID_SOCKET)
 {
 	if (baseapp == client)
 		mHostType = HOST_CLIENT;
@@ -345,7 +345,7 @@ void NetInterface::service()
 // bind to desired_port, it will attempt to bind to one of the next 16
 // sequential port numbers.
 //
-void NetInterface::openInterface(const std::string& address, uint16_t desired_port)
+void NetInterface::openInterface(const std::string& ip_string, uint16_t desired_port)
 {
 	if (mInitialized)
 		closeInterface();		// already open? close first.
@@ -357,10 +357,10 @@ void NetInterface::openInterface(const std::string& address, uint16_t desired_po
 
 	// determine which interface IP address to bind to
 	uint32_t desired_ip = INADDR_ANY;	// use any availible interface IP address
-	if (!address.empty() && !iequals(address, "localhost"))
+	if (!ip_string.empty() && !iequals(ip_string, "localhost"))
 	{
 		// resolve 'address' into an integer IP address
-		SocketAddress tmpaddr(address);
+		SocketAddress tmpaddr(ip_string + ":1");
 		if (tmpaddr.isValid())
 			desired_ip = tmpaddr.getIPAddress();
 	}
@@ -402,7 +402,7 @@ void NetInterface::openInterface(const std::string& address, uint16_t desired_po
 	openSocket(desired_ip, desired_port);
 	if (!mLocalAddress.isValid())
 	{
-     	Net_Error("NetInterface::openInterface: unable to create socket for %s:%u!", address.c_str(), desired_port);
+     	Net_Error("NetInterface::openInterface: unable to create socket for %s:%u!", ip_string.c_str(), desired_port);
 		return;
 	}
 
@@ -481,26 +481,23 @@ void NetInterface::openSocket(uint32_t desired_ip, uint16_t desired_port)
 	struct sockaddr_in sockaddress;
 	memset(&sockaddress, 0, sizeof(sockaddress));
 	sockaddress.sin_family = AF_INET;
-	sockaddress.sin_addr.s_addr = desired_ip;
+	sockaddress.sin_addr.s_addr = htonl(desired_ip);
 
-	uint16_t nextport = desired_port;
-	int result;
-	do
+	// try up to 16 port numbers until we find an unbound one
+	for (uint16_t port = desired_port; port < desired_port + 16; port++)
 	{
-		// denis - try several ports (until an availible one is found)
-		sockaddress.sin_port = htons(nextport++);
-		result = bind(mSocket, (sockaddr *)&sockaddress, sizeof(sockaddress));
-	} while (result == SOCKET_ERROR && nextport < desired_port + 16);
+		sockaddress.sin_port = htons(port);
+		int result = bind(mSocket, (sockaddr *)&sockaddress, sizeof(sockaddress));
 
-	if (result == SOCKET_ERROR)
-	{
-		closeSocket();
+		if (result != SOCKET_ERROR)
+		{
+			mLocalAddress = sockaddress;
+			return;
+		}
 	}
-	else
-	{
-		sockaddress.sin_port = htons(nextport - 1);
-		mLocalAddress = sockaddress;
-	}
+
+	// unable to bind to a port
+	closeSocket();
 }
 
 
