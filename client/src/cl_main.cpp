@@ -330,6 +330,123 @@ void AM_Stop();
 
 void ST_AdjustStatusBarScale(bool scale);
 
+
+// ============================================================================
+//
+// Connection establishment / maintenance
+//
+// ============================================================================
+
+static std::string last_server_address_string;
+static std::string last_server_password;
+
+//
+// CL_Disconnect
+//
+// Disconnects from a remote server.
+//
+void CL_Disconnect()
+{
+	CS_CloseConnection();
+	CS_CloseNetInterface();
+}
+
+
+//
+// CL_Connect
+//
+// Connects to a remote server.
+// TODO: add password functionality
+//
+void CL_Connect(const std::string& socket_address_string, const std::string& password = "")
+{
+	C_FullConsole();
+	gamestate = GS_CONNECTING;
+
+//	CL_QuitNetGame();
+	CL_Disconnect();
+
+	CS_OpenNetInterface("localhost", 10667);
+	CS_OpenConnection(socket_address_string);
+
+	last_server_address_string = socket_address_string;
+	last_server_password = password;
+}
+
+
+//
+// CL_Reconnect
+//
+// Connects to the most recently used server, terminating the connection first.
+//
+void CL_Reconnect()
+{
+	if (!last_server_address_string.empty())
+	{
+		CL_Disconnect();
+		CL_Connect(last_server_address_string, last_server_password);
+	}
+}
+
+
+//
+// CL_ServiceConnection
+//
+// Services the connection to the server.
+//
+void CL_ServiceConnection()
+{
+	CS_ServiceNetInterface();
+}
+
+// ----------------------------------------------------------------------------
+// Console commands for connection establishment / maintenance
+// ----------------------------------------------------------------------------
+
+BEGIN_COMMAND (connect)
+{
+	if (argc == 1)
+	{
+	    Printf(PRINT_HIGH, "Usage: connect ip[:port] [password]\n");
+	    Printf(PRINT_HIGH, "\n");
+	    Printf(PRINT_HIGH, "Connect to a server, with optional port number");
+	    Printf(PRINT_HIGH, " and/or password\n");
+	    Printf(PRINT_HIGH, "eg: connect 127.0.0.1\n");
+	    Printf(PRINT_HIGH, "eg: connect 192.168.0.1:12345 secretpass\n");
+	    
+	    return;
+	}
+
+	CL_QuitNetGame();
+
+	if (argc > 1)
+	{
+		std::string password;
+		if (argc > 2)
+			password = argv[2];
+
+		CL_Connect(argv[1], password);
+	}
+}
+END_COMMAND (connect)
+
+
+BEGIN_COMMAND (disconnect)
+{
+	CL_Disconnect();
+}
+END_COMMAND (disconnect)
+
+
+BEGIN_COMMAND (reconnect)
+{
+	CL_Reconnect();
+}
+END_COMMAND (reconnect)
+
+// ============================================================================
+
+
 //
 // CL_CalculateWorldIndexSync
 //
@@ -451,37 +568,9 @@ void CL_QuitNetGame(void)
 		}
 	}
 
-	CS_CloseConnection();
-	CS_CloseNetInterface();
-
 	cvar_t::C_RestoreCVars();
 }
 
-
-void CL_Reconnect(void)
-{
-	recv_full_update = false;
-	
-	if (netdemo.isRecording())
-		forcenetdemosplit = true;	
-		
-	if (connected)
-	{
-		MSG_WriteMarker(&net_buffer, clc_disconnect);
-		NET_SendPacket(net_buffer, serveraddr);
-		SZ_Clear(&net_buffer);
-		connected = false;
-		gameaction = ga_fullconsole;
-
-		P_ClearAllNetIds();
-	}
-	else if (lastconaddr.ip[0])
-	{
-		serveraddr = lastconaddr;
-	}
-
-	connecttimeout = 0;
-}
 
 //
 // CL_ConnectClient
@@ -633,6 +722,8 @@ void CL_StepTics(unsigned int count)
 	{
 		if (canceltics && canceltics--)
 			continue;
+		
+		CL_ServiceConnection();
 
 		NetUpdate();
 
@@ -736,60 +827,6 @@ BEGIN_COMMAND (step)
 }
 END_COMMAND (step)
 
-BEGIN_COMMAND (connect)
-{
-	if (argc == 1)
-	{
-	    Printf(PRINT_HIGH, "Usage: connect ip[:port] [password]\n");
-	    Printf(PRINT_HIGH, "\n");
-	    Printf(PRINT_HIGH, "Connect to a server, with optional port number");
-	    Printf(PRINT_HIGH, " and/or password\n");
-	    Printf(PRINT_HIGH, "eg: connect 127.0.0.1\n");
-	    Printf(PRINT_HIGH, "eg: connect 192.168.0.1:12345 secretpass\n");
-	    
-	    return;
-	}
-	
-	C_FullConsole();
-	gamestate = GS_CONNECTING;
-
-	CL_QuitNetGame();
-
-	if (argc > 1)
-	{
-		std::string target = argv[1];
-
-        // [Russell] - Passworded servers
-        if(argc > 2)
-        {
-            connectpasshash = MD5SUM(argv[2]);
-        }
-        else
-        {
-            connectpasshash = "";
-        }
-
-		CS_OpenNetInterface("localhost", 10667);
-		CS_OpenConnection(target);
-	}
-
-	connecttimeout = 0;
-}
-END_COMMAND (connect)
-
-
-BEGIN_COMMAND (disconnect)
-{
-	CL_QuitNetGame();
-}
-END_COMMAND (disconnect)
-
-
-BEGIN_COMMAND (reconnect)
-{
-	CL_Reconnect();
-}
-END_COMMAND (reconnect)
 
 BEGIN_COMMAND (players)
 {
