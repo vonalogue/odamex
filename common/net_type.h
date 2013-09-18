@@ -294,6 +294,11 @@ public:
 		return mSequence;
 	}
 
+	operator uint32_t () const
+	{
+		return mSequence;
+	}
+
 	void read(BitStream& stream)
 	{
 		mSequence = stream.readBits(SEQUENCE_BITS);
