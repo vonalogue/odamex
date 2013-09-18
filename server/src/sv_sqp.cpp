@@ -80,6 +80,7 @@ struct CvarField_t
 { 
     std::string Name;
     std::string Value;
+    cvartype_t Type;
 } CvarField;
 
 // The TAG identifier, changing this to a new value WILL break any application 
@@ -87,7 +88,7 @@ struct CvarField_t
 #define TAG_ID 0xAD0
 
 // When a change to the protocol is made, this value must be incremented
-#define PROTOCOL_VERSION 2
+#define PROTOCOL_VERSION 3
 
 /* 
     Inclusion/Removal macros of certain fields, it is MANDATORY to remove these
@@ -132,9 +133,17 @@ static void IntQryBuildInformation(const DWORD &EqProtocolVersion,
         if (var->flags() & CVAR_SERVERINFO)
         {
             CvarField.Name = var->name();
+            CvarField.Type = var->type();
             CvarField.Value = var->cstring();
             
-            Cvars.push_back(CvarField);
+            // Skip non-true boolean fields
+            if (CvarField.Type == CVARTYPE_BOOL)
+            {
+                if ((bool)atoi(CvarField.Value.c_str()))
+                    Cvars.push_back(CvarField);
+            }
+            else
+                Cvars.push_back(CvarField);
         }
         
         var = var->GetNext();
@@ -145,9 +154,62 @@ static void IntQryBuildInformation(const DWORD &EqProtocolVersion,
     
     // Write cvars
     for (size_t i = 0; i < Cvars.size(); ++i)
-	{
-        MSG_WriteString(&ml_message, Cvars[i].Name.c_str());
-		MSG_WriteString(&ml_message, Cvars[i].Value.c_str());
+	{              
+        // Type field
+        QRYNEWINFO(3)
+        {
+            // Skip non-true boolean fields
+            if (Cvars[i].Type == CVARTYPE_BOOL)
+            {
+                if ((bool)atoi(Cvars[i].Value.c_str()))
+                {
+                    MSG_WriteString(&ml_message, Cvars[i].Name.c_str());
+                    MSG_WriteByte(&ml_message, (byte)Cvars[i].Type);
+                }
+
+                continue;
+            }
+
+            MSG_WriteString(&ml_message, Cvars[i].Name.c_str());
+            MSG_WriteByte(&ml_message, (byte)Cvars[i].Type);
+
+            switch (Cvars[i].Type)
+            {
+                case CVARTYPE_BYTE:
+                {
+                    MSG_WriteByte(&ml_message, (byte)atoi(Cvars[i].Value.c_str()));
+                }
+                break;
+
+                case CVARTYPE_WORD:
+                {
+                    MSG_WriteShort(&ml_message, (short)atoi(Cvars[i].Value.c_str()));
+                }
+                break;
+
+                case CVARTYPE_INT:
+                {
+                    MSG_WriteLong(&ml_message, (int)atoi(Cvars[i].Value.c_str()));
+                }
+                break;
+
+                case CVARTYPE_FLOAT:
+                case CVARTYPE_STRING:
+                {
+                    MSG_WriteString(&ml_message, Cvars[i].Value.c_str());
+                }
+                break;
+
+                case CVARTYPE_NONE:
+                case CVARTYPE_MAX:
+                default:
+                break;
+            }
+        }
+        else
+        {
+            MSG_WriteString(&ml_message, Cvars[i].Value.c_str());
+        }
 	}
 	
 	MSG_WriteString(&ml_message, (strlen(join_password.cstring()) ? MD5SUM(join_password.cstring()).c_str() : ""));
@@ -206,10 +268,8 @@ static void IntQryBuildInformation(const DWORD &EqProtocolVersion,
     for (size_t i = 0; i < players.size(); ++i)
     {
         MSG_WriteString(&ml_message, players[i].userinfo.netname.c_str());
-        QRYNEWINFO(2)
-        {
-            MSG_WriteLong(&ml_message, players[i].userinfo.color);
-        }
+
+        MSG_WriteLong(&ml_message, players[i].userinfo.color);
         MSG_WriteByte(&ml_message, players[i].userinfo.team);
         MSG_WriteShort(&ml_message, players[i].ping);
 

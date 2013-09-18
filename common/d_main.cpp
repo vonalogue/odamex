@@ -107,12 +107,21 @@ static const char* uninstaller_string = "\\uninstl.exe /S ";
 // C:\Program Files\Path\uninstl.exe /S C:\Program Files\Path
 //
 // With some munging we can find where Doom was installed.
+
+// [AM] From the persepctive of a 64-bit executable, 32-bit registry keys are
+//      located in a different spot.
+#if _WIN64
+#define SOFTWARE_KEY "Software\\Wow6432Node"
+#else
+#define SOFTWARE_KEY "Software"
+#endif
+
 static registry_value_t uninstall_values[] =
 {
 	// Ultimate Doom, CD version (Depths of Doom trilogy)
 	{
 		HKEY_LOCAL_MACHINE,
-		"Software\\Microsoft\\Windows\\CurrentVersion\\"
+		SOFTWARE_KEY "\\Microsoft\\Windows\\CurrentVersion\\"
 			"Uninstall\\Ultimate Doom for Windows 95",
 		"UninstallString",
 	},
@@ -120,7 +129,7 @@ static registry_value_t uninstall_values[] =
 	// Doom II, CD version (Depths of Doom trilogy)
 	{
 		HKEY_LOCAL_MACHINE,
-		"Software\\Microsoft\\Windows\\CurrentVersion\\"
+		SOFTWARE_KEY "\\Microsoft\\Windows\\CurrentVersion\\"
 			"Uninstall\\Doom II for Windows 95",
 		"UninstallString",
 	},
@@ -128,7 +137,7 @@ static registry_value_t uninstall_values[] =
 	// Final Doom
 	{
 		HKEY_LOCAL_MACHINE,
-		"Software\\Microsoft\\Windows\\CurrentVersion\\"
+		SOFTWARE_KEY "\\Microsoft\\Windows\\CurrentVersion\\"
 			"Uninstall\\Final Doom for Windows 95",
 		"UninstallString",
 	},
@@ -136,7 +145,7 @@ static registry_value_t uninstall_values[] =
 	// Shareware version
 	{
 		HKEY_LOCAL_MACHINE,
-		"Software\\Microsoft\\Windows\\CurrentVersion\\"
+		SOFTWARE_KEY "\\Microsoft\\Windows\\CurrentVersion\\"
 			"Uninstall\\Doom Shareware for Windows 95",
 		"UninstallString",
 	},
@@ -146,7 +155,7 @@ static registry_value_t uninstall_values[] =
 static registry_value_t collectors_edition_value =
 {
 	HKEY_LOCAL_MACHINE,
-	"Software\\Activision\\DOOM Collector's Edition\\v1.0",
+	SOFTWARE_KEY "\\Activision\\DOOM Collector's Edition\\v1.0",
 	"INSTALLPATH",
 };
 
@@ -162,7 +171,7 @@ static const char* collectors_edition_subdirs[] =
 static registry_value_t steam_install_location =
 {
 	HKEY_LOCAL_MACHINE,
-	"Software\\Valve\\Steam",
+	SOFTWARE_KEY "\\Valve\\Steam",
 	"InstallPath",
 };
 
@@ -261,7 +270,7 @@ static std::string BaseFileSearchDir(std::string dir, std::string file, std::str
 			if(file == tmp || (file + ext) == tmp || (file + dothash) == tmp || (file + ext + dothash) == tmp)
 			{
 				std::string local_file = (dir + d_name).c_str();
-				std::string local_hash = W_MD5(local_file.c_str());
+				std::string local_hash = W_MD5(local_file);
 
 				if(!hash.length() || hash == local_hash)
 				{
@@ -299,7 +308,7 @@ static std::string BaseFileSearchDir(std::string dir, std::string file, std::str
 		if(file == tmp || (file + ext) == tmp || (file + dothash) == tmp || (file + ext + dothash) == tmp)
 		{
 			std::string local_file = (dir + FindFileData.cFileName).c_str();
-			std::string local_hash = W_MD5(local_file.c_str());
+			std::string local_hash = W_MD5(local_file);
 
 			if(!hash.length() || hash == local_hash)
 			{
@@ -564,7 +573,7 @@ static bool CheckIWAD (std::string suggestion, std::string &titlestring)
 			iwad = found;
 		else
 		{
-			if(M_FileExists(suggestion.c_str()))
+			if(M_FileExists(suggestion))
 				iwad = suggestion;
 		}
 		/*	[ML] Removed 1/13/10: we can trust the user to provide an iwad
