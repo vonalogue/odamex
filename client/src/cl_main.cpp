@@ -1746,33 +1746,20 @@ void CL_InitNetwork (void)
     else
 		localport = CLIENTPORT;
 
-    // set up a socket and net_message buffer
-    InitNetCommon();
-
-    SZ_Clear(&net_buffer);
-
     size_t ParamIndex = Args.CheckParm ("-connect");
     
     if (ParamIndex)
     {
-		const char *ipaddress = Args.GetArg(ParamIndex + 1);
-
-		if (ipaddress && ipaddress[0] != '-' && ipaddress[0] != '+')
+		const char* current_arg = Args.GetArg(ParamIndex + 1);
+		if (current_arg && current_arg[0] != '-' && current_arg[0] != '+')
 		{
-			NET_StringToAdr (ipaddress, &serveraddr);
+			std::string address_string(current_arg), password;
+			
+			current_arg = Args.GetArg(ParamIndex + 2);
+			if (current_arg && current_arg[0] != '-' && current_arg[0] != '+')
+				password = current_arg;
 
-			const char *passhash = Args.GetArg(ParamIndex + 2);
-
-			if (passhash && passhash[0] != '-' && passhash[0] != '+')
-			{
-				connectpasshash = MD5SUM(passhash);            
-			}
-
-			if (!serveraddr.port)
-				I_SetPort(serveraddr, SERVERPORT);
-
-			lastconaddr = serveraddr;
-			gamestate = GS_CONNECTING;
+			CL_Connect(address_string, password);
 		}
     }
 
