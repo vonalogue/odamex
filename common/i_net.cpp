@@ -297,6 +297,7 @@ SOCKET UDPsocket (void)
 //
 void BindToLocalPort (SOCKET s, u_short wanted)
 {
+/*
 	int v;
 	struct sockaddr_in address;
 
@@ -344,11 +345,13 @@ void BindToLocalPort (SOCKET s, u_short wanted)
 #endif
 
 	Printf(PRINT_HIGH, "Bound to local port %d\n", next - 1);
+*/
 }
 
 
 void CloseNetwork (void)
 {
+/*
 #ifdef ODA_HAVE_MINIUPNP
     upnp_rem_redir (port);
 #endif
@@ -357,6 +360,7 @@ void CloseNetwork (void)
 #ifdef _WIN32
 	WSACleanup ();
 #endif
+*/
 }
 
 
@@ -1037,6 +1041,7 @@ void InitNetCommon(void)
 //
 bool NetWaitOrTimeout(size_t ms)
 {
+/*
 	struct timeval timeout = {0, (1000*ms) + 1};
 	fd_set fds;
 
@@ -1059,6 +1064,7 @@ bool NetWaitOrTimeout(size_t ms)
 	#endif
 
 	return false;
+*/
 }
 
 void I_SetPort(netadr_t &addr, int port)

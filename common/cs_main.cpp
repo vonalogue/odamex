@@ -123,6 +123,7 @@ void CS_OpenConnection(const std::string& socket_address_string)
 	if (interface)
 	{
 		SocketAddress socket_address(socket_address_string);
+		// TODO: test for valid addresses
 		client_connection_id = interface->requestConnection(socket_address);
 	}
 }

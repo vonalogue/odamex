@@ -55,6 +55,10 @@
 		#include <sys/ioctl.h>
 	#endif // ! GEKKO
 
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#include <fcntl.h>
+
 	#include <sys/types.h>
 	#include <errno.h>
 	#include <unistd.h>
@@ -70,7 +74,6 @@
 	#endif
 
 	#define closesocket close
-	#define ioctlsocket ioctl
 #endif
 
 #ifdef _WIN32
@@ -356,21 +359,10 @@ void NetInterface::openInterface(const std::string& ip_string, uint16_t desired_
 	#endif
 
 	// determine which interface IP address to bind to based on ip_string
-	uint32_t desired_ip = 0;
-	struct addrinfo hints;
-	struct addrinfo* ai;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_flags = AI_PASSIVE;
-	getaddrinfo(ip_string.c_str(), NULL, &hints, &ai);
+	SocketAddress tempaddress(ip_string);
+	uint32_t desired_ip = tempaddress.getIPAddress();
 
-	if (ai)
-	{
-		struct sockaddr_in* addr = (struct sockaddr_in*)(ai->ai_addr);
-		desired_ip = ntohl(addr->sin_addr.s_addr);
-	}
-	else
+	if (desired_ip == 0)
 	{
 		Net_Error("NetInterface::openInterface: unable to find interface matching address %s!", ip_string.c_str());
 		return;
@@ -378,19 +370,6 @@ void NetInterface::openInterface(const std::string& ip_string, uint16_t desired_
 
 	// open a socket and bind it to a port and set mLocalAddress
 	openSocket(desired_ip, desired_port);
-	if (!mLocalAddress.isValid())
-	{
-		Net_Error("NetInterface::openInterface: unable to create socket for %s:%u!", ip_string.c_str(), desired_port);
-		return;
-	}
-
-	// make mSocket non-blocking
-	unsigned long ulongtrue = true;
-	if (ioctlsocket(mSocket, FIONBIO, &ulongtrue) == -1)
-	{
-		closeSocket();
-		Net_Error("NetInterface::openInterface: ioctl FIONBIO: %s", strerror(errno));
-	}
 
 	Net_Printf("NetInterface: Opened socket at %s.", mLocalAddress.getCString());
 
@@ -452,7 +431,7 @@ void NetInterface::openSocket(uint32_t desired_ip, uint16_t desired_port)
 {
 	mLocalAddress.clear();
 
-	mSocket = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	mSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (mSocket == INVALID_SOCKET)
 		return;
 
@@ -464,15 +443,35 @@ void NetInterface::openSocket(uint32_t desired_ip, uint16_t desired_port)
 		mLocalAddress.setPort(port);
 		const struct sockaddr_in& sockaddress = mLocalAddress.getSockAddrIn();
 
-		int result = bind(mSocket, (sockaddr *)&sockaddress, sizeof(sockaddress));
+		int result = bind(mSocket, (const sockaddr *)&sockaddress, sizeof(sockaddr_in));
 
-		if (result != SOCKET_ERROR)
+		if (result != SOCKET_ERROR)		// successfully bound to port
+		{
+			// Set the socket as non-blocking	
+			#ifndef _WIN32
+			int nonBlocking = 1;
+			if (fcntl(mSocket, F_SETFL, O_NONBLOCK, nonBlocking) == -1)
+			{
+				Net_Error("NetInterface::openSocket: failed to set socket to non-blocking mode!");
+				return;
+			}
+			#else
+			DWORD nonBlocking = 1;
+			if (ioctlsocket(mSocket, FIONBIO, &nonBlocking) != 0)
+			{
+				Net_Error("NetInterface::openSocket: failed to set socket to non-blocking mode!");
+				return;
+			}
+			#endif
+
 			return;		// success!
+		}
 	}
 
 	// unable to bind to a port
-	mLocalAddress.clear();
 	closeSocket();
+	mLocalAddress.setPort(desired_port);
+	Net_Error("NetInterface::openSocket: unable to open socket for %s!", mLocalAddress.getCString());
 }
 
 
@@ -506,9 +505,9 @@ bool NetInterface::socketSend(const SocketAddress& dest, const uint8_t* data, ui
 	const struct sockaddr_in& saddr = dest.getSockAddrIn();
 
 	// pass the packet data off to the IP stack
-	int ret = sendto(mSocket, data, size, 0, (const struct sockaddr *)&saddr, sizeof(saddr));
+	int ret = sendto(mSocket, data, size, 0, (const struct sockaddr*)&saddr, sizeof(sockaddr_in));
 
-	if (ret == -1)
+	if (ret != size)
 	{
 		Net_Warning("NetInterface::socketSend: Unable to send packet to destination %s.", dest.getCString()); 
 

@@ -86,44 +86,44 @@ SocketAddress::SocketAddress(uint8_t oct1, uint8_t oct2, uint8_t oct3, uint8_t o
 {
 }
 
-SocketAddress::SocketAddress(const SocketAddress& other)
+SocketAddress::SocketAddress(const SocketAddress& other) :
+	mIP(other.mIP), mPort(other.mPort),
+	mIsSockDirty(true), mIsStringDirty(true)
 {
-	mIP = other.mIP;
-	mPort = other.mPort;
-	mIsSockDirty = mIsStringDirty = true;
 }
 
-SocketAddress::SocketAddress(const std::string& stradr)
+SocketAddress::SocketAddress(const std::string& stradr) :
+	mIP(0), mPort(0),
+	mIsSockDirty(true), mIsStringDirty(true)
 {
-	struct hostent *h;
-	struct sockaddr_in sadr;
-	char *colon;
-
-	memset(&sadr, 0, sizeof(sadr));
-	sadr.sin_family = AF_INET;
-
 	char copy[256];
 	strncpy(copy, stradr.c_str(), sizeof(copy) - 1);
 	copy[sizeof(copy) - 1] = 0;
 
 	// strip off a trailing :port if present
-	for (colon = copy; *colon; colon++)
+	for (char* colon = copy; *colon; colon++)
 	{
 		if (*colon == ':')
 		{
 			*colon = 0;
-			sadr.sin_port = htons(atoi(colon+1));
+			mPort = atoi(colon + 1);
 		}
 	}
 
-	if (!(h = gethostbyname(copy)))
-		return;
+	// determine which interface IP address to bind to based on ip_string
+	struct addrinfo hints;
+	struct addrinfo* ai;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
+	getaddrinfo(copy, NULL, &hints, &ai);
 
-	*(int *)&sadr.sin_addr = *(int *)h->h_addr_list[0];
-
-	mIP = ntohl(sadr.sin_addr.s_addr);
-	mPort = ntohs(sadr.sin_port);
-	mIsSockDirty = mIsStringDirty = true;
+	if (ai)
+	{
+		struct sockaddr_in* addr = (struct sockaddr_in*)(ai->ai_addr);
+		mIP = ntohl(addr->sin_addr.s_addr);
+	}
 }
 
 SocketAddress::SocketAddress(const struct sockaddr_in sadr)
