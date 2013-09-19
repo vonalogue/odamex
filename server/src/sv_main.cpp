@@ -69,6 +69,8 @@
 #include <sstream>
 #include <vector>
 
+#include "cs_main.h"
+
 extern void G_DeferedInitNew (char *mapname);
 extern level_locals_t level;
 
@@ -467,21 +469,15 @@ void SV_InitNetwork (void)
 	netgame = false;  // for old network code
     network_game = true;
 
-
+	uint16_t localport = SERVERPORT;
 	const char *v = Args.CheckValue ("-port");
     if (v)
     {
        localport = atoi (v);
        Printf (PRINT_HIGH, "using alternate port %i\n", localport);
     }
-	else
-	   localport = SERVERPORT;
 
-	// set up a socket and net_message buffer
-	InitNetCommon();
-
-	// determine my name & address
-	// NET_GetLocalAddress ();
+	CS_OpenNetInterface("localhost", localport);
 
 	Printf(PRINT_HIGH, "UDP Initialized\n");
 
@@ -494,7 +490,7 @@ void SV_InitNetwork (void)
 	step_mode = Args.CheckParm ("-stepmode");
 
 	// Nes - Connect with the master servers. (If valid)
-	SV_InitMasters();
+//	SV_InitMasters();
 }
 
 
@@ -4598,7 +4594,8 @@ void SV_RenderTics()
 //
 void SV_RunTics()
 {
-	SV_GetPackets();
+//	SV_GetPackets();
+	CS_ServiceNetInterface();
 
 	std::string cmd = I_ConsoleInput();
 	if (cmd.length())
