@@ -56,12 +56,16 @@ void Net_LogPrintf(const char* str, ...)
 
 void Net_Warning(const char* str, ...)
 {
+	static const char* prefix = "WARNING";
+
 	va_list args;
 	va_start(args, str);
 
-	Net_LogPrintf(str, args);
+	vsnprintf(printbuf, printbuf_size, str, args);
+	fprintf(stderr, "%s: %s\n", prefix, printbuf);
 
 	va_end(args);
+	fflush(stderr);
 }
 
 void Net_Error(const char* str, ...)
