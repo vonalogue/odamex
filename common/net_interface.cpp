@@ -368,8 +368,13 @@ void NetInterface::openInterface(const std::string& ip_string, uint16_t desired_
 		return;
 	}
 
+	// [SL] Use INADDR_ANY instead of resolving localhost for binding purposes
+	if (ip_string.empty() || iequals(ip_string, "localhost"))
+		desired_ip = INADDR_ANY;
+
 	// open a socket and bind it to a port and set mLocalAddress
 	openSocket(desired_ip, desired_port);
+	mLocalAddress.setIPAddress(tempaddress.getIPAddress());
 
 	Net_Printf("NetInterface: Opened socket at %s.", mLocalAddress.getCString());
 
