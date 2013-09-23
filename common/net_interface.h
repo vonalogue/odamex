@@ -28,8 +28,6 @@
 #include "net_type.h"
 #include "net_socketaddress.h"
 #include "hashtable.h"
-#include <map>
-#include <queue>
 #include <string>
 
 #ifdef _WIN32
@@ -58,8 +56,15 @@ typedef IdGenerator<CONNECTION_ID_BITS> ConnectionIdGenerator;
 //
 // Function object to generate hash keys from SocketAddress objects
 //
-template <> struct hashfunc<const SocketAddress>
+template <> struct hashfunc<SocketAddress>
 {   size_t operator()(const SocketAddress& adr) const { return (adr.getIPAddress() ^ adr.getPort()); } };
+
+//
+// Function object to generate hash keys from ConnectionId objects
+//
+template <> struct hashfunc<ConnectionId>
+{	size_t	operator()(const ConnectionId& connection_id) const { return connection_id.getInteger(); } };
+
 
 // ============================================================================
 //
@@ -141,10 +146,8 @@ private:
 
 	ConnectionIdGenerator		mConnectionIdGenerator;
 
-//	typedef HashTable<SocketAddress, Connection*> ConnectionAddressTable;
-//	typedef HashTable<ConnectionId, Connection*> ConnectionIdTable;
-	typedef std::map<SocketAddress, Connection*> ConnectionAddressTable;
-	typedef std::map<ConnectionId, Connection*> ConnectionIdTable;
+	typedef HashTable<SocketAddress, Connection*> ConnectionAddressTable;
+	typedef HashTable<ConnectionId, Connection*> ConnectionIdTable;
 
 	ConnectionAddressTable		mConnectionsByAddress;
 	ConnectionIdTable			mConnectionsById;
