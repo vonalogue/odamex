@@ -502,6 +502,7 @@ void Connection::parseNegotiationPacket(BitStream& stream)
 		{
 			mState = CONN_CONNECTED;
 			Net_LogPrintf("Connection::processNegotiationPacket: negotiation with %s successful.", getRemoteAddressCString());
+			Net_Printf("Successfully negotiated connection with %s.", getRemoteAddressCString());
 		}
 		else
 		{
