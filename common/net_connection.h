@@ -32,9 +32,9 @@
 #include "net_interface.h"
 #include "net_messagecomponent.h"
 
-#include <list>
+#include <vector>
 
-//class MessageManager;
+class MessageManager;
 
 typedef SequenceNumber<16> PacketSequenceNumber;
 
@@ -73,7 +73,7 @@ public:
 	virtual void sendPacket(BitStream& stream);
 	virtual void processPacket(BitStream& stream);
 
-//	virtual void registerMessageManager(MessageManager* manager);
+	virtual void registerMessageManager(MessageManager* manager);
 
 private:
 	enum ConnectionState_t
@@ -140,7 +140,7 @@ private:
 
 	typedef BoolMessageComponent PacketTypeMessageComponent;
 
-//	std::list<MessageManager*>		mMessageManagers;
+	std::vector<MessageManager*>		mMessageManagers;
 
 	PacketType checkPacketType(BitStream& stream);
 

@@ -27,6 +27,7 @@
 #include "net_log.h"
 #include "net_interface.h"
 #include "net_connection.h"
+#include "net_messagemanager.h"
 
 #include "i_system.h"
 #include "md5.h"
@@ -224,13 +225,11 @@ void Connection::service()
 // payload portion of outgoing or incoming game packets. The composing/parsing
 // functions will be called order in which they are registered.
 //
-/*
 void Connection::registerMessageManager(MessageManager* manager)
 {
 	if (manager != NULL)
 		mMessageManagers.push_back(manager);
 }
-*/
 
 // ----------------------------------------------------------------------------
 // Private connection negotiation functions
@@ -723,14 +722,12 @@ void Connection::composeGamePacket(BitStream& stream)
 	composePacketHeader(GAME_PACKET, stream);
 
 	// call the registered packet composition functions to compose the payload
-/*
 	uint16_t size_left = stream.writeSize();
-	for (std::list<MessageManager*>::iterator itr = mMessageManagers.begin(); itr != mMessageManagers.end(); ++itr)
+	for (std::vector<MessageManager*>::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
 	{
-		MessageManager* composer = *itr;
+		MessageManager* composer = *it;
 		size_left -= composer->write(stream, size_left, mSequence);
 	}
-*/
 }
 
 //
@@ -744,15 +741,13 @@ void Connection::parseGamePacket(BitStream& stream)
 
 	parsePacketHeader(stream);
 
-/*
 	// call the registered packet parser functions to parse the payload
 	uint16_t size_left = stream.readSize();
-	for (std::list<MessageManager*>::iterator itr = mMessageManagers.begin(); itr != mMessageManagers.end(); ++itr)
+	for (std::vector<MessageManager*>::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
 	{
-		MessageManager* parser = *itr;
+		MessageManager* parser = *it;
 		size_left -= parser->read(stream, size_left);
 	}
-*/
 }
 
 
@@ -769,13 +764,11 @@ void Connection::notifyReceived(const PacketSequenceNumber& seq)
 	if (isConnected() == false)
 		return;
 
-/*
-	for (std::list<MessageManager*>::iterator itr = mMessageManagers.begin(); itr != mMessageManagers.end(); ++itr)
+	for (std::vector<MessageManager*>::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
 	{
-		MessageManager* manager = *itr;
+		MessageManager* manager = *it;
 		manager->notifyReceived(seq);
 	}
-*/
 }
 
 
@@ -792,13 +785,11 @@ void Connection::notifyLost(const PacketSequenceNumber& seq)
 	if (isConnected() == false)
 		return;
 
-/*
-	for (std::list<MessageManager*>::iterator itr = mMessageManagers.begin(); itr != mMessageManagers.end(); ++itr)
+	for (std::vector<MessageManager*>::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
 	{
-		MessageManager* manager = *itr;
+		MessageManager* manager = *it;
 		manager->notifyLost(seq);
 	}
-*/
 }
 
 VERSION_CONTROL (net_connection_cpp, "$Id$")
