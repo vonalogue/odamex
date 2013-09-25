@@ -82,8 +82,6 @@ public:
 	virtual void setFieldName(const std::string& name)
 		{ mFieldName = name; }
 
-	virtual bool valid() const
-		{ return true; }
 	virtual uint16_t size() const = 0;
 	virtual void clear() = 0;
 
@@ -111,17 +109,15 @@ class IntegralMessageComponent : public MessageComponent
 {
 public:
 	IntegralMessageComponent() :
-		mValid(false), mValue(0) { }
+		mValue(0) { }
 	IntegralMessageComponent(T value) :
-		mValid(true), mValue(value) { }
+		mValue(value) { }
 	virtual ~IntegralMessageComponent() { }
 
-	inline bool valid() const
-		{ return mValid; }
 	inline uint16_t size() const
 		{ return SIZE; }
 	inline void clear()
-		{ mValue = 0; mValid = false; }
+		{ mValue = 0; }
 
 	inline uint16_t read(BitStream& stream)
 		{ set(stream.readBits(SIZE)); return SIZE; }
@@ -131,13 +127,12 @@ public:
 	inline T get() const
 		{ return mValue; }
 	inline void set(T value)
-		{ mValue = value; mValid = true; }
+		{ mValue = value; }
 
 	inline IntegralMessageComponent<T, SIZE>* clone() const
 		{ return new IntegralMessageComponent<T, SIZE>(*this); }
 
 private:
-	bool	mValid;
 	T		mValue;
 };
 
@@ -157,11 +152,9 @@ public:
 	RangeMessageComponent(int32_t value, int32_t lowerbound = MININT, int32_t upperbound = MAXINT);
 	virtual ~RangeMessageComponent() { }
 
-	inline bool valid() const
-		{ return mValid; }
 	uint16_t size() const;
 	inline void clear()
-		{ mValue = 0; mValid = false; }
+		{ mValue = 0; }
 
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
@@ -169,7 +162,7 @@ public:
 	inline int32_t get() const
 		{ return mValue; }
 	inline void set(int32_t value)
-		{ mValue = value; mValid = true; }
+		{ mValue = value; }
 
 	inline RangeMessageComponent* clone() const
 		{ return new RangeMessageComponent(*this); }
@@ -178,7 +171,6 @@ private:
 	mutable bool		mCachedSizeValid;
 	mutable uint16_t	mCachedSize;
 
-	bool				mValid;
 	int32_t				mValue;
 	int32_t				mLowerBound;
 	int32_t				mUpperBound;
@@ -197,17 +189,15 @@ class FloatMessageComponent : public MessageComponent
 {
 public:
 	FloatMessageComponent() :
-		mValid(false), mValue(0.0f) { }
+		mValue(0.0f) { }
 	FloatMessageComponent(float value) :
-		mValid(true), mValue(value) { }
+		mValue(value) { }
 	virtual ~FloatMessageComponent() { }
 
-	inline bool valid() const
-		{ return mValid; }
 	inline uint16_t size() const
 		{ return SIZE; }
 	inline void clear()
-		{ mValue = 0; mValid = false; }
+		{ mValue = 0; }
 
 	inline uint16_t read(BitStream& stream)
 		{ set(stream.readFloat()); return SIZE; }
@@ -217,14 +207,13 @@ public:
 	inline float get() const
 		{ return mValue; }
 	inline void set(float value)
-		{ mValue = value; mValid = true; }
+		{ mValue = value; }
 
 	inline FloatMessageComponent* clone() const
 		{ return new FloatMessageComponent(*this); }
 
 private:
 	static const uint16_t SIZE = 32;
-	bool				mValid;
 	float				mValue;
 };
 
@@ -240,18 +229,15 @@ private:
 class StringMessageComponent : public MessageComponent
 {
 public:
-	StringMessageComponent() :
-		mValid(false) { }
+	StringMessageComponent() { }
 	StringMessageComponent(const std::string& value) :
-		mValid(true), mValue(value) { }
+		mValue(value) { }
 	virtual ~StringMessageComponent() { }
 
-	inline bool valid() const
-		{ return mValid; }
 	inline uint16_t size() const
 		{ return 8 * (mValue.length() + 1); }
 	inline void clear()
-		{ mValue.clear(); mValid = false;}
+		{ mValue.clear(); }
 
 	inline uint16_t read(BitStream& stream)
 		{ set(stream.readString()); return size(); }
@@ -261,13 +247,12 @@ public:
 	inline const std::string& get() const
 		{ return mValue; }
 	inline void set(const std::string& value)
-		{ mValue = value; mValid = true; }
+		{ mValue = value; }
 
 	inline StringMessageComponent* clone() const
 		{ return new StringMessageComponent(*this); }
 
 private:
-	bool				mValid;
 	std::string			mValue;
 };
 
@@ -282,22 +267,19 @@ private:
 class V2FixedMessageComponent : public MessageComponent
 {
 public:
-	V2FixedMessageComponent() :
-		mValid(false) { }
+	V2FixedMessageComponent() { }
 	V2FixedMessageComponent(const v2fixed_t& value) :
-		mValid(true), mValue(value) { }
+		mValue(value) { }
 	virtual ~V2FixedMessageComponent() { }
 
-	inline bool valid() const
-		{ return mValid; }
 	inline uint16_t size() const
 		{ return 2 * 32; }
 	inline void clear()
-		{ mValue.x = mValue.y = 0; mValid = false; }
+		{ mValue.x = mValue.y = 0; }
 
 	inline uint16_t read(BitStream& stream)
 		{ mValue.x = stream.readS32(); mValue.y = stream.readS32();
-		  mValid = true; return size(); }
+		  return size(); }
 	inline uint16_t write(BitStream& stream) const
 		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y);
 		  return size(); }
@@ -305,13 +287,12 @@ public:
 	inline const v2fixed_t& get() const
 		{ return mValue; }
 	inline void set(const v2fixed_t& value)
-		{ mValue = value; mValid = true; }
+		{ mValue = value; }
 
 	inline V2FixedMessageComponent* clone() const
 		{ return new V2FixedMessageComponent(*this); }
 
 private:
-	bool					mValid;
 	v2fixed_t				mValue;
 };
 
@@ -327,22 +308,19 @@ private:
 class V3FixedMessageComponent : public MessageComponent
 {
 public:
-	V3FixedMessageComponent() :
-		mValid(false) { }
+	V3FixedMessageComponent() { }
 	V3FixedMessageComponent(const v3fixed_t& value) :
-		mValid(true), mValue(value) { }
+		mValue(value) { }
 	virtual ~V3FixedMessageComponent() { }
 
-	inline bool valid() const
-		{ return mValid; }
 	inline uint16_t size() const
 		{ return 3 * 32; }
 	inline void clear()
-		{ mValue.x = mValue.y = mValue.z = 0; mValid = false; }
+		{ mValue.x = mValue.y = mValue.z = 0; }
 
 	inline uint16_t read(BitStream& stream)
 		{ mValue.x = stream.readS32(); mValue.y = stream.readS32();
-		  mValue.z = stream.readS32(); mValid = true; return size(); }
+		  mValue.z = stream.readS32(); return size(); }
 	inline uint16_t write(BitStream& stream) const
 		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y);
 		  stream.writeS32(mValue.z); return size(); }
@@ -350,13 +328,12 @@ public:
 	inline const v3fixed_t& get() const
 		{ return mValue; }
 	inline void set(const v3fixed_t& value)
-		{ mValue = value; mValid = true; }
+		{ mValue = value; }
 
 	inline V3FixedMessageComponent* clone() const
 		{ return new V3FixedMessageComponent(*this); }
 
 private:
-	bool					mValid;
 	v3fixed_t				mValue;
 };
 
@@ -376,12 +353,10 @@ public:
 	BitFieldMessageComponent(const BitField& value);
 	virtual ~BitFieldMessageComponent() { }
 
-	inline bool valid() const
-		{ return mValid; }
 	inline uint16_t size() const
 		{ return mBitField.size(); }
 	inline void clear()
-		{ mBitField.clear(); mValid = false; }
+		{ mBitField.clear(); }
 
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
@@ -389,13 +364,12 @@ public:
 	inline const BitField& get() const
 		{ return mBitField; }
 	inline void set(const BitField& value)
-		{ mBitField = value; mValid = true; }
+		{ mBitField = value; }
 
 	inline BitFieldMessageComponent* clone() const
 		{ return new BitFieldMessageComponent(*this); }
 
 private:
-	bool				mValid;
 	BitField			mBitField;
 };
 
@@ -416,8 +390,6 @@ public:
 	Md5SumMessageComponent(const std::string& value);
 	virtual ~Md5SumMessageComponent() { }
 
-	inline bool valid() const
-		{ return mValid; }
 	inline uint16_t size() const
 		{ return NUMBITS; }
 	void clear();
@@ -439,7 +411,6 @@ private:
 
 	static const size_t NUMBITS = 128;
 	static const size_t NUMBYTES = NUMBITS / 8;
-	bool			mValid;
 	uint8_t			mValue[NUMBYTES];
 	std::string		mCachedString;	
 };
@@ -461,8 +432,6 @@ public:
 	virtual ~MessageComponentArray();
 	MessageComponentArray& operator=(const MessageComponentArray& other);
 
-	inline bool valid() const
-		{ return mValid; }
 	uint16_t size() const;
 	void clear();
 
@@ -476,7 +445,6 @@ private:
 	mutable bool		mCachedSizeValid;
 	mutable uint16_t	mCachedSize;
 
-	bool				mValid;
 
 	uint32_t			mMinCount;
 	uint32_t			mMaxCount;
@@ -516,8 +484,6 @@ public:
 	MessageComponentGroup(const MessageComponentGroup& other);
 	virtual ~MessageComponentGroup();
 
-	inline bool valid() const
-		{ return mValid; }
 	uint16_t size() const;
 	void clear();
 
@@ -534,8 +500,6 @@ public:
 private:
 	mutable bool			mCachedSizeValid;
 	mutable uint16_t		mCachedSize;
-
-	bool					mValid;
 
 	typedef HashTable<std::string, MessageComponent*> NameTable;
 	NameTable				mNameTable;
@@ -575,7 +539,6 @@ public:
 	const MessageType getMessageType() const
 		{	return mMessageType;	}
 
-	inline bool valid() const { return true; }
 	virtual uint16_t size() const { return 0; }
 	virtual void clear() { }
 

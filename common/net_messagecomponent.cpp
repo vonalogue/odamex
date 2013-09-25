@@ -138,7 +138,7 @@ BitFieldMessageComponent::BitFieldMessageComponent(uint32_t num_fields) :
 { }
 
 BitFieldMessageComponent::BitFieldMessageComponent(const BitField& value) :
-	mValid(false), mBitField(value)
+	mBitField(value)
 { }
 
 uint16_t BitFieldMessageComponent::read(BitStream& stream)
@@ -167,8 +167,7 @@ uint16_t BitFieldMessageComponent::write(BitStream& stream) const
 // ============================================================================
 
 
-Md5SumMessageComponent::Md5SumMessageComponent() : 
-	mValid(false)
+Md5SumMessageComponent::Md5SumMessageComponent() 
 {
 	clear();
 }
@@ -207,13 +206,12 @@ uint16_t Md5SumMessageComponent::write(BitStream& stream) const
 //
 // Md5SumMessageComponent::clear
 //
-// Sets the value to all zeros and indicates that the value is not valid
+// Sets the value to all zeros
 //
 void Md5SumMessageComponent::clear()
 {
 	memset(mValue, 0, sizeof(mValue));
 	mCachedString.clear();
-	mValid = false;
 }
 
 //
@@ -249,7 +247,6 @@ void Md5SumMessageComponent::setFromString(const std::string& value)
 		}
 
 		mCachedString = value;
-		mValid = true;
 	}
 }
 
@@ -287,12 +284,11 @@ void Md5SumMessageComponent::cacheString()
 // ============================================================================
 
 MessageComponentGroup::MessageComponentGroup() :
-	mCachedSizeValid(false), mCachedSize(0), mValid(false)
+	mCachedSizeValid(false), mCachedSize(0)
 { }
 
 MessageComponentGroup::MessageComponentGroup(const MessageComponentGroup& other) :
 	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize),
-	mValid(other.mValid),
 	mOptionalIndicator(other.mOptionalIndicator)
 {
 	for (size_t i = 0; i < other.mOptionalFields.size(); ++i)
@@ -450,13 +446,12 @@ void MessageComponentGroup::addField(MessageComponent* field, bool optional)
 // ============================================================================
 
 MessageComponentArray::MessageComponentArray(uint32_t mincnt, uint32_t maxcnt) :
-	mCachedSizeValid(false), mCachedSize(0), mValid(mincnt == 0),
+	mCachedSizeValid(false), mCachedSize(0), 
 	mMinCount(mincnt), mMaxCount(maxcnt), mCountField(0, mincnt, maxcnt)
 { }
 
 MessageComponentArray::MessageComponentArray(const MessageComponentArray& other) :
 	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize),
-	mValid(other.mValid),
 	mMinCount(other.mMinCount), mMaxCount(other.mMaxCount),
 	mCountField(other.mCountField)
 {
@@ -484,7 +479,6 @@ MessageComponentArray& MessageComponentArray::operator=(const MessageComponentAr
 
 		mCachedSizeValid = other.mCachedSizeValid;
 		mCachedSize = other.mCachedSize;
-		mValid = other.mValid;
 		mMinCount = other.mMinCount;
 		mMaxCount = other.mMaxCount;
 		mCountField = other.mCountField;
