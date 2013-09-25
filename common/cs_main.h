@@ -3,7 +3,6 @@
 //
 // $Id$
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 2006-2013 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
