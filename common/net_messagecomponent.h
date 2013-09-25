@@ -432,8 +432,8 @@ public:
 	uint16_t size() const;
 	void clear();
 
-	uint16_t read(BitStream& stream);
-	uint16_t write(BitStream& stream) const;
+	virtual uint16_t read(BitStream& stream);
+	virtual uint16_t write(BitStream& stream) const;
 
 	inline MessageComponentGroup* clone() const
 		{ return new MessageComponentGroup(*this); }
@@ -478,39 +478,26 @@ typedef enum
     NM_Obituary             = 21,
 } MessageType;
 
-class Message : public CompositeMessageComponent
+class Message : public MessageComponent
 {
-	uint16_t read(BitStream& stream);
-	uint16_t write(BitStream& stream) const;
+public:
+	virtual ~Message() { }
 
 	const MessageType getMessageType() const
 		{	return mMessageType;	}
 
+	inline bool valid() const { return true; }
+	virtual uint16_t size() const { return 0; }
+	virtual void clear() { }
+
+	virtual uint16_t read(BitStream& stream) { return 0; } 
+	virtual uint16_t write(BitStream& stream) const { return 0; }
+
+	Message* clone() const
+		{ return new Message(*this); }
+
 private:
 	MessageType				mMessageType;	
-};
-
-class UnorderedMessage : public Message
-{
-public:
-
-
-};
-
-
-static const uint8_t MESSAGE_ID_BITS = 8;
-typedef SequenceNumber<MESSAGE_ID_BITS> MessageId;
-typedef SequentialIdGenerator<MESSAGE_ID_BITS> OrderedMessageIdGenerator;
-
-class OrderedMessage : public Message
-{
-public:
-
-	const MessageId getMessageId() const
-		{	return mMessageId;	}
-
-private:
-	MessageId				mMessageId;
 };
 
 #endif	// __NET_MESSAGECOMPONENT_H__
