@@ -36,6 +36,7 @@
 
 #include "net_type.h"
 #include "net_bitstream.h"
+#include "vectors.h"
 #include <string>
 #include "hashtable.h"
 #include <list>
@@ -268,6 +269,95 @@ public:
 private:
 	bool				mValid;
 	std::string			mValue;
+};
+
+// ============================================================================
+//
+// V2FixedMessageComponent interface
+//
+// Stores and serializes v2fixed_t vectors for use in Messages.
+//
+// ============================================================================
+
+class V2FixedMessageComponent : public MessageComponent
+{
+public:
+	V2FixedMessageComponent() :
+		mValid(false) { }
+	V2FixedMessageComponent(const v2fixed_t& value) :
+		mValid(true), mValue(value) { }
+	virtual ~V2FixedMessageComponent() { }
+
+	inline bool valid() const
+		{ return mValid; }
+	inline uint16_t size() const
+		{ return 2 * 32; }
+	inline void clear()
+		{ mValue.x = mValue.y = 0; mValid = false; }
+
+	inline uint16_t read(BitStream& stream)
+		{ mValue.x = stream.readS32(); mValue.y = stream.readS32();
+		  mValid = true; return size(); }
+	inline uint16_t write(BitStream& stream) const
+		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y);
+		  return size(); }
+
+	inline const v2fixed_t& get() const
+		{ return mValue; }
+	inline void set(const v2fixed_t& value)
+		{ mValue = value; mValid = true; }
+
+	inline V2FixedMessageComponent* clone() const
+		{ return new V2FixedMessageComponent(*this); }
+
+private:
+	bool					mValid;
+	v2fixed_t				mValue;
+};
+
+
+// ============================================================================
+//
+// V3FixedMessageComponent interface
+//
+// Stores and serializes v3fixed_t vectors for use in Messages.
+//
+// ============================================================================
+
+class V3FixedMessageComponent : public MessageComponent
+{
+public:
+	V3FixedMessageComponent() :
+		mValid(false) { }
+	V3FixedMessageComponent(const v3fixed_t& value) :
+		mValid(true), mValue(value) { }
+	virtual ~V3FixedMessageComponent() { }
+
+	inline bool valid() const
+		{ return mValid; }
+	inline uint16_t size() const
+		{ return 3 * 32; }
+	inline void clear()
+		{ mValue.x = mValue.y = mValue.z = 0; mValid = false; }
+
+	inline uint16_t read(BitStream& stream)
+		{ mValue.x = stream.readS32(); mValue.y = stream.readS32();
+		  mValue.z = stream.readS32(); mValid = true; return size(); }
+	inline uint16_t write(BitStream& stream) const
+		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y);
+		  stream.writeS32(mValue.z); return size(); }
+
+	inline const v3fixed_t& get() const
+		{ return mValue; }
+	inline void set(const v3fixed_t& value)
+		{ mValue = value; mValid = true; }
+
+	inline V3FixedMessageComponent* clone() const
+		{ return new V3FixedMessageComponent(*this); }
+
+private:
+	bool					mValid;
+	v3fixed_t				mValue;
 };
 
 
