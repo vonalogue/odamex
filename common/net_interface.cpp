@@ -114,15 +114,13 @@ EXTERN_CVAR(net_maxrate)
 // Public functions
 // ----------------------------------------------------------------------------
 
-NetInterface::NetInterface(const std::string& address, uint16_t desired_port) :
+NetInterface::NetInterface() :
 	mInitialized(false), mSocket(INVALID_SOCKET)
 {
 	if (baseapp == client)
 		mHostType = HOST_CLIENT;
 	else
 		mHostType = HOST_SERVER;
-
-	openInterface(address, desired_port);
 }
 
 
@@ -132,6 +130,12 @@ NetInterface::~NetInterface()
 	closeInterface();
 }
 
+
+bool NetInterface::init(const std::string& address, uint16_t desired_port)
+{
+	openInterface(address, desired_port);
+	return mInitialized;
+}
 
 HostType_t NetInterface::getHostType() const
 {

@@ -92,8 +92,10 @@ typedef enum
 class NetInterface
 {
 public:
-	NetInterface(const std::string& address, uint16_t desired_port);
+	NetInterface();
 	~NetInterface();
+
+	bool init(const std::string& address, uint16_t desired_port);
 
 	HostType_t getHostType() const;
 	const SocketAddress& getLocalAddress() const;

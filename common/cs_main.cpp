@@ -68,7 +68,10 @@ void CS_OpenNetInterface(const std::string& address, uint16_t port)
 	if (interface)
 		CS_CloseNetInterface();
 
-	interface = new NetInterface(address, port);
+	interface = new NetInterface();
+
+	if (interface->init(address, port) == false)
+		CS_CloseNetInterface();
 }
 
 
