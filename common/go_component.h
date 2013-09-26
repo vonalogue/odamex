@@ -275,10 +275,10 @@ public:
 		{ M_ZeroVec2Fixed(&mValue); }
 
 	inline uint16_t read(BitStream& stream)
-		{ M_SetVec2Fixed(&mValue, stream.readS32(), stream.readS32());
+		{ M_SetVec2Fixed(&mValue, stream.readS16() << 16, stream.readS16() << 16);
 		  return size(); }
 	inline uint16_t write(BitStream& stream) const
-		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y);
+		{ stream.writeS16(mValue.x >> 16); stream.writeS16(mValue.y >> 16);
 		  return size(); }
 
 	inline const v2fixed_t& get() const
@@ -290,7 +290,7 @@ public:
 		{ return new V2FixedComponent(*this); }
 
 private:
-	static const uint16_t SIZE = 2 * 32;
+	static const uint16_t SIZE = 2 * 16;
 	v2fixed_t				mValue;
 };
 
@@ -317,10 +317,10 @@ public:
 		{ M_ZeroVec3Fixed(&mValue); }
 
 	inline uint16_t read(BitStream& stream)
-		{ M_SetVec3Fixed(&mValue, stream.readS32(), stream.readS32(), stream.readS32());
+		{ M_SetVec3Fixed(&mValue, stream.readS16() << 16, stream.readS16() << 16, stream.readS16() << 16);
 		  return size(); }
 	inline uint16_t write(BitStream& stream) const
-		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y); stream.writeS32(mValue.z);
+		{ stream.writeS16(mValue.x >> 16); stream.writeS16(mValue.y >> 16); stream.writeS16(mValue.z >> 16);
 		  return size(); }
 
 	inline const v3fixed_t& get() const
@@ -332,7 +332,7 @@ public:
 		{ return new V3FixedComponent(*this); }
 
 private:
-	static const uint16_t SIZE = 3 * 32;
+	static const uint16_t SIZE = 3 * 16;
 	v3fixed_t				mValue;
 };
 
