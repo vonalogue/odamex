@@ -17,15 +17,15 @@
 //
 // DESCRIPTION:
 // 
-// MessageComponents are building-block elements that comprise Messages.
-// MessageComponents use the Composite Pattern to treat composite MessageComponents
-// such as MessageComponentGroup the same as primative MessageComponents such as
-// StringMessageComponent.
+// GameObjectComponents are building-block elements that comprise GameObjects.
+// GameObjectComponents use the Composite Pattern to treat composite components
+// such as GameObjectComponentGroup the same as primative GameObjectComponents
+// such as StringComponent.
 //
-// MessageComponents are data types that know how to serialize and deserialize
+// GameObjectComponents are data types that know how to serialize and deserialize
 // themselves to and from a BitStream.
 //
-// MessageComponents have a clone operation to create a new instance of themselves.
+// GameObjectComponents have a clone operation to create a new instance of themselves.
 // This is part of the Prototype Patter and is a mechanism that allows
 // a prototype instance of each Message type to be built
 //
@@ -33,55 +33,59 @@
 
 #include "net_log.h"
 #include "net_common.h"
-#include "net_messagecomponent.h"
+#include "go_component.h"
 #include "hashtable.h"
 
-typedef HashTable<std::string, const MessageComponent*> MessageComponentTypeTable;
-static MessageComponentTypeTable RegisteredMessageComponentTypes;
+typedef HashTable<std::string, const GameObjectComponent*> ComponentTypeTable;
+static ComponentTypeTable RegisteredComponentTypes;
 
 
-static void RegisterMessageComponentType(const std::string& name, const MessageComponent* type)
+static void RegisterComponentType(const std::string& name, const GameObjectComponent* type)
 {
-	RegisteredMessageComponentTypes.insert(std::pair<std::string, const MessageComponent*>(name, type));
+	RegisteredComponentTypes.insert(std::pair<std::string, const GameObjectComponent*>(name, type));
 }
 
 //
-// Register a prototype of each of the predefined MessageComponent types.
+// Register a prototype of each of the predefined GameObjectComponent types.
 //
-void RegisterPredefinedMessageComponents()
+void RegisterPredefinedComponents()
 {
-	RegisterMessageComponentType("bool", new BoolMessageComponent);
-	RegisterMessageComponentType("u8", new U8MessageComponent);
-	RegisterMessageComponentType("s8", new S8MessageComponent);
-	RegisterMessageComponentType("u16", new U16MessageComponent);
-	RegisterMessageComponentType("s16", new S16MessageComponent);
-	RegisterMessageComponentType("u32", new U32MessageComponent);
-	RegisterMessageComponentType("s32", new S32MessageComponent);
-	RegisterMessageComponentType("float", new FloatMessageComponent);
-	RegisterMessageComponentType("string", new StringMessageComponent);
-	RegisterMessageComponentType("bitfield", new BitFieldMessageComponent);
+	RegisterComponentType("bool", new BoolComponent);
+	RegisterComponentType("u8", new U8Component);
+	RegisterComponentType("s8", new S8Component);
+	RegisterComponentType("u16", new U16Component);
+	RegisterComponentType("s16", new S16Component);
+	RegisterComponentType("u32", new U32Component);
+	RegisterComponentType("s32", new S32Component);
+	RegisterComponentType("float", new FloatComponent);
+	RegisterComponentType("string", new StringComponent);
+	RegisterComponentType("bitfield", new BitFieldComponent);
+	RegisterComponentType("md5sum", new Md5SumComponent);
+	RegisterComponentType("v2fixed", new V2FixedComponent);
+	RegisterComponentType("v3fixed", new V3FixedComponent);
 }
 
-void ClearRegisteredMessageComponentTypes()
+void ClearRegisteredComponentTypes()
 {
-	for (MessageComponentTypeTable::const_iterator it = RegisteredMessageComponentTypes.begin();
-		it != RegisteredMessageComponentTypes.end(); ++it)
+	for (ComponentTypeTable::const_iterator it = RegisteredComponentTypes.begin();
+		it != RegisteredComponentTypes.end(); ++it)
 	{
 		delete it->second;
 	}
 
-	RegisteredMessageComponentTypes.clear();
+	RegisteredComponentTypes.clear();
 }
+
 
 // ----------------------------------------------------------------------------
 
 // ============================================================================
 //
-// RangeMessageComponent implementation
+// RangeComponent implementation
 // 
 // ============================================================================
 
-RangeMessageComponent::RangeMessageComponent(int32_t lowerbound, int32_t upperbound, int32_t value) :
+RangeComponent::RangeComponent(int32_t lowerbound, int32_t upperbound, int32_t value) :
 	mCachedSizeValid(false), mCachedSize(0),	
 	mValue(value), mLowerBound(lowerbound), mUpperBound(upperbound)
 {
@@ -90,12 +94,12 @@ RangeMessageComponent::RangeMessageComponent(int32_t lowerbound, int32_t upperbo
 }
 
 //
-// RangeMessageComponent::size
+// RangeComponent::size
 //
 // Returns the total size of the message fields in bits. The size is cached for
 // fast retrieval in the future;
 //
-uint16_t RangeMessageComponent::size() const
+uint16_t RangeComponent::size() const
 {
 	if (!mCachedSizeValid)
 	{
@@ -108,9 +112,9 @@ uint16_t RangeMessageComponent::size() const
 
 
 //
-// RangeMessageComponent::read
+// RangeComponent::read
 //
-uint16_t RangeMessageComponent::read(BitStream& stream)
+uint16_t RangeComponent::read(BitStream& stream)
 {
 	mValue = mLowerBound + stream.readBits(size());
 	return size();
@@ -118,9 +122,9 @@ uint16_t RangeMessageComponent::read(BitStream& stream)
 
 
 //
-// RangeMessageComponent::write
+// RangeComponent::write
 //
-uint16_t RangeMessageComponent::write(BitStream& stream) const
+uint16_t RangeComponent::write(BitStream& stream) const
 {
 	stream.writeBits(mValue - mLowerBound, size());
 	return size();
@@ -129,19 +133,19 @@ uint16_t RangeMessageComponent::write(BitStream& stream) const
 
 // ============================================================================
 //
-// BitFieldMessageComponent implementation
+// BitFieldComponent implementation
 // 
 // ============================================================================
 
-BitFieldMessageComponent::BitFieldMessageComponent(uint32_t num_fields) :
+BitFieldComponent::BitFieldComponent(uint32_t num_fields) :
 	mBitField(num_fields)
 { }
 
-BitFieldMessageComponent::BitFieldMessageComponent(const BitField& value) :
+BitFieldComponent::BitFieldComponent(const BitField& value) :
 	mBitField(value)
 { }
 
-uint16_t BitFieldMessageComponent::read(BitStream& stream)
+uint16_t BitFieldComponent::read(BitStream& stream)
 {
 	mBitField.clear();
 	for (size_t i = 0; i < mBitField.size(); ++i)
@@ -151,7 +155,7 @@ uint16_t BitFieldMessageComponent::read(BitStream& stream)
 	return mBitField.size();
 }
 
-uint16_t BitFieldMessageComponent::write(BitStream& stream) const
+uint16_t BitFieldComponent::write(BitStream& stream) const
 {
 	for (size_t i = 0; i < mBitField.size(); ++i)
 		stream.writeBit(mBitField.get(i));
@@ -162,26 +166,26 @@ uint16_t BitFieldMessageComponent::write(BitStream& stream) const
 
 // ============================================================================
 //
-// Md5SumMessageComponent implementation
+// Md5SumComponent implementation
 // 
 // ============================================================================
 
 
-Md5SumMessageComponent::Md5SumMessageComponent() 
+Md5SumComponent::Md5SumComponent() 
 {
 	clear();
 }
 
-Md5SumMessageComponent::Md5SumMessageComponent(const std::string& value)
+Md5SumComponent::Md5SumComponent(const std::string& value)
 {
 	setFromString(value);
 }
 
 
 //
-// Md5SumMessageComponent::read
+// Md5SumComponent::read
 //
-uint16_t Md5SumMessageComponent::read(BitStream& stream)
+uint16_t Md5SumComponent::read(BitStream& stream)
 {
 	for (size_t i = 0; i < NUMBYTES; ++i)
 		mValue[i] = stream.readU8();
@@ -192,9 +196,9 @@ uint16_t Md5SumMessageComponent::read(BitStream& stream)
 
 
 //
-// Md5SumMessageComponent::write
+// Md5SumComponent::write
 //
-uint16_t Md5SumMessageComponent::write(BitStream& stream) const
+uint16_t Md5SumComponent::write(BitStream& stream) const
 {
 	for (size_t i = 0; i < NUMBYTES; ++i)
 		stream.writeU8(mValue[i]);
@@ -204,22 +208,22 @@ uint16_t Md5SumMessageComponent::write(BitStream& stream) const
 
 
 //
-// Md5SumMessageComponent::clear
+// Md5SumComponent::clear
 //
 // Sets the value to all zeros
 //
-void Md5SumMessageComponent::clear()
+void Md5SumComponent::clear()
 {
 	memset(mValue, 0, sizeof(mValue));
 	mCachedString.clear();
 }
 
 //
-// Md5SumMessageComponent::setFromString
+// Md5SumComponent::setFromString
 //
 // Converts a std::string version of a MD5SUM into the compact internal format.
 //
-void Md5SumMessageComponent::setFromString(const std::string& value)
+void Md5SumComponent::setFromString(const std::string& value)
 {
 	clear();
 
@@ -252,11 +256,11 @@ void Md5SumMessageComponent::setFromString(const std::string& value)
 
 
 //
-// Md5SumMessageComponent::cacheString
+// Md5SumComponent::cacheString
 //
 // Builds a std::string version of the MD5SUM and caches it.
 //
-void Md5SumMessageComponent::cacheString()
+void Md5SumComponent::cacheString()
 {
 	static const char hextable[] = {
 		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
@@ -279,15 +283,15 @@ void Md5SumMessageComponent::cacheString()
 
 // ============================================================================
 //
-// MessageComponentGroup implementation
+// GameObjectComponentGroup implementation
 // 
 // ============================================================================
 
-MessageComponentGroup::MessageComponentGroup() :
+GameObjectComponentGroup::GameObjectComponentGroup() :
 	mCachedSizeValid(false), mCachedSize(0)
 { }
 
-MessageComponentGroup::MessageComponentGroup(const MessageComponentGroup& other) :
+GameObjectComponentGroup::GameObjectComponentGroup(const GameObjectComponentGroup& other) :
 	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize),
 	mOptionalIndicator(other.mOptionalIndicator)
 {
@@ -297,7 +301,7 @@ MessageComponentGroup::MessageComponentGroup(const MessageComponentGroup& other)
 		mRequiredFields.push_back(other.mRequiredFields[i]->clone());
 }
 
-MessageComponentGroup::~MessageComponentGroup()
+GameObjectComponentGroup::~GameObjectComponentGroup()
 {
 	for (size_t i = 0; i < mOptionalFields.size(); ++i)
 		delete mOptionalFields[i];
@@ -307,12 +311,12 @@ MessageComponentGroup::~MessageComponentGroup()
 
 
 //
-// MessageComponentGroup::size
+// GameObjectComponentGroup::size
 //
 // Returns the total size of the message fields in bits. The size is cached for
 // fast retrieval in the future;
 //
-uint16_t MessageComponentGroup::size() const
+uint16_t GameObjectComponentGroup::size() const
 {
 	if (!mCachedSizeValid)
 	{
@@ -331,12 +335,12 @@ uint16_t MessageComponentGroup::size() const
 
 
 //
-// MessageComponentGroup::read
+// GameObjectComponentGroup::read
 //
-// Reads a group of required and optional MessageComponents from a BitStream.
+// Reads a group of required and optional GameObjectComponents from a BitStream.
 // Returns the number of bits read.
 //
-uint16_t MessageComponentGroup::read(BitStream& stream)
+uint16_t GameObjectComponentGroup::read(BitStream& stream)
 {
 	uint16_t read_size = 0;
 	clear();
@@ -360,12 +364,12 @@ uint16_t MessageComponentGroup::read(BitStream& stream)
 
 
 //
-// MessageComponentGroup::write
+// GameObjectComponentGroup::write
 //
-// Writes a group of required and optional MessageComponents from a BitStream.
+// Writes a group of required and optional GameObjectComponents from a BitStream.
 // Returns the number of bits written.
 //
-uint16_t MessageComponentGroup::write(BitStream& stream) const
+uint16_t GameObjectComponentGroup::write(BitStream& stream) const
 {
 	uint16_t write_size = 0;
 	const BitField& bitfield = mOptionalIndicator.get();
@@ -388,11 +392,11 @@ uint16_t MessageComponentGroup::write(BitStream& stream) const
 
 
 //
-// MessageComponentGroup::clear
+// GameObjectComponentGroup::clear
 //
-// Clears all of the MessageComponents in this group.
+// Clears all of the GameObjectComponents in this group.
 //
-void MessageComponentGroup::clear()
+void GameObjectComponentGroup::clear()
 {
 	// clear the optional fields
 	mOptionalIndicator.clear();
@@ -408,25 +412,25 @@ void MessageComponentGroup::clear()
 
 
 //
-// MessageComponentGroup::addField
+// GameObjectComponentGroup::addField
 //
 // Adds a field to the container.
 //
-void MessageComponentGroup::addField(MessageComponent* field, bool optional)
+void GameObjectComponentGroup::addField(GameObjectComponent* field, bool optional)
 {
 	if (field == NULL)
 		return;
 
 	// check if a field with this name already exists
-	NameTable::const_iterator itr = mNameTable.find(field->getFieldName());
+	NameTable::const_iterator itr = mNameTable.find(field->getName());
 	if (itr != mNameTable.end())
 	{
-		Net_Warning("MessageComponentGroup::addField: field name %s already exists.\n", field->getFieldName().c_str());
+		Net_Warning("GameObjectComponentGroup::addField: field name %s already exists.\n", field->getName().c_str());
 		return;
 	}
 
 	// add it to the name table
-	mNameTable.insert(std::pair<std::string, MessageComponent*>(field->getFieldName(), field));
+	mNameTable.insert(std::pair<std::string, GameObjectComponent*>(field->getName(), field));
 
 	if (optional)
 	{
@@ -441,16 +445,16 @@ void MessageComponentGroup::addField(MessageComponent* field, bool optional)
 
 // ============================================================================
 //
-// MessageComponentArray implementation
+// GameObjectComponentArray implementation
 // 
 // ============================================================================
 
-MessageComponentArray::MessageComponentArray(uint32_t mincnt, uint32_t maxcnt) :
+GameObjectComponentArray::GameObjectComponentArray(uint32_t mincnt, uint32_t maxcnt) :
 	mCachedSizeValid(false), mCachedSize(0), 
 	mMinCount(mincnt), mMaxCount(maxcnt), mCountField(0, mincnt, maxcnt)
 { }
 
-MessageComponentArray::MessageComponentArray(const MessageComponentArray& other) :
+GameObjectComponentArray::GameObjectComponentArray(const GameObjectComponentArray& other) :
 	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize),
 	mMinCount(other.mMinCount), mMaxCount(other.mMaxCount),
 	mCountField(other.mCountField)
@@ -459,14 +463,14 @@ MessageComponentArray::MessageComponentArray(const MessageComponentArray& other)
 		mFields.push_back(other.mFields[i]->clone());
 }
 
-MessageComponentArray::~MessageComponentArray()
+GameObjectComponentArray::~GameObjectComponentArray()
 {
 	for (size_t i = 0; i < mFields.size(); ++i)
 		delete mFields[i];
 }
 
 
-MessageComponentArray& MessageComponentArray::operator=(const MessageComponentArray& other)
+GameObjectComponentArray& GameObjectComponentArray::operator=(const GameObjectComponentArray& other)
 {
 	if (&other != this)
 	{
@@ -488,12 +492,12 @@ MessageComponentArray& MessageComponentArray::operator=(const MessageComponentAr
 }
 
 //
-// MessageComponentArray::size
+// GameObjectComponentArray::size
 //
 // Returns the total size of the message fields in bits. The size is cached for
 // fast retrieval in the future;
 //
-uint16_t MessageComponentArray::size() const
+uint16_t GameObjectComponentArray::size() const
 {
 	if (!mCachedSizeValid)
 	{
@@ -513,12 +517,12 @@ uint16_t MessageComponentArray::size() const
 
 
 //
-// MessageComponentArray::read
+// GameObjectComponentArray::read
 //
-// Reads an array of message fields from a BitStream. Returns the number of
-// bits read.
+// Reads an array of GameObjectComponents from a BitStream. Returns the
+// number of bits read.
 //
-uint16_t MessageComponentArray::read(BitStream& stream)
+uint16_t GameObjectComponentArray::read(BitStream& stream)
 {
 	uint16_t read_size = 0;
 	clear();
@@ -537,12 +541,12 @@ uint16_t MessageComponentArray::read(BitStream& stream)
 
 
 //
-// MessageComponentArray::write
+// GameObjectComponentArray::write
 //
-// Writes an array of message fields from a BitStream. Returns the number of
-// bits written
+// Writes an array of GameObjectComponents into a BitStream. Returns the
+// number of bits written.
 //
-uint16_t MessageComponentArray::write(BitStream& stream) const
+uint16_t GameObjectComponentArray::write(BitStream& stream) const
 {
 	uint16_t write_size = 0;
 	
@@ -557,11 +561,11 @@ uint16_t MessageComponentArray::write(BitStream& stream) const
 
 
 //
-// MessageComponentArray::clear
+// GameObjectComponentArray::clear
 //
-// Clears all of the repeated MessageComponents .
+// Clears all of the repeated GameObjectComponents.
 //
-void MessageComponentArray::clear()
+void GameObjectComponentArray::clear()
 {
 	mCountField.set(0);
 	for (size_t i = 0; i < mFields.size(); ++i)
@@ -571,5 +575,5 @@ void MessageComponentArray::clear()
 }
 
 
-VERSION_CONTROL (net_messagefield_cpp, "$Id$")
+VERSION_CONTROL (go_component_cpp, "$Id$")
 

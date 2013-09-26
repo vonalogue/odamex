@@ -78,7 +78,39 @@
 #include <map>
 #include <queue>
 
-class Message;
+// Stub class for Message
+
+typedef enum
+{
+	NM_NoOp					= 0,		// does nothing
+	NM_Replication			= 1,
+	NM_Ticcmd				= 2,
+	NM_LoadMap				= 10,
+	NM_ClientStatus			= 11,
+	NM_Chat					= 20,
+	NM_Obituary				= 21,
+} MessageType;
+
+class Message 
+{
+public:
+	const MessageType getMessageType() const
+		{	return mMessageType;	}
+
+	uint16_t size() const { return 0; }
+	void clear() { }
+
+	uint16_t read(BitStream& stream) { return 0; } 
+	uint16_t write(BitStream& stream) const { return 0; }
+
+	Message* clone() const
+		{ return new Message(*this); }
+
+private:
+	MessageType				mMessageType;	
+};
+
+
 
 const uint8_t MESSAGE_ID_BITS = 8;
 typedef SequenceNumber<MESSAGE_ID_BITS> MessageId;

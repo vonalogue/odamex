@@ -29,7 +29,6 @@
 #include "net_type.h"
 #include "net_socketaddress.h"
 #include "net_interface.h"
-#include "net_messagecomponent.h"
 
 #include <vector>
 
@@ -136,8 +135,6 @@ private:
 		GAME_PACKET				= 0,
 		NEGOTIATION_PACKET		= 1
 	} PacketType;
-
-	typedef BoolMessageComponent PacketTypeMessageComponent;
 
 	std::vector<MessageManager*>		mMessageManagers;
 

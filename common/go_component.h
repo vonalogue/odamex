@@ -17,102 +17,98 @@
 //
 // DESCRIPTION:
 // 
-// MessageComponents are building-block elements that comprise Messages.
-// MessageComponents use the Composite Pattern to treat composite MessageComponents
-// such as MessageComponentGroup the same as primative MessageComponents such as
-// StringMessageComponent.
+// GameObjectComponents are building-block elements that comprise GameObjects.
+// GameObjectComponents use the Composite Pattern to treat composite components
+// such as GameObjectComponentGroup the same as primative GameObjectComponents
+// such as StringComponent.
 //
-// MessageComponents are data types that know how to serialize and deserialize
+// GameObjectComponents are data types that know how to serialize and deserialize
 // themselves to and from a BitStream.
 //
-// MessageComponents have a clone operation to create a new instance of themselves.
+// GameObjectComponents have a clone operation to create a new instance of themselves.
 // This is part of the Prototype Patter and is a mechanism that allows
 // a prototype instance of each Message type to be built
 //
 //-----------------------------------------------------------------------------
 
-#ifndef __NET_MESSAGECOMPONENT_H__
-#define __NET_MESSAGECOMPONENT_H__
+#ifndef __GO_COMPONENT_H__
+#define __GO_COMPONENT_H__
 
 #include "net_type.h"
 #include "net_bitstream.h"
 #include "vectors.h"
 #include <string>
 #include "hashtable.h"
-#include <list>
 
 // ----------------------------------------------------------------------------
 // Forward declarations
 // ----------------------------------------------------------------------------
 
-template<typename T, uint16_t SIZE = 8*sizeof(T)> class IntegralMessageComponent;
-typedef IntegralMessageComponent<bool, 1> BoolMessageComponent;
-typedef IntegralMessageComponent<uint8_t> U8MessageComponent;
-typedef IntegralMessageComponent<int8_t> S8MessageComponent;
-typedef IntegralMessageComponent<uint16_t> U16MessageComponent;
-typedef IntegralMessageComponent<int16_t> S16MessageComponent;
-typedef IntegralMessageComponent<uint32_t> U32MessageComponent;
-typedef IntegralMessageComponent<int32_t> S32MessageComponent;
-
-class RangeMessageComponent;
-class FloatMessageComponent;
-class StringMessageComponent;
-class BitFieldMessageComponent;
-class Md5SumMessageComponent;
-class MessageComponentGroup;
-class MessageComponentArray;
+template<typename T, uint16_t SIZE = 8*sizeof(T)> class IntegralComponent;
+typedef IntegralComponent<bool, 1> BoolComponent;
+typedef IntegralComponent<uint8_t> U8Component;
+typedef IntegralComponent<int8_t> S8Component;
+typedef IntegralComponent<uint16_t> U16Component;
+typedef IntegralComponent<int16_t> S16Component;
+typedef IntegralComponent<uint32_t> U32Component;
+typedef IntegralComponent<int32_t> S32Component;
 
 // ----------------------------------------------------------------------------
 
 // ============================================================================
 //
-// MessageComponent abstract base interface
+// GameObjectComponent abstract base interface
 //
-// Stores a data type for use in concrete Message classes. MessageComponents know
+// Stores a data type for use in GameObjects. GameObjectComponents know
 // how to serialize/deserialize from a BitStream and can calculate their own
-// size.
+// size (in bits).
 // 
 // ============================================================================
 
-class MessageComponent
+class GameObjectComponent
 {
 public:
-	virtual const std::string& getFieldName() const
-		{ return mFieldName; }
-	virtual void setFieldName(const std::string& name)
-		{ mFieldName = name; }
+	const std::string& getName() const
+		{ return mName; }
+	void setName(const std::string& name)
+		{ mName = name; }
 
+	// return the size of the component (in bits)
 	virtual uint16_t size() const = 0;
+	// set the component to its default value
 	virtual void clear() = 0;
 
+	// read the component from a BitStream
 	virtual uint16_t read(BitStream& stream) = 0;
+	// write the component to a BitStream
 	virtual uint16_t write(BitStream& stream) const = 0;
 
-	virtual MessageComponent* clone() const = 0;
+	// instantiate a new copy of this component
+	virtual GameObjectComponent* clone() const = 0;
 
 private:
-	std::string			mFieldName;
+	std::string			mName;
 };
 
 
 // ============================================================================
 //
-// IntegralMessageComponent template implementation
+// IntegralComponent template implementation
 //
-// Generic MessageComponent class for storing and serializing integral data types
-// for use in Messages.
+// Generic GameObjectComponent class for storing and serializing integral data
+// types for use in GameObjects.
 // 
 // ============================================================================
 
 template<typename T, uint16_t SIZE>
-class IntegralMessageComponent : public MessageComponent
+class IntegralComponent : public GameObjectComponent
 {
 public:
-	IntegralMessageComponent() :
+	IntegralComponent() :
 		mValue(0) { }
-	IntegralMessageComponent(T value) :
+	IntegralComponent(T value) :
 		mValue(value) { }
-	virtual ~IntegralMessageComponent() { }
+	virtual ~IntegralComponent() { }
 
 	inline uint16_t size() const
 		{ return SIZE; }
@@ -129,8 +125,8 @@ public:
 	inline void set(T value)
 		{ mValue = value; }
 
-	inline IntegralMessageComponent<T, SIZE>* clone() const
-		{ return new IntegralMessageComponent<T, SIZE>(*this); }
+	inline IntegralComponent<T, SIZE>* clone() const
+		{ return new IntegralComponent<T, SIZE>(*this); }
 
 private:
 	T		mValue;
@@ -138,23 +134,23 @@ private:
 
 // ============================================================================
 //
-// RangeMessageComponent implementation
+// RangeComponent implementation
 //
 // Stores and efficiently serializes integral values of a specified range for
-// use in Messages.
+// use in GameObjects.
 // 
 // ============================================================================
 
-class RangeMessageComponent : public MessageComponent
+class RangeComponent : public GameObjectComponent
 {
 public:
-	RangeMessageComponent();
-	RangeMessageComponent(int32_t value, int32_t lowerbound = MININT, int32_t upperbound = MAXINT);
-	virtual ~RangeMessageComponent() { }
+	RangeComponent();
+	RangeComponent(int32_t value, int32_t lowerbound = MININT, int32_t upperbound = MAXINT);
+	virtual ~RangeComponent() { }
 
 	uint16_t size() const;
 	inline void clear()
-		{ mValue = 0; }
+		{ mValue = mLowerBound; }
 
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
@@ -164,8 +160,8 @@ public:
 	inline void set(int32_t value)
 		{ mValue = value; }
 
-	inline RangeMessageComponent* clone() const
-		{ return new RangeMessageComponent(*this); }
+	inline RangeComponent* clone() const
+		{ return new RangeComponent(*this); }
 
 private:
 	mutable bool		mCachedSizeValid;
@@ -179,25 +175,26 @@ private:
 
 // ============================================================================
 //
-// FloatMessageComponent implementation
+// FloatComponent implementation
 //
-// Stores and efficiently serializes floating-point values for use in Messages.
+// Stores and efficiently serializes floating-point values for use in
+// GameObjects.
 // 
 // ============================================================================
 
-class FloatMessageComponent : public MessageComponent
+class FloatComponent : public GameObjectComponent
 {
 public:
-	FloatMessageComponent() :
+	FloatComponent() :
 		mValue(0.0f) { }
-	FloatMessageComponent(float value) :
+	FloatComponent(float value) :
 		mValue(value) { }
-	virtual ~FloatMessageComponent() { }
+	virtual ~FloatComponent() { }
 
 	inline uint16_t size() const
 		{ return SIZE; }
 	inline void clear()
-		{ mValue = 0; }
+		{ mValue = 0.0f; }
 
 	inline uint16_t read(BitStream& stream)
 		{ set(stream.readFloat()); return SIZE; }
@@ -209,8 +206,8 @@ public:
 	inline void set(float value)
 		{ mValue = value; }
 
-	inline FloatMessageComponent* clone() const
-		{ return new FloatMessageComponent(*this); }
+	inline FloatComponent* clone() const
+		{ return new FloatComponent(*this); }
 
 private:
 	static const uint16_t SIZE = 32;
@@ -220,19 +217,19 @@ private:
 
 // ============================================================================
 //
-// StringMessageComponent implementation
+// StringComponent implementation
 //
-// Stores and serializes std::string values for use in Messages.
+// Stores and serializes std::string values for use in GameObjects.
 // 
 // ============================================================================
 
-class StringMessageComponent : public MessageComponent
+class StringComponent : public GameObjectComponent
 {
 public:
-	StringMessageComponent() { }
-	StringMessageComponent(const std::string& value) :
+	StringComponent() { }
+	StringComponent(const std::string& value) :
 		mValue(value) { }
-	virtual ~StringMessageComponent() { }
+	virtual ~StringComponent() { }
 
 	inline uint16_t size() const
 		{ return 8 * (mValue.length() + 1); }
@@ -249,8 +246,8 @@ public:
 	inline void set(const std::string& value)
 		{ mValue = value; }
 
-	inline StringMessageComponent* clone() const
-		{ return new StringMessageComponent(*this); }
+	inline StringComponent* clone() const
+		{ return new StringComponent(*this); }
 
 private:
 	std::string			mValue;
@@ -258,27 +255,27 @@ private:
 
 // ============================================================================
 //
-// V2FixedMessageComponent interface
+// V2FixedComponent interface
 //
-// Stores and serializes v2fixed_t vectors for use in Messages.
+// Stores and serializes v2fixed_t vectors for use in GameObjects.
 //
 // ============================================================================
 
-class V2FixedMessageComponent : public MessageComponent
+class V2FixedComponent : public GameObjectComponent
 {
 public:
-	V2FixedMessageComponent() { }
-	V2FixedMessageComponent(const v2fixed_t& value) :
+	V2FixedComponent() { }
+	V2FixedComponent(const v2fixed_t& value) :
 		mValue(value) { }
-	virtual ~V2FixedMessageComponent() { }
+	virtual ~V2FixedComponent() { }
 
 	inline uint16_t size() const
-		{ return 2 * 32; }
+		{ return SIZE; }
 	inline void clear()
-		{ mValue.x = mValue.y = 0; }
+		{ M_ZeroVec2Fixed(&mValue); }
 
 	inline uint16_t read(BitStream& stream)
-		{ mValue.x = stream.readS32(); mValue.y = stream.readS32();
+		{ M_SetVec2Fixed(&mValue, stream.readS32(), stream.readS32());
 		  return size(); }
 	inline uint16_t write(BitStream& stream) const
 		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y);
@@ -289,69 +286,71 @@ public:
 	inline void set(const v2fixed_t& value)
 		{ mValue = value; }
 
-	inline V2FixedMessageComponent* clone() const
-		{ return new V2FixedMessageComponent(*this); }
+	inline V2FixedComponent* clone() const
+		{ return new V2FixedComponent(*this); }
 
 private:
+	static const uint16_t SIZE = 2 * 32;
 	v2fixed_t				mValue;
 };
 
 
 // ============================================================================
 //
-// V3FixedMessageComponent interface
+// V3FixedComponent interface
 //
-// Stores and serializes v3fixed_t vectors for use in Messages.
+// Stores and serializes v3fixed_t vectors for use in GameObjects.
 //
 // ============================================================================
 
-class V3FixedMessageComponent : public MessageComponent
+class V3FixedComponent : public GameObjectComponent
 {
 public:
-	V3FixedMessageComponent() { }
-	V3FixedMessageComponent(const v3fixed_t& value) :
+	V3FixedComponent() { }
+	V3FixedComponent(const v3fixed_t& value) :
 		mValue(value) { }
-	virtual ~V3FixedMessageComponent() { }
+	virtual ~V3FixedComponent() { }
 
 	inline uint16_t size() const
-		{ return 3 * 32; }
+		{ return SIZE; }
 	inline void clear()
-		{ mValue.x = mValue.y = mValue.z = 0; }
+		{ M_ZeroVec3Fixed(&mValue); }
 
 	inline uint16_t read(BitStream& stream)
-		{ mValue.x = stream.readS32(); mValue.y = stream.readS32();
-		  mValue.z = stream.readS32(); return size(); }
+		{ M_SetVec3Fixed(&mValue, stream.readS32(), stream.readS32(), stream.readS32());
+		  return size(); }
 	inline uint16_t write(BitStream& stream) const
-		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y);
-		  stream.writeS32(mValue.z); return size(); }
+		{ stream.writeS32(mValue.x); stream.writeS32(mValue.y); stream.writeS32(mValue.z);
+		  return size(); }
 
 	inline const v3fixed_t& get() const
 		{ return mValue; }
 	inline void set(const v3fixed_t& value)
 		{ mValue = value; }
 
-	inline V3FixedMessageComponent* clone() const
-		{ return new V3FixedMessageComponent(*this); }
+	inline V3FixedComponent* clone() const
+		{ return new V3FixedComponent(*this); }
 
 private:
+	static const uint16_t SIZE = 3 * 32;
 	v3fixed_t				mValue;
 };
 
 
 // ============================================================================
 //
-// BitFieldMessageComponent implementation
+// BitFieldComponent implementation
 //
-// Stores and serializes BitField values for use in Messages.
+// Stores and serializes BitField values for use in GameObjects.
 // 
 // ============================================================================
 
-class BitFieldMessageComponent : public MessageComponent
+class BitFieldComponent : public GameObjectComponent
 {
 public:
-	BitFieldMessageComponent(uint32_t num_fields = 32);
-	BitFieldMessageComponent(const BitField& value);
-	virtual ~BitFieldMessageComponent() { }
+	BitFieldComponent(uint32_t num_fields = 32);
+	BitFieldComponent(const BitField& value);
+	virtual ~BitFieldComponent() { }
 
 	inline uint16_t size() const
 		{ return mBitField.size(); }
@@ -366,8 +365,8 @@ public:
 	inline void set(const BitField& value)
 		{ mBitField = value; }
 
-	inline BitFieldMessageComponent* clone() const
-		{ return new BitFieldMessageComponent(*this); }
+	inline BitFieldComponent* clone() const
+		{ return new BitFieldComponent(*this); }
 
 private:
 	BitField			mBitField;
@@ -376,19 +375,19 @@ private:
 
 // ============================================================================
 //
-// Md5SumMessageComponent implementation
+// Md5SumComponent implementation
 //
 // Stores and efficiently serializes hexidecimal strings that store MD5SUM
 // hashes.
 // 
 // ============================================================================
 
-class Md5SumMessageComponent : public MessageComponent
+class Md5SumComponent : public GameObjectComponent
 {
 public:
-	Md5SumMessageComponent();
-	Md5SumMessageComponent(const std::string& value);
-	virtual ~Md5SumMessageComponent() { }
+	Md5SumComponent();
+	Md5SumComponent(const std::string& value);
+	virtual ~Md5SumComponent() { }
 
 	inline uint16_t size() const
 		{ return NUMBITS; }
@@ -402,8 +401,8 @@ public:
 	inline void set(const std::string& value)
 		{ setFromString(value); }
 
-	inline Md5SumMessageComponent* clone() const
-		{ return new Md5SumMessageComponent(*this); }
+	inline Md5SumComponent* clone() const
+		{ return new Md5SumComponent(*this); }
 
 private:
 	void setFromString(const std::string& value);
@@ -417,20 +416,20 @@ private:
 
 // ============================================================================
 //
-// MessageComponentArray interface
+// GameObjectComponentArray interface
 //
-// Stores and serializes an homogeneous dynamic array of MessageComponents type for
-// use in Messages.
+// Stores and serializes an homogeneous dynamic array of GameObjectComponents
+// type for use in GameObjects.
 // 
 // ============================================================================
 
-class MessageComponentArray : public MessageComponent
+class GameObjectComponentArray : public GameObjectComponent
 {
 public:
-	MessageComponentArray(uint32_t mincnt = 0, uint32_t maxcnt = 65535);
-	MessageComponentArray(const MessageComponentArray& other);
-	virtual ~MessageComponentArray();
-	MessageComponentArray& operator=(const MessageComponentArray& other);
+	GameObjectComponentArray(uint32_t mincnt = 0, uint32_t maxcnt = 65535);
+	GameObjectComponentArray(const GameObjectComponentArray& other);
+	virtual ~GameObjectComponentArray();
+	GameObjectComponentArray& operator=(const GameObjectComponentArray& other);
 
 	uint16_t size() const;
 	void clear();
@@ -438,8 +437,8 @@ public:
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
 
-	inline MessageComponentArray* clone() const
-		{ return new MessageComponentArray(*this); }
+	inline GameObjectComponentArray* clone() const
+		{ return new GameObjectComponentArray(*this); }
 	
 private:
 	mutable bool		mCachedSizeValid;
@@ -448,41 +447,27 @@ private:
 
 	uint32_t			mMinCount;
 	uint32_t			mMaxCount;
-	RangeMessageComponent	mCountField;
+	RangeComponent		mCountField;
 
-	typedef std::vector<MessageComponent*> FieldArray;
+	typedef std::vector<GameObjectComponent*> FieldArray;
 	FieldArray			mFields;
 };
 
 // ============================================================================
 //
-// CompositeMessageComponent abstract base class
-//
-// Provides an interface for storing a collection of MessageComponent objects.
-// 
-// ============================================================================
-
-class CompositeMessageComponent : public MessageComponent
-{
-public:
-	
-};
-
-// ============================================================================
-//
-// MessageComponentGroup interface
+// GameObjectComponentGroup interface
 //
 // Stores and serializes a composite list of required and optional
-// MessageComponents for use in Messages.
+// GameObjectComponents for use in GameObjects.
 // 
 // ============================================================================
 
-class MessageComponentGroup : public CompositeMessageComponent
+class GameObjectComponentGroup : public GameObjectComponent 
 {
 public:
-	MessageComponentGroup();
-	MessageComponentGroup(const MessageComponentGroup& other);
-	virtual ~MessageComponentGroup();
+	GameObjectComponentGroup();
+	GameObjectComponentGroup(const GameObjectComponentGroup& other);
+	virtual ~GameObjectComponentGroup();
 
 	uint16_t size() const;
 	void clear();
@@ -490,25 +475,25 @@ public:
 	virtual uint16_t read(BitStream& stream);
 	virtual uint16_t write(BitStream& stream) const;
 
-	inline MessageComponentGroup* clone() const
-		{ return new MessageComponentGroup(*this); }
+	inline GameObjectComponentGroup* clone() const
+		{ return new GameObjectComponentGroup(*this); }
 
 	bool hasField(const std::string& name) const;
 
-	virtual void addField(MessageComponent* field, bool optional);
+	virtual void addField(GameObjectComponent* field, bool optional);
 
 private:
-	mutable bool			mCachedSizeValid;
-	mutable uint16_t		mCachedSize;
+	mutable bool				mCachedSizeValid;
+	mutable uint16_t			mCachedSize;
 
-	typedef HashTable<std::string, MessageComponent*> NameTable;
-	NameTable				mNameTable;
+	typedef HashTable<std::string, GameObjectComponent*> NameTable;
+	NameTable					mNameTable;
 
-	typedef std::vector<MessageComponent*> FieldArray;
+	typedef std::vector<GameObjectComponent*> FieldArray;
 
-	BitFieldMessageComponent	mOptionalIndicator;
-	FieldArray				mOptionalFields;
-	FieldArray				mRequiredFields;
+	BitFieldComponent			mOptionalIndicator;
+	FieldArray					mOptionalFields;
+	FieldArray					mRequiredFields;
 };
 
 
@@ -520,37 +505,6 @@ private:
 //
 // ============================================================================
 
-typedef enum
-{
-	NM_NoOp					= 0,		// does nothing
-    NM_Replication          = 1,
-    NM_Ticcmd               = 2,
-    NM_LoadMap              = 10,
-    NM_ClientStatus         = 11,
-    NM_Chat                 = 20,
-    NM_Obituary             = 21,
-} MessageType;
 
-class Message : public MessageComponent
-{
-public:
-	virtual ~Message() { }
-
-	const MessageType getMessageType() const
-		{	return mMessageType;	}
-
-	virtual uint16_t size() const { return 0; }
-	virtual void clear() { }
-
-	virtual uint16_t read(BitStream& stream) { return 0; } 
-	virtual uint16_t write(BitStream& stream) const { return 0; }
-
-	Message* clone() const
-		{ return new Message(*this); }
-
-private:
-	MessageType				mMessageType;	
-};
-
-#endif	// __NET_MESSAGECOMPONENT_H__
+#endif	// __GO_COMPONENT_H__
 

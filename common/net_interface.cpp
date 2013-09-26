@@ -26,7 +26,6 @@
 #include "net_socketaddress.h"
 #include "net_interface.h"
 #include "net_connection.h"
-#include "net_messagecomponent.h"
 #include "hashtable.h"
 
 #include "doomdef.h"

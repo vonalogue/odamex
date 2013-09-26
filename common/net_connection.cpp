@@ -28,6 +28,8 @@
 #include "net_connection.h"
 #include "net_messagemanager.h"
 
+#include "go_component.h"
+
 #include "i_system.h"
 #include "md5.h"
 
@@ -585,8 +587,7 @@ Connection::PacketType Connection::checkPacketType(BitStream& stream)
 //
 void Connection::parsePacketHeader(BitStream& stream)
 {
-	PacketTypeMessageComponent packettype;
-	packettype.read(stream);		// read and ignore since we already peeked at it
+	stream.readBits(1);		// read and ignore packet type since we already peeked at it
 	
 	// read the remote host's sequence number and store it so we can
 	// acknowledge receipt in the next outgoing packet.
@@ -626,7 +627,7 @@ void Connection::parsePacketHeader(BitStream& stream)
 	PacketSequenceNumber ack_seq;
 	ack_seq.read(stream);
 
-	BitFieldMessageComponent ack_history_field(ACKNOWLEDGEMENT_COUNT);
+	BitFieldComponent ack_history_field(ACKNOWLEDGEMENT_COUNT);
 	ack_history_field.read(stream);
 	const BitField& ack_history = ack_history_field.get();
 
@@ -695,14 +696,12 @@ void Connection::composePacketHeader(const PacketType& type, BitStream& stream)
 {
 	Net_LogPrintf("Connection::composePacketHeader: writing packet header to %s, sequence %u.", getRemoteAddressCString(), mSequence.getInteger());
 
-	PacketTypeMessageComponent packettype;
-	packettype.set(type);
-	packettype.write(stream);
+	stream.writeBits(type, 1);		// write packet type
 
 	mSequence.write(stream);
 	mRecvSequence.write(stream);
 
-	BitFieldMessageComponent ack_bitfield(mRecvHistory);
+	BitFieldComponent ack_bitfield(mRecvHistory);
 	ack_bitfield.write(stream);
 
 	++mSequence;
