@@ -3,7 +3,6 @@
 //
 // $Id$
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 2006-2013 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
@@ -120,51 +119,56 @@ public:
 	// HashTable::iterator & const_iterator implementation
 	// ------------------------------------------------------------------------
 
-	template <typename IteratorValueType> class generic_iterator;
-	typedef generic_iterator<HashPairType> iterator;
-	typedef generic_iterator<const HashPairType> const_iterator;
+	template <typename IVT, typename IHTT, typename INT> class generic_iterator;
+	typedef generic_iterator<HashPairType, HashTableType, HashTableType::Node> iterator;
+	typedef generic_iterator<const HashPairType, const HashTableType, const HashTableType::Node> const_iterator;
 
-	template <typename IteratorValueType>
+	template <typename IVT, typename IHTT, typename INT>
 	class generic_iterator : public std::iterator<std::forward_iterator_tag, HashTable>
 	{
+	private:
+		// typedef for easier-to-read code
+		typedef generic_iterator<IVT, IHTT, INT> ThisClass;
+		typedef generic_iterator<const IVT, const IHTT, const INT> ConstThisClass;
+
 	public:
 		generic_iterator() :
 			mNode(NULL), mHashTable(NULL)
 		{ }
 
 		// allow implicit converstion from iterator to const_iterator
-		operator generic_iterator<const IteratorValueType>() const
+		operator ConstThisClass() const
 		{
-			return generic_iterator<const IteratorValueType>(mNode, mHashTable);
+			return ConstThisClass(mNode, mHashTable);
 		}
 
-		bool operator== (const generic_iterator<IteratorValueType>& other) const
+		bool operator== (const ThisClass& other) const
 		{
 			return mNode == other.mNode && mHashTable == other.mHashTable;
 		}
 
-		bool operator!= (const generic_iterator<IteratorValueType>& other) const
+		bool operator!= (const ThisClass& other) const
 		{
 			return !(operator==(other));
 		}
 
-		IteratorValueType& operator* ()
+		IVT& operator* ()
 		{
 			return mNode->mKeyValuePair;
 		}
 
-		IteratorValueType* operator-> ()
+		IVT* operator-> ()
 		{
 			return &(mNode->mKeyValuePair);
 		}
 
-		generic_iterator<IteratorValueType>& operator++ ()
+		ThisClass& operator++ ()
 		{
 			mNode = mNode->mItrNext;
 			return *this;
 		}
 
-		generic_iterator<IteratorValueType> operator++ (int)
+		ThisClass operator++ (int)
 		{
 			generic_iterator temp(*this);
 			mNode = mNode->mItrNext;
@@ -174,12 +178,12 @@ public:
 		friend class HashTable<KT, VT, HF>;
 
 	private:
-		generic_iterator(const HashTableType::Node* node, const HashTableType* hashtable) :
+		generic_iterator(INT* node, IHTT* hashtable) :
 			mNode(node), mHashTable(hashtable)
 		{ }
 
-		const HashTableType::Node*	mNode;
-		const HashTableType*		mHashTable;	
+		INT*		mNode;
+		IHTT*		mHashTable;
 	};
 
 
@@ -275,14 +279,12 @@ public:
 
 	iterator find(const KT& key)
 	{
-		const Node* node = findNode(key);
-		return (node ? iterator(node, this) : end());
+		return iterator(findNode(key), this);
 	}
 
 	const_iterator find(const KT& key) const
 	{
-		const Node* node = findNode(key);
-		return (node ? const_iterator(node, this) : end());
+		return const_iterator(findNode(key), this);
 	}
 
 	VT& operator[](const KT& key)
@@ -300,7 +302,7 @@ public:
 		const VT& value = hp.second;
 		bool inserted = false;
 
-		const Node* node = findNode(key);
+		Node* node = findNode(key);
 		if (!node)
 		{
 			node = insertNode(key, value);
@@ -399,7 +401,7 @@ private:
 
 	const Node* findNode(const KT& key) const
 	{
-		const Node* node = mHashTable[hashKey(key)];
+		Node* node = mHashTable[hashKey(key)];
 		while (node)
 		{
 			if (node->mKeyValuePair.first == key)
