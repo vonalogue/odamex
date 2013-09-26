@@ -36,48 +36,6 @@
 #include "go_component.h"
 #include "hashtable.h"
 
-typedef HashTable<std::string, const GameObjectComponent*> ComponentTypeTable;
-static ComponentTypeTable RegisteredComponentTypes;
-
-
-static void RegisterComponentType(const std::string& name, const GameObjectComponent* type)
-{
-	RegisteredComponentTypes.insert(std::pair<std::string, const GameObjectComponent*>(name, type));
-}
-
-//
-// Register a prototype of each of the predefined GameObjectComponent types.
-//
-void RegisterPredefinedComponents()
-{
-	RegisterComponentType("bool", new BoolComponent);
-	RegisterComponentType("u8", new U8Component);
-	RegisterComponentType("s8", new S8Component);
-	RegisterComponentType("u16", new U16Component);
-	RegisterComponentType("s16", new S16Component);
-	RegisterComponentType("u32", new U32Component);
-	RegisterComponentType("s32", new S32Component);
-	RegisterComponentType("float", new FloatComponent);
-	RegisterComponentType("string", new StringComponent);
-	RegisterComponentType("bitfield", new BitFieldComponent);
-	RegisterComponentType("md5sum", new Md5SumComponent);
-	RegisterComponentType("v2fixed", new V2FixedComponent);
-	RegisterComponentType("v3fixed", new V3FixedComponent);
-}
-
-void ClearRegisteredComponentTypes()
-{
-	for (ComponentTypeTable::const_iterator it = RegisteredComponentTypes.begin();
-		it != RegisteredComponentTypes.end(); ++it)
-	{
-		delete it->second;
-	}
-
-	RegisteredComponentTypes.clear();
-}
-
-
-// ----------------------------------------------------------------------------
 
 // ============================================================================
 //
