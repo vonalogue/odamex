@@ -43,6 +43,11 @@
 // 
 // ============================================================================
 
+RangeComponent::RangeComponent() :
+	mCachedSizeValid(false), mCachedSize(0),
+	mValue(0), mLowerBound(MININT), mUpperBound(MAXINT)
+{ }
+
 RangeComponent::RangeComponent(int32_t lowerbound, int32_t upperbound, int32_t value) :
 	mCachedSizeValid(false), mCachedSize(0),	
 	mValue(value), mLowerBound(lowerbound), mUpperBound(upperbound)
