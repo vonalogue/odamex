@@ -25,6 +25,7 @@
 
 #include <utility>
 #include <string>
+#include "m_ostring.h"
 
 // ============================================================================
 //
@@ -84,6 +85,9 @@ template <> struct hashfunc<const char*>
 
 template <> struct hashfunc<std::string>
 {	size_t operator()(const std::string& str) const { return __hash_cstring(str.c_str()); } };
+
+template <> struct hashfunc<OString>
+{	size_t operator()(const OString& str) const { return __hash_cstring(str.c_str()); } };
 
 
 // ----------------------------------------------------------------------------

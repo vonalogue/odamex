@@ -21,6 +21,7 @@
 //-----------------------------------------------------------------------------
 
 #include "net_socketaddress.h"
+#include "m_ostring.h"
 
 #ifdef _WIN32
 	#define WIN32_LEAN_AND_MEAN
@@ -91,7 +92,7 @@ SocketAddress::SocketAddress(const SocketAddress& other) :
 {
 }
 
-SocketAddress::SocketAddress(const std::string& stradr) :
+SocketAddress::SocketAddress(const OString& stradr) :
 	mIP(0), mPort(0),
 	mIsSockDirty(true), mIsStringDirty(true)
 {
@@ -227,7 +228,7 @@ const struct sockaddr_in& SocketAddress::getSockAddrIn() const
 	return mSockAddrIn;
 }
 
-const std::string& SocketAddress::getString() const
+const OString& SocketAddress::getString() const
 {
 	if (mIsStringDirty)
 	{

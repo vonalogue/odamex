@@ -52,6 +52,7 @@
 	#include <sys/time.h>
 #endif // WIN32
 
+#include "m_ostring.h"
 
 // ============================================================================
 //
@@ -65,7 +66,7 @@ public:
 	SocketAddress();
 	SocketAddress(uint8_t oct1, uint8_t oct2, uint8_t oct3, uint8_t oct4, uint16_t port);
 	SocketAddress(const SocketAddress& other);
-	SocketAddress(const std::string& stradr);
+	SocketAddress(const OString& stradr);
 	SocketAddress(const struct sockaddr_in sadr);
 
 	SocketAddress& operator=(const SocketAddress& other);
@@ -87,7 +88,7 @@ public:
 	bool isValid() const;
 
 	const struct sockaddr_in& getSockAddrIn() const;
-	const std::string& getString() const;
+	const OString& getString() const;
 	const char* getCString() const;
 
 private:
@@ -97,7 +98,7 @@ private:
 	mutable bool					mIsSockDirty;
 	mutable struct sockaddr_in		mSockAddrIn;
 	mutable bool					mIsStringDirty;
-	mutable std::string 			mString;
+	mutable OString 				mString;
 };
 
 #endif	// __NET_SOCKETADDRESS_H__

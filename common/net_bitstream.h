@@ -25,7 +25,7 @@
 #define __NET_BITSTREAM_H__
 
 #include "doomtype.h"
-#include <string>
+#include "m_ostring.h"
 
 class BitStream
 {
@@ -55,7 +55,7 @@ public:
 	void writeS32(int val);
 	void writeU32(int val);
 	void writeFloat(float val);
-	void writeString(const std::string &str);
+	void writeString(const OString& str);
 	
 	int readBits(uint16_t bitcount);
 	int readBit();
@@ -66,7 +66,7 @@ public:
 	int32_t readS32();
 	uint32_t readU32();
 	float readFloat();
-	std::string readString();
+	OString readString();
 
 	int8_t peekS8();
 	uint8_t peekU8();

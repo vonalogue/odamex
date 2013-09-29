@@ -29,6 +29,7 @@
 #include "hashtable.h"
 
 #include "doomdef.h"
+#include "m_ostring.h"
 #include "m_random.h"
 #include "c_cvars.h"
 #include "cmdlib.h"
@@ -129,7 +130,7 @@ NetInterface::~NetInterface()
 }
 
 
-bool NetInterface::init(const std::string& address, uint16_t desired_port)
+bool NetInterface::init(const OString& address, uint16_t desired_port)
 {
 	openInterface(address, desired_port);
 	return mInitialized;
@@ -147,13 +148,13 @@ const SocketAddress& NetInterface::getLocalAddress() const
 }
 
 
-const std::string& NetInterface::getPassword() const
+const OString& NetInterface::getPassword() const
 {
 	return mPassword;
 }
 
 
-void NetInterface::setPassword(const std::string& password)
+void NetInterface::setPassword(const OString& password)
 {
 	mPassword = password;
 }
@@ -187,8 +188,8 @@ void NetInterface::closeConnection(const ConnectionId& connection_id)
 	if (conn == NULL)
 		return;	
 
-	const char* remote_address_cstring = conn->getRemoteAddressCString();
-	Net_LogPrintf("NetInterface::closeConnection: closing connection to %s.", remote_address_cstring);
+	Net_LogPrintf("NetInterface::closeConnection: closing connection to %s.",
+				conn->getRemoteAddress().getCString());
 	conn->closeConnection();
 }
 
@@ -307,7 +308,8 @@ void NetInterface::service()
 		// they will be freed later after a time-out period
 		if (!conn->isTerminated() && conn->isTimedOut())
 		{
-			Net_LogPrintf("NetInterface::service: connection to %s timed-out.", conn->getRemoteAddressCString());
+			Net_LogPrintf("NetInterface::service: connection to %s timed-out.", 
+					conn->getRemoteAddress().getCString());
 			conn->closeConnection();
 		}
 	}
@@ -322,7 +324,8 @@ void NetInterface::service()
 		Connection* conn = it->second;
 		if (conn->isTerminated() && conn->isTimedOut())
 		{
-			Net_LogPrintf("NetInterface::service: removing terminated connection to %s.", conn->getRemoteAddressCString());
+			Net_LogPrintf("NetInterface::service: removing terminated connection to %s.", 
+					conn->getRemoteAddress().getCString());
 			mConnectionsById.erase(conn->getConnectionId());
 			mConnectionsByAddress.erase(conn->getRemoteAddress());
 			delete conn;
@@ -350,7 +353,7 @@ void NetInterface::service()
 // bind to desired_port, it will attempt to bind to one of the next 16
 // sequential port numbers.
 //
-void NetInterface::openInterface(const std::string& ip_string, uint16_t desired_port)
+void NetInterface::openInterface(const OString& ip_string, uint16_t desired_port)
 {
 	if (mInitialized)
 		closeInterface();		// already open? close first.
@@ -385,9 +388,9 @@ void NetInterface::openInterface(const std::string& ip_string, uint16_t desired_
 /*
 	init_upnp();
 
-	std::string str = mLocalAddress;
-	std::string ipstr = str.substr(0, str.find(':', 0));
-	std::string portstr = str.substr(str.find(':', 0) + 1, npos);
+	OString str = mLocalAddress;
+	OString ipstr = str.substr(0, str.find(':', 0));
+	OString portstr = str.substr(str.find(':', 0) + 1, npos);
 
 	sv_upnp_internalip.Set(ipstr.c_str());
 	upnp_add_redir(ipstr.c_str(), portstr);
@@ -564,7 +567,7 @@ bool NetInterface::socketRecv(SocketAddress& source, uint8_t* data, uint16_t& si
 
 		if (errno == WSAEMSGSIZE)
 		{
-			std::string adrstr(fromadr);
+			OString adrstr(fromadr);
 			Net_Warning("NetInterface::socketRecv: Warning: Oversize packet from %s", source.getCString());
 			return false;
 		}

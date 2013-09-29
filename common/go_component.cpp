@@ -35,6 +35,7 @@
 #include "net_common.h"
 #include "go_component.h"
 #include "hashtable.h"
+#include "m_ostring.h"
 
 
 // ============================================================================
@@ -139,7 +140,7 @@ Md5SumComponent::Md5SumComponent()
 	clear();
 }
 
-Md5SumComponent::Md5SumComponent(const std::string& value)
+Md5SumComponent::Md5SumComponent(const OString& value)
 {
 	setFromString(value);
 }
@@ -184,9 +185,9 @@ void Md5SumComponent::clear()
 //
 // Md5SumComponent::setFromString
 //
-// Converts a std::string version of a MD5SUM into the compact internal format.
+// Converts a OString version of a MD5SUM into the compact internal format.
 //
-void Md5SumComponent::setFromString(const std::string& value)
+void Md5SumComponent::setFromString(const OString& value)
 {
 	clear();
 
@@ -221,7 +222,7 @@ void Md5SumComponent::setFromString(const std::string& value)
 //
 // Md5SumComponent::cacheString
 //
-// Builds a std::string version of the MD5SUM and caches it.
+// Builds a OString version of the MD5SUM and caches it.
 //
 void Md5SumComponent::cacheString()
 {
@@ -393,7 +394,7 @@ void GameObjectComponentGroup::addField(GameObjectComponent* field, bool optiona
 	}
 
 	// add it to the name table
-	mNameTable.insert(std::pair<std::string, GameObjectComponent*>(field->getName(), field));
+	mNameTable.insert(std::pair<OString, GameObjectComponent*>(field->getName(), field));
 
 	if (optional)
 	{

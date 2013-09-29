@@ -24,6 +24,7 @@
 #include "doomtype.h"
 #include "doomdef.h"
 #include "net_bitstream.h"
+#include "m_ostring.h"
 
 // ============================================================================
 //
@@ -284,7 +285,7 @@ uint32_t BitStream::readU32()
 	return static_cast<uint32_t>(readBits(32));
 }
 
-void BitStream::writeString(const std::string &str)
+void BitStream::writeString(const OString& str)
 {
 	if (mCheckWriteOverflow((str.length() + 1) << 3))
 		return;
@@ -295,7 +296,7 @@ void BitStream::writeString(const std::string &str)
 	writeU8(0);
 }
 
-std::string BitStream::readString()
+OString BitStream::readString()
 {
 	const uint16_t bufsize = (mCapacity + 0x07) >> 3;
 	char data[bufsize];
@@ -310,7 +311,7 @@ std::string BitStream::readString()
 	// make sure the string is properly terminated no matter what
 	data[bufsize - 1] = 0;
 
-	return std::string(data);
+	return OString(data);
 }
 
 //

@@ -88,7 +88,6 @@ private:
 	ConnectionId			mConnectionId;
 	NetInterface*			mInterface;
 	SocketAddress			mRemoteAddress;
-	std::string				mRemoteAddressString;
 
 	ConnectionState_t		mState;
 	uint32_t				mCreationTS;

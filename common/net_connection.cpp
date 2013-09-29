@@ -34,6 +34,7 @@
 #include "md5.h"
 
 #include <stdarg.h>
+#include "m_ostring.h"
 
 EXTERN_CVAR(net_maxrate)
 
@@ -55,7 +56,7 @@ static const uint32_t TERMINATION_TIMEOUT = 4*ONE_SECOND;
 
 Connection::Connection(const ConnectionId& connection_id, NetInterface* interface, const SocketAddress& adr) :
 	mConnectionId(connection_id),
-	mInterface(interface), mRemoteAddress(adr), mRemoteAddressString(adr.getCString()),
+	mInterface(interface), mRemoteAddress(adr),
 	mCreationTS(Net_CurrentTime()),
 	mTimeOutTS(Net_CurrentTime() + CONNECTION_TIMEOUT),
 	mConnectionAttempt(0), mConnectionAttemptTimeOutTS(0),
@@ -91,12 +92,6 @@ const SocketAddress& Connection::getRemoteAddress() const
 }
 
 
-const char* Connection::getRemoteAddressCString() const
-{
-	return mRemoteAddressString.c_str();
-}
-
-
 bool Connection::isConnected() const
 {
 	return mState == CONN_CONNECTED;
@@ -127,7 +122,8 @@ bool Connection::isTimedOut() const
 //
 void Connection::openConnection()
 {
-	Net_Printf("Requesting connection to server %s...\n", getRemoteAddressCString());
+	Net_Printf("Requesting connection to server %s...\n", 
+			getRemoteAddress().getCString());
 	clientRequest();
 }
 
@@ -141,7 +137,8 @@ void Connection::openConnection()
 //
 void Connection::closeConnection()
 {
-	Net_LogPrintf("Connection::closeConnection: terminating connection to %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::closeConnection: terminating connection to %s.", 
+			getRemoteAddress().getCString());
 	BitStream stream;
 	stream.writeU32(TERMINATION_SEQUENCE);
 	sendPacket(stream);
@@ -185,7 +182,8 @@ void Connection::processPacket(BitStream& stream)
 	else if (packet_type == GAME_PACKET)
 		parseGamePacket(stream);
 	else
-		Net_Error("Connection::processPacket: Unknown packet type from %s.", getRemoteAddressCString());
+		Net_Error("Connection::processPacket: Unknown packet type from %s.", 
+				getRemoteAddress().getCString());
 
 	mTimeOutTS = Net_CurrentTime() + CONNECTION_TIMEOUT;
 	++mRecvPacketCount;
@@ -202,7 +200,8 @@ void Connection::service()
 		mConnectionAttempt <= NEGOTIATION_ATTEMPTS &&
 		Net_CurrentTime() >= mConnectionAttemptTimeOutTS)
 	{
-		Net_Printf("Re-requesting connection to server %s...", getRemoteAddressCString());
+		Net_Printf("Re-requesting connection to server %s...",
+				getRemoteAddress().getCString());
 		clientRequest();
 	}
 
@@ -263,7 +262,8 @@ bool Connection::clientRequest()
 	++mConnectionAttempt;
 	mConnectionAttemptTimeOutTS = Net_CurrentTime() + NEGOTIATION_TIMEOUT;
 
-	Net_LogPrintf("Connection::clientRequest: sending connection request packet to %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::clientRequest: sending connection request packet to %s.",
+			getRemoteAddress().getCString());
 	mState = CONN_REQUESTING;
 
 	BitStream stream;
@@ -283,7 +283,8 @@ bool Connection::clientRequest()
 //
 bool Connection::serverProcessRequest(BitStream& stream)
 {
-	Net_LogPrintf("Connection::serverProcessRequest: processing connection request packet from %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::serverProcessRequest: processing connection request packet from %s.",
+			getRemoteAddress().getCString());
 
 	if (stream.readU32() != CONNECTION_SEQUENCE)
 	{
@@ -311,7 +312,8 @@ bool Connection::serverProcessRequest(BitStream& stream)
 //
 bool Connection::serverOffer()
 {
-	Net_LogPrintf("Connection::serverOffer: sending connection offer packet to %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::serverOffer: sending connection offer packet to %s.",
+			getRemoteAddress().getCString());
 
 	BitStream stream;
 	composePacketHeader(NEGOTIATION_PACKET, stream);
@@ -355,7 +357,8 @@ bool Connection::serverOffer()
 //
 bool Connection::clientProcessOffer(BitStream& stream)
 {
-	Net_LogPrintf("Connection::clientProcessOffer: processing connection offer packet from %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::clientProcessOffer: processing connection offer packet from %s.",
+			getRemoteAddress().getCString());
 
 	parsePacketHeader(stream);
 	mRecvSequenceValid = true;
@@ -376,7 +379,7 @@ bool Connection::clientProcessOffer(BitStream& stream)
 	// credential_availible.write(stream);
 
 	// write the connection password
-	std::string password_hash;
+	OString password_hash;
 	if (!getInterface()->getPassword().empty())
 		password_hash = MD5SUM(getInterface()->getPassword());
 	stream.writeString(password_hash);
@@ -391,7 +394,8 @@ bool Connection::clientProcessOffer(BitStream& stream)
 //
 bool Connection::clientAccept()
 {
-	Net_LogPrintf("Connection::clientAccept: sending connection acceptance packet to %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::clientAccept: sending connection acceptance packet to %s.", 
+			getRemoteAddress().getCString());
 
 	BitStream stream;
 	composePacketHeader(NEGOTIATION_PACKET, stream);
@@ -410,7 +414,8 @@ bool Connection::clientAccept()
 //
 bool Connection::serverProcessAcceptance(BitStream& stream)
 {
-	Net_LogPrintf("Connection::serverProcessAcceptance: processing connection acceptance packet from %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::serverProcessAcceptance: processing connection acceptance packet from %s.", 
+			getRemoteAddress().getCString());
 
 	parsePacketHeader(stream);
 	mRecvSequenceValid = true;
@@ -426,7 +431,7 @@ bool Connection::serverProcessAcceptance(BitStream& stream)
 	}
 
 	// Read and verify the supplied password.
-	std::string password_hash = stream.readString();
+	OString password_hash = stream.readString();
 	if (!getInterface()->getPassword().empty())
 	{
 		if (password_hash.compare(MD5SUM(getInterface()->getPassword())) != 0)
@@ -446,7 +451,8 @@ bool Connection::serverProcessAcceptance(BitStream& stream)
 //
 bool Connection::serverConfirmAcceptance()
 {
-	Net_LogPrintf("Connection::serverConfirmAcceptance: sending connection confirmation packet to %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::serverConfirmAcceptance: sending connection confirmation packet to %s.", 
+			getRemoteAddress().getCString());
 
 	BitStream stream;
 	composePacketHeader(NEGOTIATION_PACKET, stream);
@@ -465,7 +471,8 @@ bool Connection::serverConfirmAcceptance()
 //
 bool Connection::clientProcessConfirmation(BitStream& stream)
 {
-	Net_LogPrintf("Connection::clientProcessConfirmation: processing connection confirmation packet from %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::clientProcessConfirmation: processing connection confirmation packet from %s.", 
+			getRemoteAddress().getCString());
 
 	parsePacketHeader(stream);
 	mLastAckSequenceValid = true;
@@ -501,8 +508,10 @@ void Connection::parseNegotiationPacket(BitStream& stream)
 		if (clientProcessConfirmation(stream))
 		{
 			mState = CONN_CONNECTED;
-			Net_LogPrintf("Connection::processNegotiationPacket: negotiation with %s successful.", getRemoteAddressCString());
-			Net_Printf("Successfully negotiated connection with %s.", getRemoteAddressCString());
+			Net_LogPrintf("Connection::processNegotiationPacket: negotiation with %s successful.", 
+					getRemoteAddress().getCString());
+			Net_Printf("Successfully negotiated connection with %s.", 
+					getRemoteAddress().getCString());
 		}
 		else
 		{
@@ -518,7 +527,8 @@ void Connection::parseNegotiationPacket(BitStream& stream)
 			// server confirms connected status to client
 			serverConfirmAcceptance();
 			mState = CONN_CONNECTED;
-			Net_LogPrintf("Connection::processNegotiationPacket: negotiation with %s successful.", getRemoteAddressCString());
+			Net_LogPrintf("Connection::processNegotiationPacket: negotiation with %s successful.", 
+					getRemoteAddress().getCString());
 		}
 		else
 		{
@@ -594,7 +604,8 @@ void Connection::parsePacketHeader(BitStream& stream)
 	PacketSequenceNumber in_seq;
 	in_seq.read(stream);
 
-	Net_LogPrintf("Connection::parsePacketHeader: reading packet header from %s, sequence %u.", getRemoteAddressCString(), in_seq.getInteger());
+	Net_LogPrintf("Connection::parsePacketHeader: reading packet header from %s, sequence %u.", 
+					getRemoteAddress().getCString(), in_seq.getInteger());
 
 	if (mRecvSequenceValid)
 	{
@@ -602,7 +613,7 @@ void Connection::parsePacketHeader(BitStream& stream)
 		if (in_seq <= mRecvSequence)
 		{
 			Net_LogPrintf("Connection::parsePacketHeader: dropping out-of-order packet from %s (sequence %u, last sequence %u).",
-					getRemoteAddressCString(), in_seq.getInteger(), mRecvSequence.getInteger());
+					getRemoteAddress().getCString(), in_seq.getInteger(), mRecvSequence.getInteger());
 		
 			stream.clear();
 			return;
@@ -636,7 +647,8 @@ void Connection::parsePacketHeader(BitStream& stream)
 		// sanity check (acknowledging a packet we haven't sent yet?!?!)
 		if (ack_seq >= mSequence)
 		{
-			Net_Warning("Connection::parsePacketHeader: Remote host %s acknowledges an unknown packet.", getRemoteAddressCString());
+			Net_Warning("Connection::parsePacketHeader: Remote host %s acknowledges an unknown packet.",
+					getRemoteAddress().getCString());
 			stream.clear();
 			return;
 		}
@@ -644,7 +656,8 @@ void Connection::parsePacketHeader(BitStream& stream)
 		// sanity check (out of order acknowledgement)
 		if (ack_seq < mLastAckSequence)
 		{
-			Net_Warning("Connection::parsePacketHeader: Out-of-order acknowledgement from remote host %s.", getRemoteAddressCString());
+			Net_Warning("Connection::parsePacketHeader: Out-of-order acknowledgement from remote host %s.", 
+					getRemoteAddress().getCString());
 			stream.clear();
 			return;
 		}
@@ -694,7 +707,8 @@ void Connection::parsePacketHeader(BitStream& stream)
 //
 void Connection::composePacketHeader(const PacketType& type, BitStream& stream)
 {
-	Net_LogPrintf("Connection::composePacketHeader: writing packet header to %s, sequence %u.", getRemoteAddressCString(), mSequence.getInteger());
+	Net_LogPrintf("Connection::composePacketHeader: writing packet header to %s, sequence %u.",
+				getRemoteAddress().getCString(), mSequence.getInteger());
 
 	stream.writeBits(type, 1);		// write packet type
 
@@ -715,7 +729,8 @@ void Connection::composePacketHeader(const PacketType& type, BitStream& stream)
 //
 void Connection::composeGamePacket(BitStream& stream)
 {
-	Net_LogPrintf("Connection::composeGamePacket: composing packet to %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::composeGamePacket: composing packet to %s.",
+			getRemoteAddress().getCString());
 	stream.clear();
 	composePacketHeader(GAME_PACKET, stream);
 
@@ -735,7 +750,8 @@ void Connection::composeGamePacket(BitStream& stream)
 //
 void Connection::parseGamePacket(BitStream& stream)
 {
-	Net_LogPrintf("Connection::processGamePacket: processing packet from %s.", getRemoteAddressCString());
+	Net_LogPrintf("Connection::processGamePacket: processing packet from %s.",
+			getRemoteAddress().getCString());
 
 	parsePacketHeader(stream);
 

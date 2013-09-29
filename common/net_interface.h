@@ -27,7 +27,7 @@
 #include "net_type.h"
 #include "net_socketaddress.h"
 #include "hashtable.h"
-#include <string>
+#include "m_ostring.h" 
 
 #ifdef _WIN32
 	#ifdef _XBOX
@@ -94,12 +94,12 @@ public:
 	NetInterface();
 	~NetInterface();
 
-	bool init(const std::string& address, uint16_t desired_port);
+	bool init(const OString& address, uint16_t desired_port);
 
 	HostType_t getHostType() const;
 	const SocketAddress& getLocalAddress() const;
-	const std::string& getPassword() const;
-	void setPassword(const std::string& password);
+	const OString& getPassword() const;
+	void setPassword(const OString& password);
 
 	ConnectionId requestConnection(const SocketAddress& adr);
 	void closeConnection(const ConnectionId& connection_id);
@@ -129,7 +129,7 @@ private:
 	// Low-level socket interaction
 	// ------------------------------------------------------------------------
 
-	void openInterface(const std::string& address, uint16_t desired_port);
+	void openInterface(const OString& address, uint16_t desired_port);
 	void closeInterface();
 	void openSocket(uint32_t desired_ip, uint16_t desired_port);
 	void closeSocket();
@@ -159,7 +159,7 @@ private:
 
 	void processPacket(const SocketAddress& remote_address, BitStream& stream);
 
-	std::string				mPassword;
+	OString				mPassword;
 };
 
 #endif	// __NET_INTERFACE_H__

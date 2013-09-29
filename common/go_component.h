@@ -37,8 +37,8 @@
 #include "net_type.h"
 #include "net_bitstream.h"
 #include "vectors.h"
-#include <string>
 #include "hashtable.h"
+#include "m_ostring.h"
 
 // ----------------------------------------------------------------------------
 // Forward declarations
@@ -68,9 +68,9 @@ typedef IntegralComponent<int32_t> S32Component;
 class GameObjectComponent
 {
 public:
-	const std::string& getName() const
+	const OString& getName() const
 		{ return mName; }
-	void setName(const std::string& name)
+	void setName(const OString& name)
 		{ mName = name; }
 
 	// return the size of the component (in bits)
@@ -87,7 +87,7 @@ public:
 	virtual GameObjectComponent* clone() const = 0;
 
 private:
-	std::string			mName;
+	OString			mName;
 };
 
 
@@ -219,7 +219,7 @@ private:
 //
 // StringComponent implementation
 //
-// Stores and serializes std::string values for use in GameObjects.
+// Stores and serializes OString values for use in GameObjects.
 // 
 // ============================================================================
 
@@ -227,7 +227,7 @@ class StringComponent : public GameObjectComponent
 {
 public:
 	StringComponent() { }
-	StringComponent(const std::string& value) :
+	StringComponent(const OString& value) :
 		mValue(value) { }
 	virtual ~StringComponent() { }
 
@@ -241,16 +241,16 @@ public:
 	inline uint16_t write(BitStream& stream) const
 		{ stream.writeString(mValue); return size(); }
 
-	inline const std::string& get() const
+	inline const OString& get() const
 		{ return mValue; }
-	inline void set(const std::string& value)
+	inline void set(const OString& value)
 		{ mValue = value; }
 
 	inline StringComponent* clone() const
 		{ return new StringComponent(*this); }
 
 private:
-	std::string			mValue;
+	OString			mValue;
 };
 
 // ============================================================================
@@ -386,7 +386,7 @@ class Md5SumComponent : public GameObjectComponent
 {
 public:
 	Md5SumComponent();
-	Md5SumComponent(const std::string& value);
+	Md5SumComponent(const OString& value);
 	virtual ~Md5SumComponent() { }
 
 	inline uint16_t size() const
@@ -396,22 +396,22 @@ public:
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
 
-	inline const std::string& get() const
+	inline const OString& get() const
 		{ return mCachedString; }
-	inline void set(const std::string& value)
+	inline void set(const OString& value)
 		{ setFromString(value); }
 
 	inline Md5SumComponent* clone() const
 		{ return new Md5SumComponent(*this); }
 
 private:
-	void setFromString(const std::string& value);
+	void setFromString(const OString& value);
 	void cacheString();
 
 	static const size_t NUMBITS = 128;
 	static const size_t NUMBYTES = NUMBITS / 8;
 	uint8_t			mValue[NUMBYTES];
-	std::string		mCachedString;	
+	OString			mCachedString;	
 };
 
 // ============================================================================
@@ -478,7 +478,7 @@ public:
 	inline GameObjectComponentGroup* clone() const
 		{ return new GameObjectComponentGroup(*this); }
 
-	bool hasField(const std::string& name) const;
+	bool hasField(const OString& name) const;
 
 	virtual void addField(GameObjectComponent* field, bool optional);
 
@@ -486,7 +486,7 @@ private:
 	mutable bool				mCachedSizeValid;
 	mutable uint16_t			mCachedSize;
 
-	typedef HashTable<std::string, GameObjectComponent*> NameTable;
+	typedef HashTable<OString, GameObjectComponent*> NameTable;
 	NameTable					mNameTable;
 
 	typedef std::vector<GameObjectComponent*> FieldArray;
