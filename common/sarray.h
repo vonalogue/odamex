@@ -251,6 +251,11 @@ public:
 	{
 		return mItemRecords[getSlot(id)].mItem;
 	}
+
+	const VT& get(const SArrayId id) const
+	{
+		return mItemRecords[getSlot(id)].mItem;
+	}
 		
 	VT& operator[](const SArrayId id)
 	{
