@@ -375,38 +375,6 @@ void GameObjectComponentGroup::clear()
 }
 
 
-//
-// GameObjectComponentGroup::addField
-//
-// Adds a field to the container.
-//
-void GameObjectComponentGroup::addField(GameObjectComponent* field, bool optional)
-{
-	if (field == NULL)
-		return;
-
-	// check if a field with this name already exists
-	NameTable::const_iterator itr = mNameTable.find(field->getName());
-	if (itr != mNameTable.end())
-	{
-		Net_Warning("GameObjectComponentGroup::addField: field name %s already exists.\n", field->getName().c_str());
-		return;
-	}
-
-	// add it to the name table
-	mNameTable.insert(std::pair<OString, GameObjectComponent*>(field->getName(), field));
-
-	if (optional)
-	{
-		// TODO: increase the size of the optional field bitfield
-		mOptionalFields.push_back(field);
-	}
-	else
-	{
-		mRequiredFields.push_back(field);
-	}
-}
-
 // ============================================================================
 //
 // GameObjectComponentArray implementation

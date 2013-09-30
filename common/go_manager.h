@@ -26,9 +26,8 @@
 #define __GO_MANAGER_H__
 
 #include "doomtype.h"
-
-#include <string>
 #include "hashtable.h"
+#include "m_ostring.h"
 
 typedef uint32_t GameObjectId;
 typedef uint32_t GameObjectComponentId;
@@ -63,8 +62,8 @@ public:
 		return T();
 	}
 
-	void registerComponentType(const std::string& name, const GameObjectComponent& prototype);
-	void unregisterComponentType(const std::string& name);
+	void registerComponentType(const OString& name, const GameObjectComponent& prototype);
+	void unregisterComponentType(const OString& name);
 	void clearRegisteredComponentTypes();
 
 private:
@@ -75,7 +74,7 @@ private:
 	ComponentIdToComponentMap		mComponentIdToComponentMap;
 
 
-	typedef HashTable<std::string, GameObjectComponent*> ComponentPrototypeMap;
+	typedef HashTable<OString, GameObjectComponent*> ComponentPrototypeMap;
 	ComponentPrototypeMap			mComponentPrototypeMap;
 
 };

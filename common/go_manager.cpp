@@ -59,17 +59,17 @@ GameObjectManager::~GameObjectManager()
 	clearRegisteredComponentTypes();
 }
 
-void GameObjectManager::registerComponentType(const std::string& name, const GameObjectComponent& prototype)
+void GameObjectManager::registerComponentType(const OString& name, const GameObjectComponent& prototype)
 {
 	if (mComponentPrototypeMap.find(name) == mComponentPrototypeMap.end())
 	{	
 		// Note: we're creating a new instance of the GameObjectComponent
 		// remember to delete it later!
-		mComponentPrototypeMap.insert(std::pair<std::string, GameObjectComponent*>(name, prototype.clone()));
+		mComponentPrototypeMap.insert(std::pair<OString, GameObjectComponent*>(name, prototype.clone()));
 	}
 }
 
-void GameObjectManager::unregisterComponentType(const std::string& name)
+void GameObjectManager::unregisterComponentType(const OString& name)
 {
 	ComponentPrototypeMap::iterator it = mComponentPrototypeMap.find(name);
 	if (it != mComponentPrototypeMap.end())

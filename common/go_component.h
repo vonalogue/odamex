@@ -68,10 +68,33 @@ typedef IntegralComponent<int32_t> S32Component;
 class GameObjectComponent
 {
 public:
-	const OString& getName() const
-		{ return mName; }
-	void setName(const OString& name)
-		{ mName = name; }
+	// name of the type (eg., "uint32")
+	inline const OString& getTypeName() const
+		{ return mTypeName; }
+	inline void setTypeName(const OString& value)
+		{ mTypeName = value; }
+
+	// name of the property (eg., "health")
+	inline const OString& getPropertyName() const
+		{ return mPropertyName; }
+	inline void setPropertyName(const OString& value)
+		{ mPropertyName = value; }
+
+	// indicate if this component will always be serialized
+	inline bool isRequired() const
+		{ return mRequired; }
+	inline void setRequired(bool value)
+		{ mRequired = value; }
+
+	// indicate if this component will be automatically serialized when changed
+	inline bool isReplicatable() const
+		{ return mReplicatable; }
+	inline void setReplicatable(bool value)
+		{ mReplicatable = value; }
+
+	// indicate whether this component contains other components
+	virtual inline bool isComposite() const
+		{ return false; }
 
 	// return the size of the component (in bits)
 	virtual uint16_t size() const = 0;
@@ -87,7 +110,10 @@ public:
 	virtual GameObjectComponent* clone() const = 0;
 
 private:
-	OString			mName;
+	OString			mTypeName;
+	OString			mPropertyName;
+	bool			mRequired;
+	bool			mReplicatable;
 };
 
 
@@ -414,6 +440,21 @@ private:
 	OString			mCachedString;	
 };
 
+
+
+// ============================================================================
+//
+// GameObjectComposite abstract base class interface
+//
+// ============================================================================
+class GameObjectComposite : public GameObjectComponent
+{
+public:
+	inline bool isComposite() const
+		{ return true; }
+};
+
+
 // ============================================================================
 //
 // GameObjectComponentArray interface
@@ -423,13 +464,16 @@ private:
 // 
 // ============================================================================
 
-class GameObjectComponentArray : public GameObjectComponent
+class GameObjectComponentArray : public GameObjectComposite
 {
 public:
 	GameObjectComponentArray(uint32_t mincnt = 0, uint32_t maxcnt = 65535);
 	GameObjectComponentArray(const GameObjectComponentArray& other);
 	virtual ~GameObjectComponentArray();
 	GameObjectComponentArray& operator=(const GameObjectComponentArray& other);
+
+	inline bool isComposite() const
+		{ return true; }
 
 	uint16_t size() const;
 	void clear();
@@ -462,12 +506,15 @@ private:
 // 
 // ============================================================================
 
-class GameObjectComponentGroup : public GameObjectComponent 
+class GameObjectComponentGroup : public GameObjectComposite
 {
 public:
 	GameObjectComponentGroup();
 	GameObjectComponentGroup(const GameObjectComponentGroup& other);
 	virtual ~GameObjectComponentGroup();
+
+	inline bool isComposite() const
+		{ return true; }
 
 	uint16_t size() const;
 	void clear();
@@ -477,10 +524,6 @@ public:
 
 	inline GameObjectComponentGroup* clone() const
 		{ return new GameObjectComponentGroup(*this); }
-
-	bool hasField(const OString& name) const;
-
-	virtual void addField(GameObjectComponent* field, bool optional);
 
 private:
 	mutable bool				mCachedSizeValid;
@@ -495,16 +538,6 @@ private:
 	FieldArray					mOptionalFields;
 	FieldArray					mRequiredFields;
 };
-
-
-// ============================================================================
-//
-// Message interface
-//
-// Wrapper for composite MessageComponents
-//
-// ============================================================================
-
 
 #endif	// __GO_COMPONENT_H__
 
