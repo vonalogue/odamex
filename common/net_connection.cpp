@@ -31,6 +31,7 @@
 #include "go_component.h"
 
 #include "i_system.h"
+#include "c_cvars.h"
 #include "md5.h"
 
 #include <stdarg.h>
