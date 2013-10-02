@@ -27,12 +27,11 @@
 
 #include "doomtype.h"
 #include "hashtable.h"
+#include "sarray.h"
 #include "m_ostring.h"
 
-typedef uint32_t GameObjectId;
-typedef uint32_t GameObjectComponentId;
+#include "go_component.h"
 
-class GameObjectComponent;
 
 // ============================================================================
 //
@@ -43,6 +42,11 @@ class GameObjectComponent;
 class GameObjectManager
 {
 public:
+	// ------------------------------------------------------------------------
+	// Types
+	// ------------------------------------------------------------------------
+	
+	typedef uint32_t ComponentId;
 
 	// ------------------------------------------------------------------------
 	// Public functions
@@ -50,33 +54,84 @@ public:
 	GameObjectManager();
 	virtual ~GameObjectManager();
 
-
-	template <class T>
-	T& getComponent(const GameObjectId& object_id, const GameObjectComponentId& component_id)
-	{
-		ComponentIdToComponentMap::const_iterator it = mComponentIdToComponentMap.find(component_id);
-		if (it != mComponentIdToComponentMap.end())
-			return static_cast<T>(it->second);
-
-		// TODO: handle not found errors
-		return T();
-	}
-
 	void registerComponentType(const OString& name, const GameObjectComponent& prototype);
 	void unregisterComponentType(const OString& name);
 	void clearRegisteredComponentTypes();
 
+
+	const OString& getComponentTypeName(ComponentId component_id) const
+	{
+		return mComponents.get(component_id)->getTypeName();
+	}
+
+	template <typename T>
+	T* getAttribute(ComponentId parent_id, const OString& attribute_name)
+	{
+		for (CompositeMap::iterator it = mCompositeMap.find(parent_id); it != mCompositeMap.end(); ++it)
+		{
+			ComponentId component_id = it->second;
+			GameObjectComponent* component = mComponents.get(component_id);
+			if (component->getAttributeName() == attribute_name)
+				return dynamic_cast<T*>(component);	
+		}
+		return NULL;	// not found
+	}
+
+	template <typename T>
+	T* getAttribute(ComponentId component_id)
+	{
+		ComponentStore::iterator it = mComponents.find(component_id);
+		if (it != mComponents.end())
+			return dynamic_cast<T*>(*it);
+		return NULL;	// not found
+	}
+
+	ComponentId addAttribute(const OString& attribute_name, const OString& type_name, ComponentId parent_id);
+
+	void clearComponents();
+
 private:
-	typedef HashTable<GameObjectId, GameObjectComponentId> ObjectIdToComponentIdMap;
-	typedef HashTable<GameObjectComponentId, GameObjectComponent*> ComponentIdToComponentMap;
+
+	// ------------------------------------------------------------------------
+	// Component Storage
+	// ------------------------------------------------------------------------
+
+	static const uint32_t MAX_COMPONENTS = 65536;
+
+	typedef SArray<GameObjectComponent*> ComponentStore;
+	ComponentStore					mComponents;
+
+
+	// ------------------------------------------------------------------------
+	// Component to Parent Component mapping
+	// ------------------------------------------------------------------------
+
+	typedef HashTable<ComponentId, ComponentId> CompositeMap;
+	CompositeMap				mCompositeMap;
+
+	// ------------------------------------------------------------------------
+	// Component Type Information
+	// ------------------------------------------------------------------------
+
+	static const uint32_t MAX_TYPES = 64;
 	
-	ObjectIdToComponentIdMap		mObjectIdToComponentIdMap;
-	ComponentIdToComponentMap		mComponentIdToComponentMap;
+	struct ComponentTypeRecord
+	{
+		ComponentTypeRecord() :
+			mPrototype(NULL), mComposite(false)
+		{ }
 
+		ComponentTypeRecord(const OString& type_name, const GameObjectComponent* prototype) :
+			mTypeName(type_name), mPrototype(prototype), mComposite(prototype->isComposite())
+		{ }
 
-	typedef HashTable<OString, GameObjectComponent*> ComponentPrototypeMap;
-	ComponentPrototypeMap			mComponentPrototypeMap;
+		OString						mTypeName;
+		const GameObjectComponent*	mPrototype;
+		bool						mComposite;
+	};
 
+	typedef HashTable<OString, ComponentTypeRecord>	ComponentTypeStore;
+	ComponentTypeStore			mComponentTypes;
 };
 
 #endif	// __GO_MANAGER_H__

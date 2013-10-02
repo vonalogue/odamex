@@ -74,11 +74,11 @@ public:
 	inline void setTypeName(const OString& value)
 		{ mTypeName = value; }
 
-	// name of the property (eg., "health")
-	inline const OString& getPropertyName() const
-		{ return mPropertyName; }
-	inline void setPropertyName(const OString& value)
-		{ mPropertyName = value; }
+	// name of the attribute (eg., "health")
+	inline const OString& getAttributeName() const
+		{ return mAttributeName; }
+	inline void setAttributeName(const OString& value)
+		{ mAttributeName = value; }
 
 	// indicate if this component will always be serialized
 	inline bool isRequired() const
@@ -111,7 +111,7 @@ public:
 
 private:
 	OString			mTypeName;
-	OString			mPropertyName;
+	OString			mAttributeName;
 	bool			mRequired;
 	bool			mReplicatable;
 };

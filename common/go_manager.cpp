@@ -35,7 +35,10 @@
 // Public functions
 // ----------------------------------------------------------------------------
 
-GameObjectManager::GameObjectManager()
+GameObjectManager::GameObjectManager() :
+	mComponents(GameObjectManager::MAX_COMPONENTS),
+	mCompositeMap(GameObjectManager::MAX_COMPONENTS),
+	mComponentTypes(GameObjectManager::MAX_TYPES)
 {
 	// register built-in component types
 	registerComponentType("bool",		BoolComponent());
@@ -59,36 +62,55 @@ GameObjectManager::~GameObjectManager()
 	clearRegisteredComponentTypes();
 }
 
-void GameObjectManager::registerComponentType(const OString& name, const GameObjectComponent& prototype)
+void GameObjectManager::registerComponentType(const OString& type_name, const GameObjectComponent& prototype)
 {
-	if (mComponentPrototypeMap.find(name) == mComponentPrototypeMap.end())
-	{	
-		// Note: we're creating a new instance of the GameObjectComponent
-		// remember to delete it later!
-		mComponentPrototypeMap.insert(std::pair<OString, GameObjectComponent*>(name, prototype.clone()));
+	if (mComponentTypes.find(type_name) == mComponentTypes.end())
+	{
+		// Note: we're creating a new instance of the GameObjectComponent by
+		// calling prototype.clone(). Remember to delete it later!
+		ComponentTypeRecord rec(type_name, prototype.clone());
+		mComponentTypes.insert(std::pair<OString, ComponentTypeRecord>(type_name, rec));
 	}
 }
 
-void GameObjectManager::unregisterComponentType(const OString& name)
+void GameObjectManager::unregisterComponentType(const OString& type_name)
 {
-	ComponentPrototypeMap::iterator it = mComponentPrototypeMap.find(name);
-	if (it != mComponentPrototypeMap.end())
+	ComponentTypeStore::iterator it = mComponentTypes.find(type_name);
+	if (it != mComponentTypes.end())
 	{
-		delete it->second;
-		mComponentPrototypeMap.erase(it);
+		delete it->second.mPrototype;
+		mComponentTypes.erase(it);
 	}
 }
 
 void GameObjectManager::clearRegisteredComponentTypes()
 {
-	for (ComponentPrototypeMap::iterator it = mComponentPrototypeMap.begin();
-		it != mComponentPrototypeMap.end();
-		++it)
-	{
-		delete it->second;
-	}
+	for (ComponentTypeStore::iterator it = mComponentTypes.begin(); it != mComponentTypes.end(); ++it)
+		delete it->second.mPrototype;
 	
-	mComponentPrototypeMap.clear();
+	mComponentTypes.clear();
+}
+
+GameObjectManager::ComponentId GameObjectManager::addAttribute(const OString& attribute_name, const OString& type_name, GameObjectManager::ComponentId parent_id)
+{
+	ComponentTypeStore::const_iterator it = mComponentTypes.find(type_name);
+	if (it != mComponentTypes.end())
+	{
+		GameObjectComponent* component = it->second.mPrototype->clone();
+		component->setAttributeName(attribute_name);
+		ComponentId component_id = mComponents.insert(component);
+		mCompositeMap.insert(std::pair<ComponentId, ComponentId>(parent_id, component_id));
+		return component_id;
+	}
+
+	return 0;
+}
+
+void GameObjectManager::clearComponents()
+{
+	for (ComponentStore::iterator it = mComponents.begin(); it != mComponents.end(); ++it)
+		delete *it;
+	mComponents.clear();
 }
 
 VERSION_CONTROL (go_manager_cpp, "$Id$")
