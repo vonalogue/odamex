@@ -69,10 +69,8 @@ class GameObjectComponent
 {
 public:
 	// name of the type (eg., "uint32")
-	inline const OString& getTypeName() const
-		{ return mTypeName; }
-	inline void setTypeName(const OString& value)
-		{ mTypeName = value; }
+	virtual const OString& getTypeName() const = 0;
+	inline void setTypeName(const OString& value) { }
 
 	// name of the attribute (eg., "health")
 	inline const OString& getAttributeName() const
@@ -110,7 +108,6 @@ public:
 	virtual GameObjectComponent* clone() const = 0;
 
 private:
-	OString			mTypeName;
 	OString			mAttributeName;
 	bool			mRequired;
 	bool			mReplicatable;
@@ -136,6 +133,9 @@ public:
 		mValue(value) { }
 	virtual ~IntegralComponent() { }
 
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
+
 	inline uint16_t size() const
 		{ return SIZE; }
 	inline void clear()
@@ -155,12 +155,13 @@ public:
 		{ return new IntegralComponent<T, SIZE>(*this); }
 
 private:
-	T		mValue;
+	static const OString	mTypeName;
+	T						mValue;
 };
 
 // ============================================================================
 //
-// RangeComponent implementation
+// RangeComponent interface
 //
 // Stores and efficiently serializes integral values of a specified range for
 // use in GameObjects.
@@ -173,6 +174,9 @@ public:
 	RangeComponent();
 	RangeComponent(int32_t value, int32_t lowerbound = MININT, int32_t upperbound = MAXINT);
 	virtual ~RangeComponent() { }
+
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
 
 	uint16_t size() const;
 	inline void clear()
@@ -190,18 +194,20 @@ public:
 		{ return new RangeComponent(*this); }
 
 private:
-	mutable bool		mCachedSizeValid;
-	mutable uint16_t	mCachedSize;
+	static const OString	mTypeName;
 
-	int32_t				mValue;
-	int32_t				mLowerBound;
-	int32_t				mUpperBound;
+	mutable bool			mCachedSizeValid;
+	mutable uint16_t		mCachedSize;
+
+	int32_t					mValue;
+	int32_t					mLowerBound;
+	int32_t					mUpperBound;
 };
 
 
 // ============================================================================
 //
-// FloatComponent implementation
+// FloatComponent interface
 //
 // Stores and efficiently serializes floating-point values for use in
 // GameObjects.
@@ -216,6 +222,9 @@ public:
 	FloatComponent(float value) :
 		mValue(value) { }
 	virtual ~FloatComponent() { }
+
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
 
 	inline uint16_t size() const
 		{ return SIZE; }
@@ -236,8 +245,9 @@ public:
 		{ return new FloatComponent(*this); }
 
 private:
-	static const uint16_t SIZE = 32;
-	float				mValue;
+	static const OString	mTypeName;
+	static const uint16_t	SIZE = 32;
+	float					mValue;
 };
 
 
@@ -256,6 +266,9 @@ public:
 	StringComponent(const OString& value) :
 		mValue(value) { }
 	virtual ~StringComponent() { }
+
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
 
 	inline uint16_t size() const
 		{ return 8 * (mValue.length() + 1); }
@@ -276,7 +289,8 @@ public:
 		{ return new StringComponent(*this); }
 
 private:
-	OString			mValue;
+	static const OString	mTypeName;
+	OString					mValue;
 };
 
 // ============================================================================
@@ -294,6 +308,9 @@ public:
 	V2FixedComponent(const v2fixed_t& value) :
 		mValue(value) { }
 	virtual ~V2FixedComponent() { }
+
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
 
 	inline uint16_t size() const
 		{ return SIZE; }
@@ -316,7 +333,8 @@ public:
 		{ return new V2FixedComponent(*this); }
 
 private:
-	static const uint16_t SIZE = 2 * 16;
+	static const OString	mTypeName;
+	static const uint16_t 	SIZE = 2 * 16;
 	v2fixed_t				mValue;
 };
 
@@ -336,6 +354,9 @@ public:
 	V3FixedComponent(const v3fixed_t& value) :
 		mValue(value) { }
 	virtual ~V3FixedComponent() { }
+
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
 
 	inline uint16_t size() const
 		{ return SIZE; }
@@ -358,7 +379,8 @@ public:
 		{ return new V3FixedComponent(*this); }
 
 private:
-	static const uint16_t SIZE = 3 * 16;
+	static const OString	mTypeName;
+	static const uint16_t 	SIZE = 3 * 16;
 	v3fixed_t				mValue;
 };
 
@@ -378,6 +400,9 @@ public:
 	BitFieldComponent(const BitField& value);
 	virtual ~BitFieldComponent() { }
 
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
+
 	inline uint16_t size() const
 		{ return mBitField.size(); }
 	inline void clear()
@@ -395,7 +420,8 @@ public:
 		{ return new BitFieldComponent(*this); }
 
 private:
-	BitField			mBitField;
+	static const OString	mTypeName;
+	BitField				mBitField;
 };
 
 
@@ -414,6 +440,9 @@ public:
 	Md5SumComponent();
 	Md5SumComponent(const OString& value);
 	virtual ~Md5SumComponent() { }
+
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
 
 	inline uint16_t size() const
 		{ return NUMBITS; }
@@ -434,10 +463,11 @@ private:
 	void setFromString(const OString& value);
 	void cacheString();
 
-	static const size_t NUMBITS = 128;
-	static const size_t NUMBYTES = NUMBITS / 8;
-	uint8_t			mValue[NUMBYTES];
-	OString			mCachedString;	
+	static const OString	mTypeName;
+	static const size_t 	NUMBITS = 128;
+	static const size_t 	NUMBYTES = NUMBITS / 8;
+	uint8_t					mValue[NUMBYTES];
+	OString					mCachedString;	
 };
 
 
@@ -472,6 +502,11 @@ public:
 	virtual ~GameObjectComponentArray();
 	GameObjectComponentArray& operator=(const GameObjectComponentArray& other);
 
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
+	virtual void setTypeName(const OString& type_name)
+		{ mTypeName = type_name; }
+
 	inline bool isComposite() const
 		{ return true; }
 
@@ -485,6 +520,8 @@ public:
 		{ return new GameObjectComponentArray(*this); }
 	
 private:
+	OString				mTypeName;
+
 	mutable bool		mCachedSizeValid;
 	mutable uint16_t	mCachedSize;
 
@@ -513,6 +550,11 @@ public:
 	GameObjectComponentGroup(const GameObjectComponentGroup& other);
 	virtual ~GameObjectComponentGroup();
 
+	virtual const OString& getTypeName() const
+		{ return mTypeName; }
+	virtual void setTypeName(const OString& type_name)
+		{ mTypeName = type_name; }
+
 	inline bool isComposite() const
 		{ return true; }
 
@@ -526,17 +568,10 @@ public:
 		{ return new GameObjectComponentGroup(*this); }
 
 private:
+	OString						mTypeName;
+
 	mutable bool				mCachedSizeValid;
 	mutable uint16_t			mCachedSize;
-
-	typedef HashTable<OString, GameObjectComponent*> NameTable;
-	NameTable					mNameTable;
-
-	typedef std::vector<GameObjectComponent*> FieldArray;
-
-	BitFieldComponent			mOptionalIndicator;
-	FieldArray					mOptionalFields;
-	FieldArray					mRequiredFields;
 };
 
 #endif	// __GO_COMPONENT_H__

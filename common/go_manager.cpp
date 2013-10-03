@@ -41,20 +41,20 @@ GameObjectManager::GameObjectManager() :
 	mComponentTypes(GameObjectManager::MAX_TYPES)
 {
 	// register built-in component types
-	registerComponentType("bool",		BoolComponent());
-	registerComponentType("u8",			U8Component());
-	registerComponentType("s8",			S8Component());
-	registerComponentType("u16",		U16Component());
-	registerComponentType("s16",		S16Component());
-	registerComponentType("u32",		U32Component());
-	registerComponentType("s32",		S32Component());
-	registerComponentType("range",		RangeComponent());
-	registerComponentType("float",		FloatComponent());
-	registerComponentType("string",		StringComponent());
-	registerComponentType("v2fixed",	V2FixedComponent());
-	registerComponentType("v3fixed",	V3FixedComponent());
-	registerComponentType("bitfield",	BitFieldComponent());
-	registerComponentType("md5sum",		Md5SumComponent());
+	registerComponentType(BoolComponent());
+	registerComponentType(U8Component());
+	registerComponentType(S8Component());
+	registerComponentType(U16Component());
+	registerComponentType(S16Component());
+	registerComponentType(U32Component());
+	registerComponentType(S32Component());
+	registerComponentType(RangeComponent());
+	registerComponentType(FloatComponent());
+	registerComponentType(StringComponent());
+	registerComponentType(V2FixedComponent());
+	registerComponentType(V3FixedComponent());
+	registerComponentType(BitFieldComponent());
+	registerComponentType(Md5SumComponent());
 }
 
 GameObjectManager::~GameObjectManager()
@@ -62,8 +62,9 @@ GameObjectManager::~GameObjectManager()
 	clearRegisteredComponentTypes();
 }
 
-void GameObjectManager::registerComponentType(const OString& type_name, const GameObjectComponent& prototype)
+void GameObjectManager::registerComponentType(const GameObjectComponent& prototype)
 {
+	const OString& type_name = prototype.getTypeName();
 	if (mComponentTypes.find(type_name) == mComponentTypes.end())
 	{
 		// Note: we're creating a new instance of the GameObjectComponent by

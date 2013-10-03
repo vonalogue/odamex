@@ -40,9 +40,39 @@
 
 // ============================================================================
 //
+// IntegralComponent implementation
+//
+// ============================================================================
+
+template<>
+const OString BoolComponent::mTypeName("bool");
+
+template<>
+const OString U8Component::mTypeName("u8");
+
+template<>
+const OString S8Component::mTypeName("s8");
+
+template<>
+const OString U16Component::mTypeName("u16");
+
+template<>
+const OString S16Component::mTypeName("s16");
+
+template<>
+const OString U32Component::mTypeName("u32");
+
+template<>
+const OString S32Component::mTypeName("s32");
+
+
+// ============================================================================
+//
 // RangeComponent implementation
 // 
 // ============================================================================
+
+const OString RangeComponent::mTypeName("range");
 
 RangeComponent::RangeComponent() :
 	mCachedSizeValid(false), mCachedSize(0),
@@ -97,9 +127,47 @@ uint16_t RangeComponent::write(BitStream& stream) const
 
 // ============================================================================
 //
+// FloatComponent implementation
+//
+// ============================================================================
+
+const OString FloatComponent::mTypeName("float");
+
+
+// ============================================================================
+//
+// StringComponent implementation
+//
+// ============================================================================
+
+const OString StringComponent::mTypeName("string");
+
+
+// ============================================================================
+//
+// V2FixedComponent implementation
+// 
+// ============================================================================
+
+const OString V2FixedComponent::mTypeName("v2fixed");
+
+
+// ============================================================================
+//
+// V3FixedComponent implementation
+// 
+// ============================================================================
+
+const OString V3FixedComponent::mTypeName("v3fixed");
+
+
+// ============================================================================
+//
 // BitFieldComponent implementation
 // 
 // ============================================================================
+
+const OString BitFieldComponent::mTypeName("bitfield");
 
 BitFieldComponent::BitFieldComponent(uint32_t num_fields) :
 	mBitField(num_fields)
@@ -134,6 +202,7 @@ uint16_t BitFieldComponent::write(BitStream& stream) const
 // 
 // ============================================================================
 
+const OString Md5SumComponent::mTypeName("md5sum");
 
 Md5SumComponent::Md5SumComponent() 
 {
@@ -244,135 +313,6 @@ void Md5SumComponent::cacheString()
 	mCachedString = buf;
 }
 
-
-// ============================================================================
-//
-// GameObjectComponentGroup implementation
-// 
-// ============================================================================
-
-GameObjectComponentGroup::GameObjectComponentGroup() :
-	mCachedSizeValid(false), mCachedSize(0)
-{ }
-
-GameObjectComponentGroup::GameObjectComponentGroup(const GameObjectComponentGroup& other) :
-	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize),
-	mOptionalIndicator(other.mOptionalIndicator)
-{
-	for (size_t i = 0; i < other.mOptionalFields.size(); ++i)
-		mOptionalFields.push_back(other.mOptionalFields[i]->clone());
-	for (size_t i = 0; i < other.mRequiredFields.size(); ++i)
-		mRequiredFields.push_back(other.mRequiredFields[i]->clone());
-}
-
-GameObjectComponentGroup::~GameObjectComponentGroup()
-{
-	for (size_t i = 0; i < mOptionalFields.size(); ++i)
-		delete mOptionalFields[i];
-	for (size_t i = 0; i < mRequiredFields.size(); ++i)
-		delete mRequiredFields[i];
-}
-
-
-//
-// GameObjectComponentGroup::size
-//
-// Returns the total size of the message fields in bits. The size is cached for
-// fast retrieval in the future;
-//
-uint16_t GameObjectComponentGroup::size() const
-{
-	if (!mCachedSizeValid)
-	{
-		mCachedSize = mOptionalIndicator.size();
-		for (size_t i = 0; i < mOptionalFields.size(); ++i)
-			mCachedSize += mOptionalFields[i]->size();
-
-		for (size_t i = 0; i < mRequiredFields.size(); ++i)
-			mCachedSize += mRequiredFields[i]->size();
-
-		mCachedSizeValid = true;
-	}
-
-	return mCachedSize;
-}
-
-
-//
-// GameObjectComponentGroup::read
-//
-// Reads a group of required and optional GameObjectComponents from a BitStream.
-// Returns the number of bits read.
-//
-uint16_t GameObjectComponentGroup::read(BitStream& stream)
-{
-	uint16_t read_size = 0;
-	clear();
-
-	const BitField& bitfield = mOptionalIndicator.get();
-
-	// read the optional fields
-	read_size += mOptionalIndicator.read(stream);
-	for (size_t i = 0; i < mOptionalFields.size(); ++i)
-	{
-		if (bitfield.get(i) == true)
-			read_size += mOptionalFields[i]->read(stream);
-	}
-
-	// read the required fields
-	for (size_t i = 0; i < mRequiredFields.size(); ++i)
-		read_size += mRequiredFields[i]->read(stream);
-
-	return read_size;
-}
-
-
-//
-// GameObjectComponentGroup::write
-//
-// Writes a group of required and optional GameObjectComponents from a BitStream.
-// Returns the number of bits written.
-//
-uint16_t GameObjectComponentGroup::write(BitStream& stream) const
-{
-	uint16_t write_size = 0;
-	const BitField& bitfield = mOptionalIndicator.get();
-
-	// write the optional fields
-	write_size += mOptionalIndicator.write(stream);
-
-	for (size_t i = 0; i < mOptionalFields.size(); ++i)
-	{
-		if (bitfield.get(i) == true)
-			write_size += mOptionalFields[i]->write(stream);
-	}
-
-	// write the required fields
-	for (size_t i = 0; i < mRequiredFields.size(); ++i)
-		write_size += mRequiredFields[i]->write(stream);
-
-	return write_size;
-}
-
-
-//
-// GameObjectComponentGroup::clear
-//
-// Clears all of the GameObjectComponents in this group.
-//
-void GameObjectComponentGroup::clear()
-{
-	// clear the optional fields
-	mOptionalIndicator.clear();
-	for (size_t i = 0; i < mOptionalFields.size(); ++i)
-		mOptionalFields[i]->clear();
-
-	// clear the required fields
-	for (size_t i = 0; i < mRequiredFields.size(); ++i)
-		mRequiredFields[i]->clear();
-
-	mCachedSizeValid = false;
-}
 
 
 // ============================================================================
@@ -503,6 +443,82 @@ void GameObjectComponentArray::clear()
 	for (size_t i = 0; i < mFields.size(); ++i)
 		mFields[i]->clear();
 
+	mCachedSizeValid = false;
+}
+
+
+// ============================================================================
+//
+// GameObjectComponentGroup implementation
+// 
+// ============================================================================
+
+GameObjectComponentGroup::GameObjectComponentGroup() :
+	mCachedSizeValid(false), mCachedSize(0)
+{ }
+
+GameObjectComponentGroup::GameObjectComponentGroup(const GameObjectComponentGroup& other) :
+	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize)
+{
+}
+
+GameObjectComponentGroup::~GameObjectComponentGroup()
+{
+}
+
+
+//
+// GameObjectComponentGroup::size
+//
+// Returns the total size of the message fields in bits. The size is cached for
+// fast retrieval in the future;
+//
+uint16_t GameObjectComponentGroup::size() const
+{
+	if (!mCachedSizeValid)
+	{
+		mCachedSize = 0;
+		mCachedSizeValid = true;
+	}
+
+	return mCachedSize;
+}
+
+
+//
+// GameObjectComponentGroup::read
+//
+// Reads a group of required and optional GameObjectComponents from a BitStream.
+// Returns the number of bits read.
+//
+uint16_t GameObjectComponentGroup::read(BitStream& stream)
+{
+	uint16_t read_size = 0;
+	clear();
+	return read_size;
+}
+
+
+//
+// GameObjectComponentGroup::write
+//
+// Writes a group of required and optional GameObjectComponents from a BitStream.
+// Returns the number of bits written.
+//
+uint16_t GameObjectComponentGroup::write(BitStream& stream) const
+{
+	uint16_t write_size = 0;
+	return write_size;
+}
+
+
+//
+// GameObjectComponentGroup::clear
+//
+// Clears all of the GameObjectComponents in this group.
+//
+void GameObjectComponentGroup::clear()
+{
 	mCachedSizeValid = false;
 }
 

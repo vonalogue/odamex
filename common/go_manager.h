@@ -54,8 +54,8 @@ public:
 	GameObjectManager();
 	virtual ~GameObjectManager();
 
-	void registerComponentType(const OString& name, const GameObjectComponent& prototype);
-	void unregisterComponentType(const OString& name);
+	void registerComponentType(const GameObjectComponent& prototype);
+	void unregisterComponentType(const OString& type_name);
 	void clearRegisteredComponentTypes();
 
 
