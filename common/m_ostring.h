@@ -32,6 +32,7 @@
 #include <iostream>
 #include <memory>
 #include <cassert>
+#include <stdio.h>
 
 #include "sarray.h"
 #include "hashtable.h"
@@ -389,14 +390,39 @@ public:
 		return mId == other.mId;
 	}
 
+
 	// ------------------------------------------------------------------------
 	// iequals
 	// ------------------------------------------------------------------------
 
 	inline bool iequals(const OString& other) const
 	{
-		// TODO: actually do case insensitive comparison
-		return mId == other.mId; 
+		const char* ptr1 = getString().c_str();
+		const char* ptr2 = other.getString().c_str();
+
+		while (*ptr1 && *ptr2)
+		{
+			if (toupper(*ptr1) != toupper(*ptr2))
+				return false;
+			ptr1++;	ptr2++;
+		}
+
+		return (*ptr1 == 0 && *ptr2 == 0);
+	}
+
+
+	// ------------------------------------------------------------------------
+	// debugging functions
+	// ------------------------------------------------------------------------
+
+	static void printStringTable()
+	{
+		printf("OString Table\n");
+		printf("=============\n");
+		for (StringTable::const_iterator it = mStrings->begin(); it != mStrings->end(); ++it)
+			printf("id 0x%08x hash 0x%08x (%u): %s\n", mStrings->getId(*it), hash(it->mString.c_str()),
+						it->mRefCount, it->mString.c_str());
+		printf("\n");
 	}
 
 
@@ -405,7 +431,7 @@ public:
 	// ------------------------------------------------------------------------
 
 	static const size_t npos = -1;
-	static const size_t MAX_STRINGS = 65536;
+	static const size_t MAX_STRINGS = 8192;
 
 
 private:
@@ -435,9 +461,31 @@ private:
 	// ------------------------------------------------------------------------
 
 	StringIdType				mId;
-	static StringTable			mStrings;
-	static StringLookupTable	mStringLookup;
 
+	static StringTable*			mStrings;
+	static StringLookupTable*	mStringLookup;
+	static std::string*			mEmptyString;
+	static const StringIdType	mEmptyStringId = 0;
+	
+
+	// ------------------------------------------------------------------------
+	// singleton initialization
+	// ------------------------------------------------------------------------
+
+	void init()
+	{
+		static StringTable lStrings(OString::MAX_STRINGS);
+		static StringLookupTable lStringLookup(OString::MAX_STRINGS);
+		static std::string lEmptyString;
+		static bool initialized = false;
+		if (!initialized)
+		{
+			mStrings = &lStrings;
+			mStringLookup = &lStringLookup;
+			mEmptyString = &lEmptyString;
+			initialized = true;
+		}
+	}
 
 	// ------------------------------------------------------------------------
 	// hash
@@ -445,12 +493,11 @@ private:
 	// Generates a 32-bit hash value from a string.
 	// ------------------------------------------------------------------------
 
-	inline HashedStringType hash(const std::string& str) const
+	inline static HashedStringType hash(const char* s) 
 	{
-		const char* cstr = str.c_str();
 		HashedStringType val = 0;
-		for (; *cstr != 0; cstr++)
-			val = val * 101 + *cstr;
+		for (; *s != 0; s++)
+			val = val * 101 + *s;
 		return val;
 	}
 
@@ -461,23 +508,26 @@ private:
 	// Checks if a string is already in the string table.
 	// ------------------------------------------------------------------------
 
-	inline StringRecord* lookupByString(const std::string& str)
+	inline StringRecord* lookupByHash(HashedStringType hash_value) 
 	{
-		HashedStringType hash_value = hash(str);
-		StringLookupTable::const_iterator lookupit = mStringLookup.find(hash_value);
-		if (lookupit != mStringLookup.end())
+		StringLookupTable::const_iterator lookupit = mStringLookup->find(hash_value);
+		if (lookupit != mStringLookup->end())
 		{
 			StringIdType id = lookupit->second;
-			StringTable::iterator it = mStrings.find(id);
-			if (it != mStrings.end())
-			{
-				assert(it->mString.compare(str) == 0);		// verify match
+			StringTable::iterator it = mStrings->find(id);
+			if (it != mStrings->end())
 				return &(*it);
-			}
 		}
 		return NULL;	// not_found
 	}
 
+	inline StringRecord* lookupByString(const char* s)
+	{
+		HashedStringType hash_value = hash(s);
+		return lookupByHash(hash_value);
+	}
+
+	
 
 	// ------------------------------------------------------------------------
 	// addString
@@ -485,28 +535,44 @@ private:
 	// Adds a string entry to the string table.
 	// ------------------------------------------------------------------------
 
-	inline StringIdType addString(const std::string& str)
+	inline void addString(const char* s)
 	{
+		init();
+
+		if (*s == '\0')
+		{
+			mId = mEmptyStringId;
+			return;
+		}
+
 		// is this string already in the table?
-		StringRecord* rec = lookupByString(str);
+		HashedStringType hash_value = hash(s);
+		StringRecord* rec = lookupByHash(hash_value);
+
 		if (rec)
 		{
-			rec->mRefCount++;
-			return mStrings.getId(*rec);
+			mId = mStrings->getId(*rec);
 		}
 		else
 		{
-			StringIdType id = mStrings.insert(StringRecord(str));
-			rec = &(mStrings.get(id));
-			rec->mRefCount++;
-			return id;
+			mId = mStrings->insert(StringRecord(s));
+			rec = &(mStrings->get(mId));
+			mStringLookup->insert(std::pair<HashedStringType, StringIdType>(hash_value, mId));
 		}	
+
+		rec->mRefCount++;
 	}
 
-	inline StringIdType addString(const OString& other)
+	inline void addString(const OString& other)
 	{
-		mStrings.get(other.mId).mRefCount++;
-		return other.mId;
+		if (other.mId != mEmptyStringId)
+			mStrings->get(other.mId).mRefCount++;
+		mId = other.mId;
+	}
+
+	inline void addString(const std::string& str)
+	{
+		addString(str.c_str());
 	}
 
 	
@@ -516,54 +582,38 @@ private:
 	// Removes a string entry from the string table.
 	// ------------------------------------------------------------------------
 
-	inline void removeString(StringIdType id)
+	inline void removeString()
 	{
-		StringTable::iterator it = mStrings.find(id);
-		if (it != mStrings.end())
+		if (mId == mEmptyStringId)
+			return;
+
+		StringTable::iterator it = mStrings->find(mId);
+		if (it != mStrings->end())
 		{
 			StringRecord& rec = *it;
 			if (--rec.mRefCount == 0)
 			{
-				HashedStringType hash_value = hash(rec.mString);
-				mStringLookup.erase(hash_value);
-				mStrings.erase(id);	
+				HashedStringType hash_value = hash(rec.mString.c_str());
+				mStringLookup->erase(hash_value);
+				mStrings->erase(mId);	
 			}
 		}
 	}
 
 
 	// ------------------------------------------------------------------------
-	// changeString
+	// getString
 	//
-	// Inserts a new string and remove the existing one.
+	// Retrieves the string matching mId
 	// ------------------------------------------------------------------------
-
-	inline StringIdType changeString(const std::string& newstr, StringIdType oldid)
-	{
-		StringIdType newid = addString(newstr);
-		removeString(oldid);
-		return newid;
-	}
-
-
-	inline StringIdType changeString(const OString& other, StringIdType oldid)
-	{
-		mStrings.get(other.mId).mRefCount++;
-		removeString(oldid);
-		return other.mId;
-	}
-
-
-	inline std::string& getString()
-	{
-		assert(mStrings.find(mId) != mStrings.end());
-		return mStrings.get(mId).mString; 
-	}
 
 	inline const std::string& getString() const
 	{
-		assert(mStrings.find(mId) != mStrings.end());
-		return mStrings.get(mId).mString; 
+		if (mId == mEmptyStringId)
+			return *mEmptyString;
+
+		assert(mStrings->find(mId) != mStrings->end());
+		return mStrings->get(mId).mString; 
 	}
 
 
