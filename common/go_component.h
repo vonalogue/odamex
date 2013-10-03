@@ -44,6 +44,8 @@
 // Forward declarations
 // ----------------------------------------------------------------------------
 
+class GameObjectManager;
+
 template<typename T, uint16_t SIZE = 8*sizeof(T)> class IntegralComponent;
 typedef IntegralComponent<bool, 1> BoolComponent;
 typedef IntegralComponent<uint8_t> U8Component;
@@ -68,6 +70,10 @@ typedef IntegralComponent<int32_t> S32Component;
 class GameObjectComponent
 {
 public:
+	GameObjectComponent() :
+		mRequired(true), mReplicatable(true), mManager(NULL)
+	{ }
+
 	// name of the type (eg., "uint32")
 	virtual const OString& getTypeName() const = 0;
 	inline void setTypeName(const OString& value) { }
@@ -107,10 +113,17 @@ public:
 	// instantiate a new copy of this component
 	virtual GameObjectComponent* clone() const = 0;
 
+	// return a pointer to the GameObjectManager this component belongs to
+	GameObjectManager* getManager()
+		{ return mManager; }
+
 private:
-	OString			mAttributeName;
-	bool			mRequired;
-	bool			mReplicatable;
+	OString					mAttributeName;
+	bool					mRequired;
+	bool					mReplicatable;
+	GameObjectManager*		mManager;
+
+	friend class GameObjectManager;
 };
 
 
@@ -304,7 +317,8 @@ private:
 class V2FixedComponent : public GameObjectComponent
 {
 public:
-	V2FixedComponent() { }
+	V2FixedComponent()
+		{ clear(); }
 	V2FixedComponent(const v2fixed_t& value) :
 		mValue(value) { }
 	virtual ~V2FixedComponent() { }
@@ -350,7 +364,8 @@ private:
 class V3FixedComponent : public GameObjectComponent
 {
 public:
-	V3FixedComponent() { }
+	V3FixedComponent()
+		{ clear(); }
 	V3FixedComponent(const v3fixed_t& value) :
 		mValue(value) { }
 	virtual ~V3FixedComponent() { }

@@ -37,7 +37,6 @@
 
 GameObjectManager::GameObjectManager() :
 	mComponents(GameObjectManager::MAX_COMPONENTS),
-	mCompositeMap(GameObjectManager::MAX_COMPONENTS),
 	mComponentTypes(GameObjectManager::MAX_TYPES)
 {
 	// register built-in component types
@@ -98,6 +97,7 @@ GameObjectManager::ComponentId GameObjectManager::addAttribute(const OString& at
 	if (it != mComponentTypes.end())
 	{
 		GameObjectComponent* component = it->second.mPrototype->clone();
+		component->mManager = this;
 		component->setAttributeName(attribute_name);
 		ComponentId component_id = mComponents.insert(component);
 		mCompositeMap.insert(std::pair<ComponentId, ComponentId>(parent_id, component_id));

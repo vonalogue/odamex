@@ -28,6 +28,7 @@
 #include "doomtype.h"
 #include "hashtable.h"
 #include "sarray.h"
+#include <map>
 #include "m_ostring.h"
 
 #include "go_component.h"
@@ -106,7 +107,7 @@ private:
 	// Component to Parent Component mapping
 	// ------------------------------------------------------------------------
 
-	typedef HashTable<ComponentId, ComponentId> CompositeMap;
+	typedef std::multimap<ComponentId, ComponentId> CompositeMap;
 	CompositeMap				mCompositeMap;
 
 	// ------------------------------------------------------------------------
