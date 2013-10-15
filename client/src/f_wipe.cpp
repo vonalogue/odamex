@@ -154,35 +154,35 @@ static void Wipe_DrawMelt()
 // on the Westside...
 
 // [RH] Fire Wipe
-#define FIREWIDTH	64
-#define FIREHEIGHT	64
+static const int FIREWIDTH = 64, FIREHEIGHT = 64;
+
 static byte *burnarray = NULL;
 static int density;
 static int burntime;
+static int voop;
 
 static void Wipe_StartBurn()
 {
 	const size_t array_size = FIREWIDTH * (FIREHEIGHT + 5);
-	burnarray = (byte*)(Z_Malloc(array_size, PU_STATIC, (void**)&burnarray));
+	burnarray = new byte[array_size];
 	memset(burnarray, 0, array_size);
 	density = 4;
 	burntime = 0;
-	screen->GetBlock(0, 0, screen->width, screen->height, wipe_screen);
+	voop = 0;
+	screen->GetBlock(0, 0, screen->width, screen->height, (byte*)wipe_screen);
 }
 
 static void Wipe_StopBurn()
 {
 	if (burnarray)
 	{
-		Z_Free(burnarray);
+		delete [] burnarray;
 		burnarray = NULL;
 	}
 }
 
 static bool Wipe_TickBurn()
 {
-	static int voop = 0;
-
 	// This is a modified version of the fire from the player
 	// setup menu.
 	burntime++;
@@ -464,7 +464,7 @@ void Wipe_Start()
 //
 bool Wipe_Ticker()
 {
-	if (current_wipe_type == wipe_None || !in_progress)
+	if (!in_progress)
 		return true;
 
 	bool done = true;

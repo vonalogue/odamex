@@ -179,26 +179,11 @@ int CL_GetPlayerColor(player_t *player)
 	if (!player)
 		return 0;
 
-	if (sv_gametype == GM_COOP)
-	{
-		if (r_forceteamcolor && player->id != consoleplayer_id)
-			return teamcolor;
-	}
-	else if (sv_gametype == GM_DM)
-	{
-		if (r_forceenemycolor && player->id != consoleplayer_id)
-			return enemycolor;
-	}
-	else if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
-	{
-		if (r_forceteamcolor && 
-					(P_AreTeammates(consoleplayer(), *player) || player->id == consoleplayer_id))
-			return teamcolor;
-		if (r_forceenemycolor && !P_AreTeammates(consoleplayer(), *player) &&
-					player->id != consoleplayer_id)
-			return enemycolor;
+	int color = player->userinfo.color;
 
-		// Adjust the shade of color for team games
+	// Adjust the shade of color for team games
+	if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
+	{
 		int red = RPART(player->userinfo.color);
 		int green = GPART(player->userinfo.color);
 		int blue = BPART(player->userinfo.color);
@@ -206,20 +191,44 @@ int CL_GetPlayerColor(player_t *player)
 		int intensity = MAX(MAX(red, green), blue) / 3;
 
 		if (player->userinfo.team == TEAM_BLUE)
-			return (0xAA + intensity);
-		if (player->userinfo.team == TEAM_RED)
-			return (0xAA + intensity) << 16;
+			color = MAKERGB(0, 0,  0xAA + intensity);
+		else if (player->userinfo.team == TEAM_RED)
+			color = MAKERGB(0xAA + intensity, 0, 0);
 	}
 
-	return player->userinfo.color;
+	// apply r_teamcolor & r_enemycolor overrides
+	if (!consoleplayer().spectator)
+	{
+		if (sv_gametype == GM_COOP)
+		{
+			if (r_forceteamcolor && player->id != consoleplayer_id)
+				color = teamcolor;
+		}
+		else if (sv_gametype == GM_DM)
+		{
+			if (r_forceenemycolor && player->id != consoleplayer_id)
+				color = enemycolor;
+		}
+		else if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
+		{
+			if (r_forceteamcolor && 
+					(P_AreTeammates(consoleplayer(), *player) || player->id == consoleplayer_id))
+				color = teamcolor;
+			if (r_forceenemycolor && !P_AreTeammates(consoleplayer(), *player) &&
+					player->id != consoleplayer_id)
+				color = enemycolor;
+		}
+	}
+
+	return color;
 }
 
 static void CL_RebuildAllPlayerTranslations()
 {
-	for (size_t i = 0; i < players.size(); i++)
+	for (Players::iterator it = players.begin();it != players.end();++it)
 	{
-		int color = CL_GetPlayerColor(&players[i]);
-		R_BuildPlayerTranslation(players[i].id, color);
+		int color = CL_GetPlayerColor(&*it);
+		R_BuildPlayerTranslation(it->id, color);
 	}
 }
 
@@ -536,50 +545,62 @@ void CL_CheckDisplayPlayer()
 // Cycles through the point-of-view of players in the game.  Checks
 // are made to ensure only spectators can view enemy players.
 //
-void CL_SpyCycle(bool forward)
+template<class Iterator>
+void CL_SpyCycle(Iterator begin, Iterator end)
 {
-	int direction = forward ? 1 : -1;
-    extern bool st_firsttime;
+	extern bool st_firsttime;
 
-    // make sure players[0] is valid
-    if (players.empty())
-        return;
+	// Make sure we have players to iterate over
+	if (players.empty())
+		return;
 
-    if (!validplayer(displayplayer()))
-    {
-        CL_CheckDisplayPlayer();
-        return;
-    }
+	if (!validplayer(displayplayer()))
+	{
+		CL_CheckDisplayPlayer();
+		return;
+	}
 
-	// get the index of the displayplayer in the players[] vector
-    size_t curr = &displayplayer() - &players[0];
-    size_t numplayers = players.size();
+	Iterator it, sentinal;
 
-    for (size_t i = 1; i < numplayers; i++)
-    {
-        curr = (curr + direction) % numplayers;
-        player_t &player = players[curr];
+	it = sentinal = begin;
 
-        if (P_CanSpy(consoleplayer(), player) || player.id == consoleplayer_id ||
-            demoplayback || netdemo.isPlaying() || netdemo.isPaused())
-        {
-            if (!player.mo)
-                continue;
+	for (;it != end;++it)
+	{
+		if (it->id == displayplayer_id)
+			break;
+	}
 
-            displayplayer_id = player.id;
-            CL_CheckDisplayPlayer();
+	// We can't find the displayplayer.  This is bad.
+	if (it == end)
+		return;
 
-            if (demoplayback)
-            {
-                consoleplayer_id = player.id;
-                st_firsttime = true;
-            }
+	do
+	{
+		++it;
 
-            return;
-        }
-    }
+		// Wrap around if we hit the end.  The sentinal will stop us.
+		if (it == end)
+			it = begin;
+
+		if ((P_CanSpy(consoleplayer(), *it) ||
+		     it->id == consoleplayer_id ||
+		     demoplayback || netdemo.isPlaying() ||
+		     netdemo.isPaused()) && it->mo)
+		{
+			displayplayer_id = it->id;
+			CL_CheckDisplayPlayer();
+
+			if (demoplayback)
+			{
+				consoleplayer_id = it->id;
+				st_firsttime = true;
+			}
+
+			return;
+		}
+	}
+	while (it != sentinal);
 }
-
 
 //
 // CL_DisconnectClient
@@ -590,22 +611,25 @@ void CL_DisconnectClient(void)
 	if (players.empty() || !validplayer(player))
 		return;
 
-	if(player.mo)
+	if (player.mo)
 	{
-		P_DisconnectEffect (player.mo);
-		player.mo->Destroy();		
+		P_DisconnectEffect(player.mo);
+
+		// [AM] Destroying the player mobj is not our responsibility.  However, we do want to
+		//      make sure that the mobj->player doesn't point to an invalid player.
+		player.mo->player = NULL;
 	}
 
-	size_t index = &player - &players[0];
-	if (cl_disconnectalert && &player != &consoleplayer())
-		S_Sound (CHAN_INTERFACE, "misc/plpart", 1, ATTN_NONE);
-	players.erase(players.begin() + index);
-
-	// repair mo after player pointers are reset
-	for(size_t i = 0; i < players.size(); i++)
+	// Remove the player from the players list.
+	for (Players::iterator it = players.begin();it != players.end();++it)
 	{
-		if(players[i].mo)
-			players[i].mo->player = &players[i];
+		if (it->id == player.id)
+		{
+			if (cl_disconnectalert && &player != &consoleplayer())
+				S_Sound(CHAN_INTERFACE, "misc/plpart", 1, ATTN_NONE);
+			players.erase(it);
+			break;
+		}
 	}
 
 	// if this was our displayplayer, update camera
@@ -692,9 +716,9 @@ void CL_RunTics()
 
 			// debugging output
 			extern unsigned char prndindex;
-			if (players.size() && players[0].mo)
+			if (!(players.empty()) && players.begin()->mo)
 				Printf(PRINT_HIGH, "level.time %d, prndindex %d, %d %d %d\n",
-						level.time, prndindex, players[0].mo->x, players[0].mo->y, players[0].mo->z);
+				       level.time, prndindex, players.begin()->mo->x, players.begin()->mo->y, players.begin()->mo->z);
 			else
  				Printf(PRINT_HIGH, "level.time %d, prndindex %d\n", level.time, prndindex);
 		}
@@ -797,9 +821,9 @@ BEGIN_COMMAND (players)
 {
 	// Gather all ingame players
 	std::map<int, std::string> mplayers;
-	for (size_t i = 0; i < players.size(); ++i) {
-		if (players[i].ingame()) {
-			mplayers[players[i].id] = players[i].userinfo.netname;
+	for (Players::const_iterator it = players.begin();it != players.end();++it) {
+		if (it->ingame()) {
+			mplayers[it->id] = it->userinfo.netname;
 		}
 	}
 
@@ -909,7 +933,12 @@ END_COMMAND (serverinfo)
 // rate: takes a kbps value
 CVAR_FUNC_IMPL (rate)
 {
-	if (connected)
+	const float minrate = 7.0f, maxrate = 2000.0f;
+	if (var < minrate || var > maxrate)
+	{
+		var.Set(clamp((float)var, minrate, maxrate));
+	}
+	else if (connected)
 	{
 		MSG_WriteMarker(&net_buffer, clc_rate);
 		MSG_WriteLong(&net_buffer, (int)var);
@@ -1025,13 +1054,13 @@ END_COMMAND (flagnext)
 
 BEGIN_COMMAND (spynext)
 {
-	CL_SpyCycle(true);
+	CL_SpyCycle(players.begin(), players.end());
 }
 END_COMMAND (spynext)
 
 BEGIN_COMMAND (spyprev)
 {
-	CL_SpyCycle(false);
+	CL_SpyCycle(players.rbegin(), players.rend());
 }
 END_COMMAND (spyprev)
 
@@ -1322,20 +1351,13 @@ player_t &CL_FindPlayer(size_t id)
 	// Totally new player?
 	if(!validplayer(*p))
 	{
-		if(players.size() >= MAXPLAYERS)
+		if (players.size() >= MAXPLAYERS)
 			return *p;
 
 		players.push_back(player_s());
 
 		p = &players.back();
 		p->id = id;
-
-		// repair mo after player pointers are reset
-		for(size_t i = 0; i < players.size(); i++)
-		{
-			if(players[i].mo)
-				players[i].mo->player = &players[i];
-		}
 	}
 
 	return *p;
@@ -1498,6 +1520,8 @@ void CL_RequestConnectInfo(void)
 std::string missing_file, missing_hash;
 bool CL_PrepareConnect(void)
 {
+	G_CleanupDemo();	// stop dmeos from playing before D_DoomWadReboot wipes out Zone memory
+
 	cvar_t::C_BackupCVars(CVAR_SERVERINFO);
 
 	size_t i;
@@ -3291,8 +3315,8 @@ void CL_LoadMap(void)
 	teleported_players.clear();
 
 	CL_ClearSectorSnapshots();	
-	for (size_t i = 0; i < players.size(); i++)
-		players[i].snapshots.clearSnapshots();
+	for (Players::iterator it = players.begin();it != players.end();++it)
+		it->snapshots.clearSnapshots();
 		
 	// reset the world_index (force it to sync)
 	CL_ResyncWorldIndex();
@@ -3406,6 +3430,12 @@ void CL_Spectate()
 			displayplayer_id = consoleplayer_id; // get out of spynext
 			player.cheats &= ~CF_FLY;	// remove flying ability
 		}
+
+		CL_RebuildAllPlayerTranslations();
+	}
+	else
+	{
+		R_BuildPlayerTranslation(player.id, CL_GetPlayerColor(&player));
 	}
 
 	// GhostlyDeath -- If the player matches our display player...
@@ -3641,12 +3671,12 @@ void CL_SendCmd(void)
 //
 // CL_PlayerTimes
 //
-void CL_PlayerTimes (void)
+void CL_PlayerTimes()
 {
-	for (size_t i = 0; i < players.size(); ++i)
+	for (Players::iterator it = players.begin();it != players.end();++it)
 	{
-		if (players[i].ingame())
-			players[i].GameTime++;
+		if (it->ingame())
+			it->GameTime++;
 	}
 }
 
@@ -3732,14 +3762,14 @@ void CL_LocalDemoTic()
 	int jumpTics, reactiontime;
 	byte waterlevel;
 
-	memset(&clientPlayer->cmd, 0, sizeof(ticcmd_t));	
-	clientPlayer->cmd.ucmd.buttons = MSG_ReadByte();
-	clientPlayer->cmd.ucmd.impulse = MSG_ReadByte();	
-	clientPlayer->cmd.ucmd.yaw = MSG_ReadShort();
-	clientPlayer->cmd.ucmd.forwardmove = MSG_ReadShort();
-	clientPlayer->cmd.ucmd.sidemove = MSG_ReadShort();
-	clientPlayer->cmd.ucmd.upmove = MSG_ReadShort();
-	clientPlayer->cmd.ucmd.pitch = MSG_ReadShort();
+	clientPlayer->cmd.clear();
+	clientPlayer->cmd.buttons = MSG_ReadByte();
+	clientPlayer->cmd.impulse = MSG_ReadByte();	
+	clientPlayer->cmd.yaw = MSG_ReadShort();
+	clientPlayer->cmd.forwardmove = MSG_ReadShort();
+	clientPlayer->cmd.sidemove = MSG_ReadShort();
+	clientPlayer->cmd.upmove = MSG_ReadShort();
+	clientPlayer->cmd.pitch = MSG_ReadShort();
 
 	waterlevel = MSG_ReadByte();
 	x = MSG_ReadLong();
@@ -3859,9 +3889,9 @@ void CL_SimulateSectors()
 //
 void CL_SimulatePlayers()
 {
-	for (size_t i = 0; i < players.size(); i++)
+	for (Players::iterator it = players.begin();it != players.end();++it)
 	{
-		player_t *player = &players[i];
+		player_t *player = &*it;
 		if (!player || !player->mo || player->spectator)
 			continue;
 		

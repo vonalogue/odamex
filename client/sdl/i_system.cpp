@@ -35,7 +35,7 @@
 #endif
 
 #include "win32inc.h"
-#ifdef WIN32
+#ifdef _WIN32
     #include <io.h>
     #include <direct.h>
     #include <process.h>
@@ -110,6 +110,7 @@ extern "C"
 #define ENDOOM_H 25
 #endif // _XBOX
 
+EXTERN_CVAR (r_loadicon)
 EXTERN_CVAR (r_showendoom)
 
 ticcmd_t emptycmd;
@@ -205,23 +206,26 @@ void I_BeginRead(void)
 {
 	// NOTE(jsd): This is called before V_Palette is set causing crash in 32bpp mode.
 #if 0
-	patch_t *diskpatch = W_CachePatch("STDISK");
+	if (r_loadicon)
+	{
+		patch_t *diskpatch = W_CachePatch("STDISK");
 
-	if (!screen || !diskpatch || in_endoom)
-		return;
+		if (!screen || !diskpatch || in_endoom)
+			return;
 
-	screen->Lock();
+		screen->Lock();
 
-	int scale = MIN(CleanXfac, CleanYfac);
-	int w = diskpatch->width() * scale;
-	int h = diskpatch->height() * scale;
-	// offset x and y for the lower right corner of the screen
-	int ofsx = screen->width - w + (scale * diskpatch->leftoffset());
-	int ofsy = screen->height - h + (scale * diskpatch->topoffset());
+		int scale = MIN(CleanXfac, CleanYfac);
+		int w = diskpatch->width() * scale;
+		int h = diskpatch->height() * scale;
+		// offset x and y for the lower right corner of the screen
+		int ofsx = screen->width - w + (scale * diskpatch->leftoffset());
+		int ofsy = screen->height - h + (scale * diskpatch->topoffset());
 
-	screen->DrawPatchStretched(diskpatch, ofsx, ofsy, w, h);
+		screen->DrawPatchStretched(diskpatch, ofsx, ofsy, w, h);
 
-	screen->Unlock();
+		screen->Unlock();
+	}
 #endif
 }
 
@@ -291,13 +295,23 @@ uint64_t I_GetTime()
 
 QWORD I_MSTime()
 {
-	return I_GetTime() / (1000000LL);
+	return I_ConvertTimeToMs(I_GetTime());
+}
+
+uint64_t I_ConvertTimeToMs(uint64_t value)
+{
+	return value / 1000000LL;
+}
+
+uint64_t I_ConvertTimeFromMs(uint64_t value)
+{
+	return value * 1000000LL;
 }
 
 //
 // I_Sleep
 //
-// Sleeps for the specified number of nanoseconds, yielding control to the 
+// Sleeps for the specified number of nanoseconds, yielding control to the
 // operating system. In actuality, the highest resolution availible with
 // the select() function is 1 microsecond, but the nanosecond parameter
 // is used for consistency with I_GetTime().
@@ -340,7 +354,7 @@ void I_WaitVBL(int count)
 //
 // SubsetLanguageIDs
 //
-#if defined WIN32 && !defined _XBOX
+#if defined _WIN32 && !defined _XBOX
 static void SubsetLanguageIDs (LCID id, LCTYPE type, int idx)
 {
 	char buf[8];
@@ -378,7 +392,7 @@ void SetLanguageIDs ()
 
 	if (langid == 0 || langid > 3)
 	{
-    #if defined WIN32 && !defined _XBOX
+    #if defined _WIN32 && !defined _XBOX
 		memset (LanguageIDs, 0, sizeof(LanguageIDs));
 		SubsetLanguageIDs (LOCALE_USER_DEFAULT, LOCALE_ILANGUAGE, 0);
 		SubsetLanguageIDs (LOCALE_USER_DEFAULT, LOCALE_IDEFAULTLANGUAGE, 1);
@@ -709,10 +723,9 @@ void STACK_ARGS I_FatalError (const char *error, ...)
 	if (!alreadyThrown)		// ignore all but the first message -- killough
 	{
 		char errortext[MAX_ERRORTEXT];
-		int index;
 		va_list argptr;
 		va_start (argptr, error);
-		index = vsprintf (errortext, error, argptr);
+		int index = vsprintf (errortext, error, argptr);
 		sprintf (errortext + index, "\nSDL_GetError = \"%s\"", SDL_GetError());
 		va_end (argptr);
 
@@ -861,7 +874,7 @@ std::string I_GetClipboardText (void)
 	return ret;
 #endif
 
-#if defined WIN32 && !defined _XBOX
+#if defined _WIN32 && !defined _XBOX
 	std::string ret;
 
 	if(!IsClipboardFormatAvailable(CF_TEXT))
@@ -950,7 +963,7 @@ void I_PrintStr (int xp, const char *cp, int count, BOOL scroll)
 	// used in the DOS version
 }
 
-#ifdef WIN32 // denis - fixme - make this work on POSIX
+#ifdef _WIN32 // denis - fixme - make this work on POSIX
 
 long I_FindFirst (char *filespec, findstate_t *fileinfo)
 {
@@ -981,7 +994,7 @@ int I_FindClose (long handle) {return 0;}
 //
 // I_ConsoleInput
 //
-#ifdef WIN32
+#ifdef _WIN32
 std::string I_ConsoleInput (void)
 {
 	// denis - todo - implement this properly!!!

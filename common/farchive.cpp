@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <string.h>
+#include <cstring>
 
 #include "doomtype.h"
 #include "farchive.h"
@@ -999,7 +999,12 @@ FArchive &operator>> (FArchive &arc, player_s *&p)
 	if (ofs == 0xff)
 		p = NULL;
 	else
-		p = &players[ofs]; // denis - todo - security
+	{
+		if (validplayer(idplayer(ofs)))
+			p = &idplayer(ofs);
+		else
+			p = NULL;
+	}
 	return arc;
 }
 

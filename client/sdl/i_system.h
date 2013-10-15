@@ -1,4 +1,4 @@
-// Emacs style mode select   -*- C++ -*- 
+// Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
 // $Id$
@@ -26,7 +26,7 @@
 #ifndef __I_SYSTEM__
 #define __I_SYSTEM__
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <io.h>
 #endif
 
@@ -64,6 +64,9 @@ void *I_ZoneBase (size_t *size);
 
 // returns current time in nanoseconds.
 uint64_t I_GetTime();
+
+uint64_t I_ConvertTimeToMs(uint64_t value);
+uint64_t I_ConvertTimeFromMs(uint64_t value);
 
 // yields to the OS for the specified time (in nanoseconds)
 void I_Sleep(uint64_t);

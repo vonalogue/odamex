@@ -41,7 +41,7 @@
 #include "stats.h"
 #include "z_zone.h"
 #include "i_video.h"
-#include "vectors.h"
+#include "m_vectors.h"
 #include "f_wipe.h"
 
 void R_BeginInterpolation(fixed_t amount);
@@ -297,77 +297,121 @@ void R_RotatePoint(fixed_t x, fixed_t y, angle_t ang, fixed_t &tx, fixed_t &ty)
 }
 
 //
+// R_ClipLine
+//
+// Clips the endpoints of the line defined by in1 & in2 and stores the
+// results in out1 & out2. The clipped left endpoint is lclip percent
+// of the way between the left and right endpoints and similarly the
+// right endpoint is rclip percent of the way between the left and right
+// endpoints
+//
+void R_ClipLine(const v2fixed_t* in1, const v2fixed_t* in2, 
+				int32_t lclip, int32_t rclip,
+				v2fixed_t* out1, v2fixed_t* out2)
+{
+	const fixed_t dx = in2->x - in1->x;
+	const fixed_t dy = in2->y - in1->y;
+	const fixed_t x = in1->x;
+	const fixed_t y = in1->y;
+	out1->x = x + FixedMul30(lclip, dx);
+	out2->x = x + FixedMul30(rclip, dx);
+	out1->y = y + FixedMul30(lclip, dy);
+	out2->y = y + FixedMul30(rclip, dy);
+}
+
+void R_ClipLine(const vertex_t* in1, const vertex_t* in2,
+				int32_t lclip, int32_t rclip,
+				v2fixed_t* out1, v2fixed_t* out2)
+{
+	R_ClipLine((const v2fixed_t*)in1, (const v2fixed_t*)in2, lclip, rclip, out1, out2);
+}
+
+//
 // R_ClipLineToFrustum
 //
 // Clips the endpoints of a line to the view frustum.
-// (px1, py1) and (px2, py2) are the endpoints of the line
+// v1 and v2 are the endpoints of the line
 // clipdist is the distance from the viewer to the near plane of the frustum.
+// The left endpoint of the line should be clipped lclip percent of the way
+// between the left and right endpoints and similarly the right endpoint
+// should be clipped rclip percent of the way between the left and right
+// endpoints.
 //
 // Returns false if the line is entirely clipped.
 //
-bool R_ClipLineToFrustum(fixed_t &px1, fixed_t &py1, fixed_t &px2, fixed_t &py2, fixed_t clipdist)
+bool R_ClipLineToFrustum(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipdist, int32_t& lclip, int32_t& rclip)
 {
-	fixed_t den, t;
+	static const int32_t CLIPUNIT = 1 << 30;
+	v2fixed_t p1 = *v1, p2 = *v2;
+
+	lclip = 0;
+	rclip = CLIPUNIT; 
 
 	// Clip portions of the line that are behind the view plane
-	if (py1 < clipdist)
+	if (p1.y < clipdist)
 	{      
 		// reject the line entirely if the whole thing is behind the view plane.
-		if (py2 < clipdist)
+		if (p2.y < clipdist)
 			return false;
 
-		// clip the line at the point where t1.y == clipdist
-		t = FixedDiv(clipdist - py1, py2 - py1);
-		px1 = px1 + FixedMul(t, px2 - px1);
-		py1 = clipdist;
+		// clip the line at the point where p1.y == clipdist
+		lclip = FixedDiv30(clipdist - p1.y, p2.y - p1.y);
 	}
 
-	if (py2 < clipdist)
+	if (p2.y < clipdist)
 	{
-		// clip the line at the point where t2.y == clipdist
-		t = FixedDiv(clipdist - py1, py2 - py1);
-		px2 = px1 + FixedMul(t, px2 - px1);
-		py2 = clipdist;
+		// clip the line at the point where p2.y == clipdist
+		rclip = FixedDiv30(clipdist - p1.y, p2.y - p1.y);
 	}
 
-	// clip line at right edge of the screen
+	int32_t unclipped_amount = rclip - lclip;
 
-	// is the entire line off the right side of the screen?
-	if (px1 > FixedMul(fovtan, py1) && px2 > FixedMul(fovtan, py2))
+	// apply the clipping against the 'y = clipdist' plane to p1 & p2
+	R_ClipLine(v1, v2, lclip, rclip, &p1, &p2);
+
+	// [SL] A note on clipping to the screen edges:
+	// With a 90-degree FOV, if p1.x < -p1.y, then the left point
+	// is off the left side of the screen. Similarly, if p2.x > p2.y,
+	// then the right point is off the right side of the screen.
+	// We use yc1 and yc2 instead of p1.y and p2.y because they are
+	// adjusted to work with the current FOV rather than just 90-degrees.
+	fixed_t yc1 = FixedMul(fovtan, p1.y);
+	fixed_t yc2 = FixedMul(fovtan, p2.y);
+
+	// is the entire line off the left side or the right side of the screen?
+	if ((p1.x < -yc1 && p2.x < -yc2) || (p1.x > yc1 && p2.x > yc2))
 		return false;
 
-	den = px2 - px1 - FixedMul(fovtan, py2 - py1);	
-	if (den == 0)
-		return false;
-
-	t = FixedDiv(FixedMul(fovtan, py1) - px1, den);
-
-	if (t > 0 && t < FRACUNIT)
+	// is the left vertex off the left side of the screen?
+	if (p1.x < -yc1)
 	{
-		px2 = px1 + FixedMul(t, px2 - px1);
-		py2 = py1 + FixedMul(t, py2 - py1);
+		// clip line at left edge of the screen
+		fixed_t den = p2.x - p1.x + yc2 - yc1;
+		if (den == 0)
+			return false;
+
+		int32_t t = FixedDiv30(-yc1 - p1.x, den);
+		lclip += FixedMul30(t, unclipped_amount);
 	}
 
-	// clip line at left edge of the screen
-
-	// is the entire line off the left side of the screen?
-	if (px1 < FixedMul(-fovtan, py1) && px2 < FixedMul(-fovtan, py2))
-		return false;
-
-	den = px2 - px1 - FixedMul(-fovtan, py2 - py1);
-	if (den == 0)
-		return false;
-
-	t = FixedDiv(FixedMul(-fovtan, py1) - px1, den);
-
-	if (t > 0 && t < FRACUNIT)
+	// is the right vertex off the right side of the screen?
+	if (p2.x > yc2)
 	{
-		px1 = px1 + FixedMul(t, px2 - px1);
-		py1 = py1 + FixedMul(t, py2 - py1);
+		// clip line at right edge of the screen
+		fixed_t den = p2.x - p1.x - yc2 + yc1;	
+		if (den == 0)
+			return false;
+
+		int32_t t = FixedDiv30(yc1 - p1.x, den);
+		rclip -= FixedMul30(CLIPUNIT - t, unclipped_amount);
 	}
+
+	if (lclip > rclip)
+		return false;
 
 	return true;
 }
+
 
 //
 // R_ProjectPointX
@@ -403,12 +447,9 @@ int R_ProjectPointY(fixed_t z, fixed_t y)
 //
 bool R_CheckProjectionX(int &x1, int &x2)
 {
-	x1 = MAX<int>(x1, 0);
-	x2 = MIN<int>(x2, viewwidth - 1);
-
-	if (x1 > x2 || x2 < 0 || x1 >= viewwidth)
-		return false;
-	return true;
+	x1 = MAX(x1, 0);
+	x2 = MIN(x2, viewwidth - 1);
+	return (x1 <= x2);
 }
 
 //
@@ -419,12 +460,106 @@ bool R_CheckProjectionX(int &x1, int &x2)
 //
 bool R_CheckProjectionY(int &y1, int &y2)
 {
-	y1 = MAX<int>(y1, 0);
-	y2 = MIN<int>(y2, viewheight - 1);
+	y1 = MAX(y1, 0);
+	y2 = MIN(y2, viewheight - 1);
+	return (y1 <= y2);
+}
 
-	if (y1 > y2 || y2 < 0 || y1 >= viewheight)
-		return false;
-	return true;
+
+//
+// R_DrawPixel
+//
+static inline void R_DrawPixel(int x, int y, byte color)
+{
+	*(ylookup[y] + columnofs[x]) = color;
+}
+
+
+//
+// R_DrawLine
+//
+// Draws a colored line between the two endpoints given in world coordinates.
+//
+void R_DrawLine(const v3fixed_t* inpt1, const v3fixed_t* inpt2, byte color)
+{
+	// convert from world-space to camera-space
+	v3fixed_t pt1, pt2;
+	R_RotatePoint(inpt1->x - viewx, inpt1->y - viewy, ANG90 - viewangle, pt1.x, pt1.y);
+	R_RotatePoint(inpt2->x - viewx, inpt2->y - viewy, ANG90 - viewangle, pt2.x, pt2.y);
+	pt1.z = inpt1->z - viewz;
+	pt2.z = inpt2->z - viewz;
+
+	if (pt1.x > pt2.x)
+	{
+		std::swap(pt1.x, pt2.x);
+		std::swap(pt1.y, pt2.y);
+		std::swap(pt1.z, pt2.z);
+	}
+
+	// convert from camera-space to screen-space
+	int lclip, rclip;
+
+	if (!R_ClipLineToFrustum((v2fixed_t*)&pt1, (v2fixed_t*)&pt2, FRACUNIT, lclip, rclip))
+		return;
+
+	R_ClipLine((v2fixed_t*)&pt1, (v2fixed_t*)&pt2, lclip, rclip, (v2fixed_t*)&pt1, (v2fixed_t*)&pt2);
+
+	int x1 = clamp(R_ProjectPointX(pt1.x, pt1.y), 0, viewwidth - 1);
+	int x2 = clamp(R_ProjectPointX(pt2.x, pt2.y), 0, viewwidth - 1);
+	int y1 = clamp(R_ProjectPointY(pt1.z, pt1.y), 0, viewheight - 1);
+	int y2 = clamp(R_ProjectPointY(pt2.z, pt2.y), 0, viewheight - 1);
+
+	// draw the line to the framebuffer
+	int dx = x2 - x1;
+	int dy = y2 - y1;
+
+	int ax = 2 * (dx<0 ? -dx : dx);
+	int sx = dx < 0 ? -1 : 1;
+
+	int ay = 2 * (dy < 0 ? -dy : dy);
+	int sy = dy < 0 ? -1 : 1;
+
+	int x = x1;
+	int y = y1;
+	int d;
+
+	if (ax > ay)
+	{
+		d = ay - ax/2;
+
+		while (1)
+		{
+			R_DrawPixel(x, y, color);
+			if (x == x2)
+				return;
+
+			if (d >= 0)
+			{
+				y += sy;
+				d -= ax;
+			}
+			x += sx;
+			d += ay;
+		}
+	}
+	else
+	{
+		d = ax - ay/2;
+		while (1)
+		{
+			R_DrawPixel(x, y, color);
+			if (y == y2)
+				return;		
+
+			if (d >= 0)
+			{
+				x += sx;
+				d -= ay;
+			}
+			y += sy;
+			d += ax;
+		}
+	}
 }
 
 

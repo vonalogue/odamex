@@ -29,7 +29,7 @@
 #include <set>
 
 #include "m_alloc.h"
-#include "vectors.h"
+#include "m_vectors.h"
 #include "m_argv.h"
 #include "z_zone.h"
 #include "m_swap.h"
@@ -1443,7 +1443,7 @@ extern polyblock_t **PolyBlockMap;
 // [RH] position indicates the start spot to spawn at
 void P_SetupLevel (char *lumpname, int position)
 {
-	size_t i, lumpnum;
+	size_t lumpnum;
 
 	level.total_monsters = level.total_items = level.total_secrets =
 		level.killed_monsters = level.found_items = level.found_secrets =
@@ -1452,10 +1452,9 @@ void P_SetupLevel (char *lumpname, int position)
 
 	if (!savegamerestore)
 	{
-		for (i = 0; i < players.size(); i++)
+		for (Players::iterator it = players.begin();it != players.end();++it)
 		{
-			players[i].killcount = players[i].secretcount
-				= players[i].itemcount = 0;
+			it->killcount = it->secretcount = it->itemcount = 0;
 		}
 	}
 
@@ -1552,15 +1551,15 @@ void P_SetupLevel (char *lumpname, int position)
 
     if (serverside)
     {
-		for (i = 0 ; i < players.size() ; i++)
+		for (Players::iterator it = players.begin();it != players.end();++it)
 		{
-			SV_PreservePlayer(players[i]);
+			SV_PreservePlayer(*it);
 
-			if (players[i].ingame())
+			if (it->ingame())
 			{
 				// if deathmatch, randomly spawn the active players
 				// denis - this function checks for deathmatch internally
-				G_DeathMatchSpawnPlayer (players[i]); 
+				G_DeathMatchSpawnPlayer(*it);
 			}
 		}
     }

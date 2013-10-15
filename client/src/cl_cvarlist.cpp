@@ -197,7 +197,7 @@ static char *C_GetDefaultMouseDriver()
 
 	int driver_id = SDL_MOUSE_DRIVER;
 
-	#ifdef WIN32
+	#ifdef _WIN32
 	driver_id = RAW_WIN32_MOUSE_DRIVER;
 	#endif
 
@@ -234,6 +234,8 @@ CVAR (hud_crosshairdim, "0", "Crosshair transparency",
       CVARTYPE_BOOL, CVAR_ARCHIVE)
 CVAR (hud_crosshairscale, "0", "Crosshair scaling",
       CVARTYPE_WORD, CVAR_ARCHIVE)
+CVAR_FUNC_DECL (hud_crosshaircolor, "ff 00 00", "Crosshair color",
+                CVARTYPE_STRING, CVAR_ARCHIVE | CVAR_NOENABLEDISABLE)
 CVAR (hud_crosshairhealth, "0", "Color of crosshair represents health level",
       CVARTYPE_BOOL, CVAR_ARCHIVE)
 CVAR (hud_fullhudtype, "1","Fullscreen HUD to display:\n// 0: ZDoom HUD\n// 1: New Odamex HUD",
@@ -312,7 +314,7 @@ static char *C_GetDefaultMusicSystem()
 	defaultmusicsystem = MS_AUDIOUNIT;
 	#endif
 
-	#if defined WIN32 && !defined _XBOX
+	#if defined _WIN32 && !defined _XBOX
 	defaultmusicsystem = MS_PORTMIDI;
 	#endif
 
@@ -346,6 +348,8 @@ CVAR_FUNC_DECL (hud_crosshair, "0", "Type of crosshair, 0 means no crosshair",	C
 CVAR_FUNC_DECL (r_detail, "0", "Detail level (affects performance)",	CVARTYPE_BYTE, CVAR_ARCHIVE | CVAR_NOENABLEDISABLE)
 // Draws flashing colors where there is HOM
 CVAR (r_flashhom, "0", "Draws flashing colors where there is HOM", CVARTYPE_BOOL, 0)
+// Draws a box outlining every actor's hitboxes
+CVAR (r_drawhitboxes, "0", "Draws a box outlining every actor's hitboxes", CVARTYPE_BOOL, 0)
 // Disables all texturing of walls
 CVAR (r_drawflat, "0", "Disables all texturing of walls",	CVARTYPE_BOOL, 0)
 // Draw player sprites
@@ -369,6 +373,7 @@ CVAR (r_wipetype, "2", "",	CVARTYPE_BYTE, CVAR_ARCHIVE | CVAR_NOENABLEDISABLE)
 CVAR (r_wipetype, "1", "",	CVARTYPE_BYTE, CVAR_ARCHIVE | CVAR_NOENABLEDISABLE)
 #endif
 CVAR (r_showendoom, "1", "",	CVARTYPE_BOOL, CVAR_ARCHIVE)   // [ML] 1/5/10: Add endoom support
+CVAR (r_loadicon, "1", "Display the disk icon when loading data from disk", CVARTYPE_BOOL, CVAR_ARCHIVE)
 
 // [ML] Value of red pain intensity shift
 CVAR_FUNC_DECL (r_painintensity, "1", "Value of red pain intensity shift",	CVARTYPE_BYTE, CVAR_ARCHIVE | CVAR_NOENABLEDISABLE)

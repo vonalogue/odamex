@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <functional>
 #include <string>
+#include "doomstat.h"
 
 // [Russell] - Just for windows, display the icon in the system menu and
 // alt-tab display
@@ -159,13 +160,6 @@ SDLVideo::SDLVideo(int parm)
       vidModeList.erase(std::unique(vidModeList.begin(), vidModeList.end()), vidModeList.end());
    }
 
-SDLVideo::~SDLVideo(void)
-{
-	while (!surfaceList.empty())
-		ReleaseSurface(surfaceList.front());
-}
-
-
 std::string SDLVideo::GetVideoDriverName()
 {
   char driver[128];
@@ -187,10 +181,7 @@ std::string SDLVideo::GetVideoDriverName()
 bool SDLVideo::FullscreenChanged (bool fs)
 {
    if(fs != infullscreen)
-   {
-      fs = infullscreen;
       return true;
-   }
 
    return false;
 }
@@ -242,14 +233,16 @@ bool SDLVideo::SetMode(int width, int height, int bits, bool fullscreen)
 
 	int sbits = bits;
 
-	#ifdef WIN32
+	#ifdef _WIN32
 	// fullscreen directx requires a 32-bit mode to fix broken palette
 	// [Russell] - Use for gdi as well, fixes d2 map02 water
 	if (fullscreen)
 		sbits = 32;
 	#endif
 
+#ifdef SDL_GL_SWAP_CONTROL
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, vid_vsync);
+#endif
 
 	if (!(sdlScreen = SDL_SetVideoMode(width, height, sbits, flags)))
 		return false;
@@ -413,8 +406,6 @@ DCanvas *SDLVideo::AllocateSurface(int width, int height, int bits, bool primary
 	scrn->m_Private = new_surface;
 	scrn->pitch = new_surface->pitch;
 
-	surfaceList.push_back(scrn);
-
 	return scrn;
 }
 
@@ -435,8 +426,6 @@ void SDLVideo::ReleaseSurface(DCanvas *scrn)
 	}
 
 	scrn->DetachPalette ();
-
-	surfaceList.remove(scrn);
 
 	delete scrn;
 }

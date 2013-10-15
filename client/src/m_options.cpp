@@ -93,6 +93,11 @@ EXTERN_CVAR (lookstrafe)
 EXTERN_CVAR (hud_crosshair)
 EXTERN_CVAR (hud_crosshairhealth)
 EXTERN_CVAR (hud_crosshairscale)
+EXTERN_CVAR (hud_crosshaircolor)
+EXTERN_CVAR (r_forceteamcolor)
+EXTERN_CVAR (r_teamcolor)
+EXTERN_CVAR (r_forceenemycolor)
+EXTERN_CVAR (r_enemycolor)
 EXTERN_CVAR (cl_mouselook)
 EXTERN_CVAR (gammalevel)
 EXTERN_CVAR (r_detail)
@@ -108,7 +113,6 @@ EXTERN_CVAR (hud_timer)
 EXTERN_CVAR (hud_heldflag)
 EXTERN_CVAR (hud_transparency)
 EXTERN_CVAR (hud_revealsecrets)
-EXTERN_CVAR (r_showendoom)
 EXTERN_CVAR (co_allowdropoff)
 EXTERN_CVAR (co_realactorheight)
 EXTERN_CVAR (co_boomlinecheck)
@@ -225,6 +229,7 @@ static value_t DoomOrOdamex[2] =
 
 menu_t  *CurrentMenu;
 int		CurrentItem;
+bool configuring_controls = false;
 static BOOL	WaitingForKey;
 static BOOL	WaitingForAxis;
 static const char	   *OldContMessage;
@@ -761,6 +766,7 @@ EXTERN_CVAR (r_skypalette)
 EXTERN_CVAR (r_wipetype)
 EXTERN_CVAR (screenblocks)
 EXTERN_CVAR (ui_dimamount)
+EXTERN_CVAR (r_loadicon)
 EXTERN_CVAR (r_showendoom)
 EXTERN_CVAR (r_painintensity)
 EXTERN_CVAR (cl_movebob)
@@ -849,10 +855,23 @@ static menuitem_t VideoItems[] = {
 	{ slider,   "Scale scoreboard",         {&hud_scalescoreboard}, {0.0}, {1.0},   {0.125},  {NULL} },
 	{ discrete, "HUD Timer Visibility",     {&hud_timer},           {2.0}, {0.0},   {0.0},  {OnOff} },
 	{ discrete, "Held Flag Border",         {&hud_heldflag},        {2.0}, {0.0},   {0.0},  {OnOff} },
+	{ redtext,	" ",					    {NULL},				    {0.0}, {0.0},	{0.0},  {NULL} },
 	{ discrete,	"Crosshair",			    {&hud_crosshair},		{9.0}, {0.0},	{0.0},  {Crosshairs} },
 	{ discrete, "Scale crosshair",			{&hud_crosshairscale},	{2.0}, {0.0},	{0.0},	{OnOff} },
+	{ redslider,   "Crosshair Red",         {&hud_crosshaircolor},  {0.0}, {0.0},   {0.0},  {NULL} },
+	{ greenslider, "Crosshair Green",       {&hud_crosshaircolor},  {0.0}, {0.0},   {0.0},  {NULL} },
+	{ blueslider,  "Crosshair Blue",        {&hud_crosshaircolor},  {0.0}, {0.0},   {0.0},  {NULL} },
 	{ discrete, "Crosshair health",			{&hud_crosshairhealth},	{2.0}, {0.0},	{0.0},	{OnOff} },
-	{ discrete, "Multiplayer Intermissions",{&wi_newintermission},	{2.0}, {0.0},	{0.0},  {DoomOrOdamex} },	
+	{ redtext,	" ",					    {NULL},				    {0.0}, {0.0},	{0.0},  {NULL} },
+	{ discrete, "Force Team Color",			{&r_forceteamcolor},	{2.0}, {0.0},	{0.0},	{OnOff} },
+	{ redslider,   "Team Color Red",        {&r_teamcolor},  {0.0}, {0.0},   {0.0},  {NULL} },
+	{ greenslider, "Team Color Green",      {&r_teamcolor},  {0.0}, {0.0},   {0.0},  {NULL} },
+	{ blueslider,  "Team Color Blue",       {&r_teamcolor},  {0.0}, {0.0},   {0.0},  {NULL} },
+	{ redtext,	" ",					    {NULL},				    {0.0}, {0.0},	{0.0},  {NULL} },
+	{ discrete, "Force Enemy Color",        {&r_forceenemycolor},	{2.0}, {0.0},	{0.0},	{OnOff} },
+	{ redslider,   "Enemy Color Red",       {&r_enemycolor},  {0.0}, {0.0},   {0.0},  {NULL} },
+	{ greenslider, "Enemy Color Green",     {&r_enemycolor},  {0.0}, {0.0},   {0.0},  {NULL} },
+	{ blueslider,  "Enemy Color Blue",      {&r_enemycolor},  {0.0}, {0.0},   {0.0},  {NULL} },
 	{ redtext,	" ",					    {NULL},				    {0.0}, {0.0},	{0.0},  {NULL} },
 	{ slider,   "UI Background Red",        {&ui_transred},         {0.0}, {255.0}, {16.0}, {NULL} },
 	{ slider,   "UI Background Green",      {&ui_transgreen},       {0.0}, {255.0}, {16.0}, {NULL} },
@@ -862,6 +881,8 @@ static menuitem_t VideoItems[] = {
 	{ discrete, "Stretch short skies",	    {&r_stretchsky},	   	{3.0}, {0.0},	{0.0},  {OnOffAuto} },
 	{ discrete, "Invuln changes skies",		{&r_skypalette},		{2.0}, {0.0},	{0.0},	{OnOff} },
 	{ discrete, "Screen wipe style",	    {&r_wipetype},			{4.0}, {0.0},	{0.0},  {Wipes} },
+	{ discrete, "Multiplayer Intermissions",{&wi_newintermission},	{2.0}, {0.0},	{0.0},  {DoomOrOdamex} },	
+	{ discrete, "Show loading disk icon",	{&r_loadicon},			{2.0}, {0.0},	{0.0},	{OnOff} },
     { discrete,	"Show DOS ending screen" ,  {&r_showendoom},		{2.0}, {0.0},	{0.0},  {OnOff} },
 };
 
@@ -1271,6 +1292,28 @@ void M_DrawSlider (int x, int y, float leftval, float rightval, float cur)
 	screen->DrawPatchClean (W_CachePatch ("CSLIDE"), x + 5 + (int)(dist * 78.0), y);
 }
 
+void M_DrawColoredSlider(int x, int y, float leftval, float rightval, float cur, int color)
+{
+	if (leftval < rightval)
+		cur = clamp(cur, leftval, rightval);
+	else
+		cur = clamp(cur, rightval, leftval);
+
+	float dist = (cur - leftval) / (rightval - leftval);
+
+	screen->DrawPatchClean (W_CachePatch ("LSLIDE"), x, y);
+	for (int i = 1; i < 11; i++)
+		screen->DrawPatchClean (W_CachePatch ("MSLIDE"), x + i*8, y);
+	screen->DrawPatchClean (W_CachePatch ("RSLIDE"), x + 88, y);
+
+	screen->DrawPatchClean (W_CachePatch ("GSLIDE"), x + 5 + (int)(dist * 78.0), y);
+
+	V_ColorFill = BestColor(GetDefaultPalette()->basecolors,
+	                        RPART(color), GPART(color), BPART(color),
+	                        GetDefaultPalette()->numcolors);
+	screen->DrawColoredPatchClean(W_CachePatch("OSLIDE"), x + 5 + (int)(dist * 78.0), y);
+}
+
 int M_FindCurVal (float cur, value_t *values, int numvals)
 {
 	int v;
@@ -1418,6 +1461,25 @@ void M_OptDrawer (void)
 				M_DrawSlider (CurrentMenu->indent + 8, y, item->b.leftval, item->c.rightval, item->a.cvar->value());
 				break;
 
+			case redslider:
+			{
+				int color = V_GetColorFromString(NULL, item->a.cvar->cstring());
+				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, RPART(color), color);
+			}
+			break;
+			case greenslider:
+			{
+				int color = V_GetColorFromString(NULL, item->a.cvar->cstring());
+				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, GPART(color), color);
+			}
+			break;
+			case blueslider:
+			{
+				int color = V_GetColorFromString(NULL, item->a.cvar->cstring());
+				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, BPART(color), color);
+			}
+			break;
+
 			case control:
 			{
 				std::string desc = C_NameKeys (item->b.key1, item->c.key2);
@@ -1505,7 +1567,7 @@ void M_OptResponder (event_t *ev)
 	// Waiting on a key press for control binding
 	if (WaitingForKey)
 	{
-		if(ev->type == ev_keydown)
+		if (ev->type == ev_keydown)
 		{
 #ifdef _XBOX
 			if (ch != KEY_ESCAPE && ch != KEY_JOY9)
@@ -1516,6 +1578,8 @@ void M_OptResponder (event_t *ev)
 				C_ChangeBinding (item->e.command, ch);
 				M_BuildKeyList (CurrentMenu->items, CurrentMenu->numitems);
 			}
+
+			configuring_controls = false;
 			WaitingForKey = false;
 			CurrentMenu->items[0].label = OldContMessage;
 			CurrentMenu->items[0].type = OldContType;
@@ -1739,7 +1803,47 @@ void M_OptResponder (event_t *ev)
 					}
 					S_Sound (CHAN_INTERFACE, "plats/pt1_mid", 1, ATTN_NONE);
 					break;
+				case redslider:
+				case greenslider:
+				case blueslider:
+					{
+						const char* oldcolor = item->a.cvar->cstring();
+						char newcolor[9];
 
+						if (strlen(oldcolor) == 8)
+							memcpy(newcolor, oldcolor, 9);
+						else
+							memcpy(newcolor, "00 00 00", 9);
+
+						int color = V_GetColorFromString(NULL, oldcolor);
+						int part = 0;
+
+						if (item->type == redslider)
+							part = RPART(color);
+						else if (item->type == greenslider)
+							part = GPART(color);
+						else if (item->type == blueslider)
+							part = BPART(color);
+
+						if (part > 0x00)
+							part -= 0x11;
+						if (part < 0x00)
+							part = 0x00;
+
+						char singlecolor[3];
+						sprintf(singlecolor, "%02x", part);
+
+						if (item->type == redslider)
+							memcpy(newcolor, singlecolor, 2);
+						else if (item->type == greenslider)
+							memcpy(newcolor + 3, singlecolor, 2);
+						else if (item->type == blueslider)
+							memcpy(newcolor + 6, singlecolor, 2);
+
+						item->a.cvar->Set(newcolor);
+					}
+					S_Sound(CHAN_INTERFACE, "plats/pt1_mid", 1, ATTN_NONE);
+					break;
 				case discrete:
 				case cdiscrete:
 					{
@@ -1823,7 +1927,47 @@ void M_OptResponder (event_t *ev)
 					}
 					S_Sound (CHAN_INTERFACE, "plats/pt1_mid", 1, ATTN_NONE);
 					break;
+				case redslider:
+				case greenslider:
+				case blueslider:
+					{
+						const char* oldcolor = item->a.cvar->cstring();
+						char newcolor[9];
 
+						if (strlen(oldcolor) == 8)
+							memcpy(newcolor, oldcolor, 9);
+						else
+							memcpy(newcolor, "00 00 00", 9);
+
+						int color = V_GetColorFromString(NULL, oldcolor);
+						int part = 0;
+
+						if (item->type == redslider)
+							part = RPART(color);
+						else if (item->type == greenslider)
+							part = GPART(color);
+						else if (item->type == blueslider)
+							part = BPART(color);
+
+						if (part < 0xff)
+							part += 0x11;
+						if (part > 0xff)
+							part = 0xff;
+
+						char singlecolor[3];
+						sprintf(singlecolor, "%02x", part);
+
+						if (item->type == redslider)
+							memcpy(newcolor, singlecolor, 2);
+						else if (item->type == greenslider)
+							memcpy(newcolor + 3, singlecolor, 2);
+						else if (item->type == blueslider)
+							memcpy(newcolor + 6, singlecolor, 2);
+
+						item->a.cvar->Set(newcolor);
+					}
+					S_Sound(CHAN_INTERFACE, "plats/pt1_mid", 1, ATTN_NONE);
+					break;
 				case discrete:
 				case cdiscrete:
 					{
@@ -1944,6 +2088,7 @@ void M_OptResponder (event_t *ev)
 			}
 			else if (item->type == control)
 			{
+				configuring_controls = true;
 				WaitingForKey = true;
 				OldContMessage = CurrentMenu->items[0].label;
 				OldContType = CurrentMenu->items[0].type;

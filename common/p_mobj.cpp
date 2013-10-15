@@ -33,7 +33,7 @@
 #include "doomstat.h"
 #include "v_video.h"
 #include "c_cvars.h"
-#include "vectors.h"
+#include "m_vectors.h"
 #include "g_game.h"
 #include "p_mobj.h"
 #include "p_ctf.h"
@@ -1054,7 +1054,7 @@ void P_XYMovement(AActor *mo)
 					// slide against wall
 					if (BlockingLine != NULL &&
 						mo->player && mo->waterlevel && mo->waterlevel < 3 &&
-						(mo->player->cmd.ucmd.forwardmove | mo->player->cmd.ucmd.sidemove) &&
+						(mo->player->cmd.forwardmove | mo->player->cmd.sidemove) &&
 						BlockingLine->sidenum[1] != R_NOSIDE)
 					{
 						mo->momz = WATER_JUMP_SPEED;
@@ -1180,7 +1180,7 @@ void P_XYMovement(AActor *mo)
 	if (mo->momx > -STOPSPEED && mo->momx < STOPSPEED
 		&& mo->momy > -STOPSPEED && mo->momy < STOPSPEED
 		&& (!player || (player->mo != mo)
-		|| !(player->cmd.ucmd.forwardmove | player->cmd.ucmd.sidemove)))
+		|| !(player->cmd.forwardmove | player->cmd.sidemove)))
 	{
 		// if in a walking frame, stop moving
 		// killough 10/98:
@@ -1239,7 +1239,7 @@ void P_ZMovement(AActor *mo)
 		fixed_t startmomz = mo->momz;
 
 		if (!mo->waterlevel || mo->flags & MF_CORPSE ||
-			(mo->player && !(mo->player->cmd.ucmd.forwardmove | mo->player->cmd.ucmd.sidemove)))
+			(mo->player && !(mo->player->cmd.forwardmove | mo->player->cmd.sidemove)))
 		{
 			mo->momz -= (fixed_t)(level.gravity * mo->subsector->sector->gravity *
 						(mo->flags2 & MF2_LOGRAV ? 10.24 : 81.92));
@@ -1399,7 +1399,7 @@ void P_ZMovement(AActor *mo)
 			fixed_t startmomz = mo->momz;
 
 			if (!mo->waterlevel || (mo->player &&
-			   !(mo->player->cmd.ucmd.forwardmove | mo->player->cmd.ucmd.sidemove)))
+			   !(mo->player->cmd.forwardmove | mo->player->cmd.sidemove)))
 			{
 				if (mo->flags2 & MF2_LOGRAV)
 				{
@@ -1853,9 +1853,9 @@ bool P_CheckMissileSpawn (AActor* th)
 	// [SL] 2011-06-02 - If a missile explodes immediatley upon firing,
 	// make sure we spawn the missile first, send it to all clients immediately
 	// instead of queueing it, then explode it.
-	for (size_t i = 0; i < players.size(); i++)
+	for (Players::iterator it = players.begin();it != players.end();++it)
 	{
-		SV_AwarenessUpdate(players[i], th);
+		SV_AwarenessUpdate(*it, th);
 	}
 
 	if (!P_TryMove (th, th->x, th->y, false))
@@ -2560,16 +2560,16 @@ bool P_VisibleToPlayers(AActor *mo)
 	if (!mo)
 		return false;
 
-	for (size_t i = 0; i < players.size(); i++)
+	for (Players::iterator it = players.begin();it != players.end();++it)
 	{
 		// players aren't considered visible to themselves
-		if (mo->player && mo->player->id == players[i].id)
+		if (mo->player && mo->player->id == it->id)
 			continue;
 
-		if (!players[i].mo || players[i].spectator)
+		if (!(it->mo) || it->spectator)
 			continue;
 
-		if (P_CheckSightEdges(players[i].mo, mo, 5.0))
+		if (P_CheckSightEdges(it->mo, mo, 5.0))
 			return true;
 	}
 
