@@ -250,6 +250,11 @@ private:
 	texhandle_t getPatchHandle(const char* name);
 	void cachePatch(texhandle_t handle);
 
+	// sprites
+	texhandle_t getSpriteHandle(unsigned int lumpnum);
+	texhandle_t getSpriteHandle(const char* name);
+	void cacheSprite(texhandle_t handle);
+
 	// flats
 	texhandle_t getFlatHandle(unsigned int lumpnum);
 	texhandle_t getFlatHandle(const char* name);

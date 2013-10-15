@@ -373,7 +373,7 @@ texhandle_t TextureManager::getPatchHandle(const char* name)
 {
 	int lumpnum = W_CheckNumForName(name);
 	if (lumpnum >= 0)
-		return getFlatHandle(lumpnum);
+		return getPatchHandle(lumpnum);
 	return NOT_FOUND_TEXTURE_HANDLE;
 }
 
@@ -382,7 +382,7 @@ texhandle_t TextureManager::getPatchHandle(const char* name)
 //
 void TextureManager::cachePatch(texhandle_t handle)
 {
-	unsigned int lumpnum = handle & ~PATCH_HANDLE_MASK;
+	unsigned int lumpnum = handle & ~(PATCH_HANDLE_MASK | SPRITE_HANDLE_MASK);
 
 	unsigned int lumplen = W_LumpLength(lumpnum);
 	byte* rawlumpdata = new byte[lumplen];
@@ -398,6 +398,9 @@ void TextureManager::cachePatch(texhandle_t handle)
 	size_t texture_size = Texture::calculateSize(width, height);
 	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
 	texture->init(width, height);
+
+	texture->mOffsetX = patch->leftoffset() << FRACBITS;
+	texture->mOffsetY = patch->topoffset() << FRACBITS;
 
 	// TODO: remove this once proper masking is in place
 	memset(texture->mData, 0, width * height);
@@ -440,6 +443,40 @@ void TextureManager::cachePatch(texhandle_t handle)
 
 	texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
 }
+
+
+//
+// TextureManager::getSpriteHandle
+//
+// Returns the handle for the sprite with the given WAD lump number.
+//
+texhandle_t TextureManager::getSpriteHandle(unsigned int lumpnum)
+{
+	if (lumpnum >= numlumps)
+		return NOT_FOUND_TEXTURE_HANDLE;
+
+	if (W_LumpLength(lumpnum) == 0)
+		return NOT_FOUND_TEXTURE_HANDLE;
+
+	return (texhandle_t)lumpnum | SPRITE_HANDLE_MASK;
+}
+
+texhandle_t TextureManager::getSpriteHandle(const char* name)
+{
+	int lumpnum = W_CheckNumForName(name);
+	if (lumpnum >= 0)
+		return getSpriteHandle(lumpnum);
+	return NOT_FOUND_TEXTURE_HANDLE;
+}
+
+//
+// TextureManger::cacheSprite
+//
+void TextureManager::cacheSprite(texhandle_t handle)
+{
+	cachePatch(handle);
+}
+
 
 //
 // TextureManager::getFlatHandle
@@ -561,6 +598,7 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 	size_t texture_size = Texture::calculateSize(width, height);
 	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
 	texture->init(width, height);
+
 	texture->mScaleX = texdef->scalex ? texdef->scalex << (FRACBITS - 3) : FRACUNIT;
 	texture->mScaleY = texdef->scaley ? texdef->scaley << (FRACBITS - 3) : FRACUNIT;
 
@@ -582,8 +620,9 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 		const patch_t* patch = (patch_t*)rawlumpdata;
 		const int* colofs = (int*)(rawlumpdata + 8);
 
-		int x1 = MAX(texdefpatch->originx, 0);
-		int x2 = MIN(texdefpatch->originx + patch->width() - 1, width - 1);
+		int leftoffset = texdefpatch->originx;
+		int x1 = MAX(leftoffset, 0);
+		int x2 = MIN(leftoffset + patch->width() - 1, width - 1);
 
 		for (int x = x1; x <= x2; x++)
 		{
@@ -599,8 +638,9 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 				else
 					abstopdelta = post->topdelta;
 
-				int y1 = MAX(texdefpatch->originy + abstopdelta, 0);
-				int y2 = MIN(texdefpatch->originy + abstopdelta + post->length - 1, height - 1);
+				int topoffset = texdefpatch->originy + abstopdelta;
+				int y1 = MAX(topoffset, 0);
+				int y2 = MIN(topoffset + post->length - 1, height - 1);
 
 				if (y1 <= y2)
 				{
@@ -648,6 +688,8 @@ texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceTy
 		handle = getWallTextureHandle(uname);
 	else if (type == Texture::TEX_PATCH)
 		handle = getPatchHandle(uname);
+	else if (type == Texture::TEX_SPRITE)
+		handle = getSpriteHandle(uname);
 
 	// not found? check elsewhere
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
@@ -668,6 +710,8 @@ texhandle_t TextureManager::getHandle(unsigned int lumpnum, Texture::TextureSour
 		handle = getWallTextureHandle(lumpnum);
 	else if (type == Texture::TEX_PATCH)
 		handle = getPatchHandle(lumpnum);
+	else if (type == Texture::TEX_SPRITE)
+		handle = getSpriteHandle(lumpnum);
 
 	// not found? check elsewhere
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
@@ -696,6 +740,8 @@ const Texture* TextureManager::getTexture(texhandle_t handle)
 			cacheWallTexture(handle);
 		else if (handle & PATCH_HANDLE_MASK)
 			cachePatch(handle);
+		else if (handle & SPRITE_HANDLE_MASK)
+			cacheSprite(handle);
 
 		texture = mHandleMap[handle];
 	}

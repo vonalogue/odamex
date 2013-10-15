@@ -46,6 +46,7 @@
 #include "s_sound.h"
 
 #include "m_vectors.h"
+#include "r_texture.h"
 
 extern fixed_t FocalLengthX, FocalLengthY;
 
@@ -55,7 +56,9 @@ extern fixed_t FocalLengthX, FocalLengthY;
 //void R_DrawColumn (void);
 //void R_DrawFuzzColumn (void);
 
-static int crosshair_lump;
+static texhandle_t particle_texhandle;
+
+static texhandle_t crosshair_texhandle;
 
 static void R_InitCrosshair();
 static byte crosshair_trans[256];
@@ -123,25 +126,35 @@ extern int				InactiveParticles;
 extern particle_t		*Particles;
 TArray<WORD>			ParticlesInSubsec;
 
+
+//
+// R_CacheSprite
+//
+// Loads a sprite into the cache.
+//
 void R_CacheSprite (spritedef_t *sprite)
 {
-	int i, r;
-	patch_t *patch;
+	DPrintf ("cache sprite %s\n", sprite - sprites < NUMSPRITES ? sprnames[sprite - sprites] : "");
 
-	DPrintf ("cache sprite %s\n",
-		sprite - sprites < NUMSPRITES ? sprnames[sprite - sprites] : "");
-	for (i = 0; i < sprite->numframes; i++)
+	for (int i = 0; i < sprite->numframes; i++)
 	{
-		for (r = 0; r < 8; r++)
+		for (int r = 0; r < 8; r++)
 		{
 			if (sprite->spriteframes[i].width[r] == SPRITE_NEEDS_INFO)
 			{
-				if (sprite->spriteframes[i].lump[r] == -1)
+				short lumpnum = sprite->spriteframes[i].lump[r];
+
+				if (lumpnum == -1)
 					I_Error ("Sprite %d, rotation %d has no lump", i, r);
-				patch = W_CachePatch (sprite->spriteframes[i].lump[r]);
-				sprite->spriteframes[i].width[r] = patch->width()<<FRACBITS;
-				sprite->spriteframes[i].offset[r] = patch->leftoffset()<<FRACBITS;
-				sprite->spriteframes[i].topoffset[r] = patch->topoffset()<<FRACBITS;
+
+				texhandle_t texhandle =  texturemanager.getHandle(lumpnum, Texture::TEX_SPRITE);
+				sprite->spriteframes[i].texhandle[r] = texhandle; 
+				const Texture* tex = texturemanager.getTexture(texhandle);
+
+				sprite->spriteframes[i].width[r] = tex->getWidth();
+				sprite->spriteframes[i].height[r] = tex->getHeight();
+				sprite->spriteframes[i].offset[r] = tex->getOffsetX();
+				sprite->spriteframes[i].topoffset[r] = tex->getOffsetY();
 			}
 		}
 	}
@@ -154,7 +167,7 @@ void R_CacheSprite (spritedef_t *sprite)
 // [RH] Removed checks for coexistance of rotation 0 with other
 //		rotations and made it look more like BOOM's version.
 //
-static void R_InstallSpriteLump (int lump, unsigned frame, unsigned rotation, BOOL flipped)
+static void R_InstallSpriteLump (int lump, unsigned frame, unsigned rotation, bool flipped)
 {
 	if (frame >= MAX_SPRITE_FRAMES || rotation > 8)
 		I_FatalError ("R_InstallSpriteLump: Bad frame characters in lump %i", lump);
@@ -530,12 +543,10 @@ static void R_InitCrosshair()
 		sprintf (xhairname, "XHAIR%d", xhairnum);
 
 		if ((xhair = W_CheckNumForName (xhairname)) == -1)
-		{
-			xhair = W_CheckNumForName ("XHAIR1");
-		}
+			xhair = W_CheckNumForName("XHAIR1");
 
-		if(xhair != -1)
-			crosshair_lump = xhair;
+		if (xhair != -1)
+			crosshair_texhandle = texturemanager.getHandle(xhair, Texture::TEX_PATCH);
 	}
 
 	// set up translation table for the crosshair's color
@@ -606,6 +617,8 @@ void R_InitSprites (const char **namelist)
 
 	// set up the crosshair
 	R_InitCrosshair();
+
+	particle_texhandle = texturemanager.createSpecialUseHandle();
 }
 
 
@@ -689,7 +702,7 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 	if (vis->mobjflags & MF_SPECTATOR)
 		return;
 
-	if (vis->patch == NO_PARTICLE)
+	if (vis->texhandle == particle_texhandle)
 	{
 		R_DrawParticle(vis);
 		return;
@@ -746,8 +759,7 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 	static int bottom[MAXWIDTH];
 	static byte* spritecols[MAXWIDTH];
 
-	texhandle_t sprite_handle = texturemanager.getHandle(vis->patch, Texture::TEX_PATCH);
-	const Texture* texture = texturemanager.getTexture(sprite_handle);
+	const Texture* texture = texturemanager.getTexture(vis->texhandle);
 
 	// [SL] set up the array that indicates which patch column to use for each screen column
 	fixed_t colfrac = vis->startfrac;
@@ -953,9 +965,7 @@ void R_ProjectSprite(AActor *thing, int fakeside)
 {
 	spritedef_t*		sprdef;
 	spriteframe_t*		sprframe;
-	int 				lump;
-	unsigned int		rot;
-	bool 				flip;
+	unsigned int		rot = 0;
 
 	if (!thing || !thing->subsector || !thing->subsector->sector)
 		return;
@@ -1004,31 +1014,21 @@ void R_ProjectSprite(AActor *thing, int fakeside)
 
 	sprframe = &sprdef->spriteframes[thing->frame & FF_FRAMEMASK];
 
-	// decide which patch to use for sprite relative to player
+	// choose a different sprite rotation based on player view
 	if (sprframe->rotate)
-	{
-		// choose a different rotation based on player view
 		rot = (R_PointToAngle(thingx, thingy) - thing->angle + (unsigned)(ANG45/2)*9) >> 29;
-		lump = sprframe->lump[rot];
-		flip = (BOOL)sprframe->flip[rot];
-	}
-	else
-	{
-		// use single rotation for all views
-		lump = sprframe->lump[rot = 0];
-		flip = (BOOL)sprframe->flip[0];
-	}
+
+	bool flip = sprframe->flip[rot];
 
 	if (sprframe->width[rot] == SPRITE_NEEDS_INFO)
-		R_CacheSprite (sprdef);	// [RH] speeds up game startup time
+		R_CacheSprite(sprdef);	// [RH] speeds up game startup time
 
 	sector_t* sector = thing->subsector->sector;
 	fixed_t topoffs = sprframe->topoffset[rot];
 	fixed_t sideoffs = sprframe->offset[rot];
 
-	patch_t* patch = W_CachePatch(lump);
-	fixed_t height = patch->height() << FRACBITS;
-	fixed_t width = patch->width() << FRACBITS;
+	fixed_t height = sprframe->height[rot];
+	fixed_t width = sprframe->width[rot];
 
 	vissprite_t* vis = R_GenerateVisSprite(sector, fakeside, thingx, thingy, thingz, height, width, topoffs, sideoffs, flip);
 
@@ -1038,7 +1038,7 @@ void R_ProjectSprite(AActor *thing, int fakeside)
 	vis->mobjflags = thing->flags;
 	vis->translation = thing->translation;		// [RH] thing translation table
 	vis->translucency = thing->translucency;
-	vis->patch = lump;
+	vis->texhandle = sprframe->texhandle[rot];
 	vis->mo = thing;
 
 	// get light level
@@ -1114,8 +1114,6 @@ void R_DrawPSprite (pspdef_t* psp, unsigned flags)
 	int 				x2;
 	spritedef_t*		sprdef;
 	spriteframe_t*		sprframe;
-	int 				lump;
-	BOOL 				flip;
 	vissprite_t*		vis;
 	vissprite_t 		avis;
 
@@ -1133,26 +1131,25 @@ void R_DrawPSprite (pspdef_t* psp, unsigned flags)
 		return;
 	}
 #endif
-	sprframe = &sprdef->spriteframes[ psp->state->frame & FF_FRAMEMASK ];
+	sprframe = &sprdef->spriteframes[psp->state->frame & FF_FRAMEMASK];
 
-	lump = sprframe->lump[0];
-	flip = (BOOL)sprframe->flip[0];
+	bool flip = sprframe->flip[0];
 
 	if (sprframe->width[0] == SPRITE_NEEDS_INFO)
-		R_CacheSprite (sprdef);	// [RH] speeds up game startup time
+		R_CacheSprite(sprdef);	// [RH] speeds up game startup time
 
 	// calculate edges of the shape
-	tx = psp->sx-((320/2)<<FRACBITS);
+	tx = psp->sx - ((320/2) << FRACBITS);
 
 	tx -= sprframe->offset[0];	// [RH] Moved out of spriteoffset[]
-	x1 = (centerxfrac + FixedMul (tx, pspritexscale)) >>FRACBITS;
+	x1 = (centerxfrac + FixedMul(tx, pspritexscale)) >> FRACBITS;
 
 	// off the right side
 	if (x1 > viewwidth)
 		return;
 
 	tx += sprframe->width[0];	// [RH] Moved out of spritewidth[]
-	x2 = ((centerxfrac + FixedMul (tx, pspritexscale)) >>FRACBITS) - 1;
+	x2 = ((centerxfrac + FixedMul(tx, pspritexscale)) >> FRACBITS) - 1;
 
 	// off the left side
 	if (x2 < 0)
@@ -1177,6 +1174,7 @@ void R_DrawPSprite (pspdef_t* psp, unsigned flags)
 	vis->translation = translationref_t();		// [RH] Use default colors
 	vis->translucency = FRACUNIT;
 	vis->mo = NULL;
+	vis->texhandle = sprframe->texhandle[0];
 
 	if (flip)
 	{
@@ -1191,8 +1189,6 @@ void R_DrawPSprite (pspdef_t* psp, unsigned flags)
 
 	if (vis->x1 > x1)
 		vis->startfrac += vis->xiscale*(vis->x1-x1);
-
-	vis->patch = lump;
 
 	if (fixedlightlev)
 	{
@@ -1485,7 +1481,7 @@ static void R_DrawCrosshair (void)
 	if (camera->player && camera->player->spectator)
 		return;
 
-	if(hud_crosshair && crosshair_lump)
+	if (hud_crosshair && crosshair_texhandle != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
 	{
 		static const byte crosshair_color = 0xB0;
 		if (hud_crosshairhealth)
@@ -1506,8 +1502,13 @@ static void R_DrawCrosshair (void)
 
 		V_ColorMap = translationref_t(crosshair_trans);
 
+		const Texture* tex = texturemanager.getTexture(crosshair_texhandle);
+		
+		// TODO: replace DCanvas patch drawing functions with functions taking Texture*
+		unsigned int crosshair_lump = crosshair_texhandle & 0xFFFF;
+
 		if (hud_crosshairdim && hud_crosshairscale)
-			screen->DrawTranslatedLucentPatchCleanNoMove (W_CachePatch (crosshair_lump),
+			screen->DrawTranslatedLucentPatchCleanNoMove(W_CachePatch(crosshair_lump),
 				realviewwidth / 2 + viewwindowx,
 				realviewheight / 2 + viewwindowy);
         else if (hud_crosshairscale)
@@ -1629,7 +1630,7 @@ void R_ProjectParticle (particle_t *particle, const sector_t *sector, int fakesi
 
 	vis->translation = translationref_t();
 	vis->startfrac = particle->color;
-	vis->patch = NO_PARTICLE;
+	vis->texhandle = particle_texhandle;
 	vis->mobjflags = particle->trans;
 	vis->mo = NULL;
 

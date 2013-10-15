@@ -547,7 +547,7 @@ struct vissprite_s
 
 	fixed_t			depth;
 	fixed_t			texturemid;
-	int				patch;
+	texhandle_t		texhandle;
 
     // for color translation and shadow draw,
     //  maxbright frames as well
@@ -589,12 +589,15 @@ struct spriteframe_s
     // Lump to use for view angles 0-7.
     short	lump[8];
 
+	texhandle_t	texhandle[8];
+
     // Flip bit (1 = flip) to use for view angles 0-7.
     byte	flip[8];
 
 	// [RH] Move some data out of spritewidth, spriteoffset,
 	//		and spritetopoffset arrays.
 	fixed_t		width[8];
+	fixed_t		height[8];
 	fixed_t		topoffset[8];
 	fixed_t		offset[8];
 };
