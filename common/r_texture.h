@@ -28,8 +28,9 @@
 #include "m_fixed.h"
 
 #include <vector>
-#include <map>
-#include <string>
+
+#include "m_ostring.h"
+#include "hashtable.h"
 
 typedef unsigned int texhandle_t;
 
@@ -260,7 +261,8 @@ private:
 	void cacheWallTexture(texhandle_t handle);
 
 	// maps texture handles to Texture*
-	std::map<texhandle_t, Texture*>	mHandleMap;
+	typedef HashTable<texhandle_t, Texture*> HandleMap;
+	HandleMap					mHandleMap;
 
 	// lookup table to translate flatnum to mTextures index
 	unsigned int				mFirstFlatLumpNum;
@@ -269,7 +271,8 @@ private:
 	int*						mPNameLookup;
 	std::vector<texdef_t*>		mTextureDefinitions;
 
-	std::map<std::string, unsigned int>	mTextureNameTranslationMap;
+	typedef HashTable<OString, unsigned int> TextureNameTranslationMap;
+	TextureNameTranslationMap	mTextureNameTranslationMap;
 
 	static const unsigned int MAX_SPECIAL_USE_HANDLES = 256;
 	texhandle_t					mNextSpecialUseHandle;

@@ -537,7 +537,7 @@ texhandle_t TextureManager::getWallTextureHandle(unsigned int texdef_handle)
 
 texhandle_t TextureManager::getWallTextureHandle(const char* name)
 {
-	std::map<std::string, unsigned int>::iterator it = mTextureNameTranslationMap.find(name);
+	TextureNameTranslationMap::const_iterator it = mTextureNameTranslationMap.find(name);
 	if (it != mTextureNameTranslationMap.end())
 		return getWallTextureHandle(it->second);
 	return NOT_FOUND_TEXTURE_HANDLE;
