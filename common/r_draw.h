@@ -46,6 +46,7 @@ typedef struct
 	int					color;
 	fixed_t				translevel;
 
+	byte*				dest;
 	byte*				source;
 	byte*				mask;
 	tallpost_t*			post;
@@ -81,6 +82,7 @@ typedef struct
 	float				ivstep;
 	float				idstep;
 
+	byte*				dest;
 	byte*				source;
 	byte*				mask;
 

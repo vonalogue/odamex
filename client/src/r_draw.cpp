@@ -85,26 +85,27 @@ int				detailyshift;		// [RH] Y shift for vertical detail level
 // [RH] Pointers to the different column drawers.
 //		These get changed depending on the current
 //		screen depth.
-void (*R_FillColumn)(void);
-void (*R_FillMaskedColumn)(void);
-void (*R_DrawColumn)(void);
-void (*R_DrawMaskedColumn)(void);
-void (*R_DrawFuzzColumn)(void);
-void (*R_DrawFuzzMaskedColumn)(void);
-void (*R_DrawTranslucentColumn)(void);
-void (*R_DrawTranslucentMaskedColumn)(void);
-void (*R_DrawTranslatedColumn)(void);
-void (*R_DrawTranslatedMaskedColumn)(void);
-void (*R_DrawTranslatedTranslucentColumn)(void);
-void (*R_DrawTranslatedTranslucentMaskedColumn)(void);
-void (*R_DrawSpan)(void);
-void (*R_DrawSlopeSpan)(void);
-void (*R_FillSpan)(void);
-void (*R_FillTranslucentSpan)(void);
+void (*R_FillColumn)();
+void (*R_FillMaskedColumn)();
+void (*R_DrawColumn)();
+void (*R_DrawMaskedColumn)();
+void (*R_DrawFuzzColumn)();
+void (*R_DrawFuzzMaskedColumn)();
+void (*R_DrawTranslucentColumn)();
+void (*R_DrawTranslucentMaskedColumn)();
+void (*R_DrawTranslatedColumn)();
+void (*R_DrawTranslatedMaskedColumn)();
+void (*R_DrawTranslatedTranslucentColumn)();
+void (*R_DrawTranslatedTranslucentMaskedColumn)();
+
+void (*R_DrawSpan)();
+void (*R_DrawSlopeSpan)();
+void (*R_FillSpan)();
+void (*R_FillTranslucentSpan)();
 
 // Possibly vectorized functions:
-void (*R_DrawSpanD)(void);
-void (*R_DrawSlopeSpanD)(void);
+void (*R_DrawSpanD)();
+void (*R_DrawSlopeSpanD)();
 void (*r_dimpatchD)(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h);
 
 // ============================================================================
@@ -169,7 +170,7 @@ The following note is from DOSDoom 0.65:
 New translucency algorithm, by Erik Sandberg:
 
 Basically, we compute the red, green and blue values for each pixel, and
-then use a RGB table to check which one of the palette colours that best
+hen use a RGB table to check which one of the palette colours that best
 represents those RGB values. The RGB table is 8k big, with 4 R-bits,
 5 G-bits and 4 B-bits. A 4k table gives a bit too bad precision, and a 32k
 table takes up more memory and results in more cache misses, so an 8k
@@ -441,7 +442,7 @@ void R_BlankSpan()
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_FillColumnGeneric(PIXEL_T* dest, const drawcolumn_t& drawcolumn)
+static forceinline void R_FillColumnGeneric(drawcolumn_t& drawcolumn)
 {
 #ifdef RANGECHECK 
 	if (drawcolumn.x >= screen->width || drawcolumn.yl < 0 || drawcolumn.yh >= screen->height)
@@ -451,11 +452,13 @@ static forceinline void R_FillColumnGeneric(PIXEL_T* dest, const drawcolumn_t& d
 	}
 #endif
 
-	int color = drawcolumn.color;
-	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
 	int count = drawcolumn.yh - drawcolumn.yl + 1;
 	if (count <= 0)
 		return;
+
+	int color = drawcolumn.color;
+	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
 
 	COLORFUNC colorfunc(drawcolumn);
 
@@ -473,7 +476,7 @@ static forceinline void R_FillColumnGeneric(PIXEL_T* dest, const drawcolumn_t& d
 // functor are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_FillMaskedColumnGeneric(PIXEL_T* dest, const drawcolumn_t& drawcolumn)
+static forceinline void R_FillMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 {
 #ifdef RANGECHECK 
 	if (drawcolumn.x >= screen->width || drawcolumn.yl < 0 || drawcolumn.yh >= screen->height)
@@ -483,12 +486,14 @@ static forceinline void R_FillMaskedColumnGeneric(PIXEL_T* dest, const drawcolum
 	}
 #endif
 
-	const byte* mask = drawcolumn.mask;
-	int color = drawcolumn.color;
-	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
 	int count = drawcolumn.yh - drawcolumn.yl + 1;
 	if (count <= 0)
 		return;
+
+	const byte* mask = drawcolumn.mask;
+	int color = drawcolumn.color;
+	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
 
 	const fixed_t fracstep = drawcolumn.iscale; 
 	fixed_t frac = drawcolumn.texturefrac;
@@ -524,7 +529,7 @@ static forceinline void R_FillMaskedColumnGeneric(PIXEL_T* dest, const drawcolum
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_DrawColumnGeneric(PIXEL_T* dest, const drawcolumn_t& drawcolumn)
+static forceinline void R_DrawColumnGeneric(drawcolumn_t& drawcolumn)
 {
 #ifdef RANGECHECK 
 	if (drawcolumn.x >= screen->width || drawcolumn.yl < 0 || drawcolumn.yh >= screen->height)
@@ -534,11 +539,13 @@ static forceinline void R_DrawColumnGeneric(PIXEL_T* dest, const drawcolumn_t& d
 	}
 #endif
 
-	palindex_t* source = drawcolumn.source;
-	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
 	int count = drawcolumn.yh - drawcolumn.yl + 1;
 	if (count <= 0)
 		return;
+
+	palindex_t* source = drawcolumn.source;
+	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
+	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
 
 	const fixed_t fracstep = drawcolumn.iscale; 
 	fixed_t frac = drawcolumn.texturefrac;
@@ -561,64 +568,20 @@ static forceinline void R_DrawColumnGeneric(PIXEL_T* dest, const drawcolumn_t& d
 			while (frac >= texheight)
 				frac -= texheight;
 
-		while (count--)
-		{
+		do {
 			colorfunc(source[frac >> FRACBITS], dest);
 			dest += pitch;
 			if ((frac += fracstep) >= texheight)
 				frac -= texheight;
-		}
+		} while (--count);
 	}
 	else
 	{
 		// texture height is a power-of-2
-		// do some loop unrolling
-		while (count >= 8)
-		{
+		do {
 			colorfunc(source[(frac >> FRACBITS) & mask], dest);
 			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			count -= 8;
-		}
-
-		if (count & 1)
-		{
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-		}
-
-		if (count & 2)
-		{
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-		}
-
-		if (count & 4)
-		{
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
-			dest += pitch; frac += fracstep;
-		}
+		} while (--count);
 	}
 }
 
@@ -632,7 +595,7 @@ static forceinline void R_DrawColumnGeneric(PIXEL_T* dest, const drawcolumn_t& d
 // image to have transparent regions.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_DrawMaskedColumnGeneric(PIXEL_T* dest, const drawcolumn_t& drawcolumn)
+static forceinline void R_DrawMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 {
 #ifdef RANGECHECK 
 	if (drawcolumn.x >= screen->width || drawcolumn.yl < 0 || drawcolumn.yh >= screen->height) {
@@ -641,20 +604,21 @@ static forceinline void R_DrawMaskedColumnGeneric(PIXEL_T* dest, const drawcolum
 	}
 #endif
 
-	const byte* mask = drawcolumn.mask;
-	const palindex_t* source = drawcolumn.source;
-	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
 	int count = drawcolumn.yh - drawcolumn.yl + 1;
 	if (count <= 0)
 		return;
+
+	const byte* mask = drawcolumn.mask;
+	const palindex_t* source = drawcolumn.source;
+	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
+	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
 
 	const fixed_t fracstep = drawcolumn.iscale; 
 	fixed_t frac = drawcolumn.texturefrac;
 
 	COLORFUNC colorfunc(drawcolumn);
 
-	do
-	{
+	do {
 		PIXEL_T tempdest;
 		colorfunc(source[frac >> FRACBITS], &tempdest);
 
@@ -678,7 +642,7 @@ static forceinline void R_DrawMaskedColumnGeneric(PIXEL_T* dest, const drawcolum
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_FillSpanGeneric(PIXEL_T* dest, const drawspan_t& drawspan)
+static forceinline void R_FillSpanGeneric(drawspan_t& drawspan)
 {
 #ifdef RANGECHECK
 	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= viewwidth ||
@@ -689,11 +653,13 @@ static forceinline void R_FillSpanGeneric(PIXEL_T* dest, const drawspan_t& draws
 	}
 #endif
 
-	int color = drawspan.color;
-	int colsize = drawspan.colsize;
 	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
+
+	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
+	int color = drawspan.color;
+	int colsize = drawspan.colsize;
 
 	COLORFUNC colorfunc(drawspan);
 
@@ -712,7 +678,7 @@ static forceinline void R_FillSpanGeneric(PIXEL_T* dest, const drawspan_t& draws
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_DrawLevelSpanGeneric(PIXEL_T* dest, const drawspan_t& drawspan)
+static forceinline void R_DrawLevelSpanGeneric(drawspan_t& drawspan)
 {
 #ifdef RANGECHECK
 	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= viewwidth ||
@@ -723,11 +689,13 @@ static forceinline void R_DrawLevelSpanGeneric(PIXEL_T* dest, const drawspan_t& 
 	}
 #endif
 
-	palindex_t* source = drawspan.source;
-	int colsize = drawspan.colsize;
 	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
+
+	palindex_t* source = drawspan.source;
+	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
+	int colsize = drawspan.colsize;
 	
 	dsfixed_t ufrac = dspan.xfrac;
 	dsfixed_t vfrac = dspan.yfrac;
@@ -773,7 +741,7 @@ static forceinline void R_DrawLevelSpanGeneric(PIXEL_T* dest, const drawspan_t& 
 // are passed as template parameters.
 //
 template<typename PIXEL_T, typename COLORFUNC>
-static forceinline void R_DrawSlopedSpanGeneric(PIXEL_T* dest, const drawspan_t& drawspan)
+static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 {
 #ifdef RANGECHECK
 	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= viewwidth ||
@@ -784,12 +752,15 @@ static forceinline void R_DrawSlopedSpanGeneric(PIXEL_T* dest, const drawspan_t&
 	}
 #endif
 
-	palindex_t* source = drawspan.source;
-	int colsize = drawspan.colsize;
 	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
 	
+	palindex_t* source = drawspan.source;
+	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
+	int colsize = drawspan.colsize;
+
+
 	// [SL] Note that the texture orientation differs from typical Doom span
 	// drawers since flats are stored in column major format now. The roles
 	// of xfrac and yfrac have been reversed to accomodate this.
@@ -1042,7 +1013,8 @@ private:
 //
 void R_FillColumnP()
 {
-	R_FillColumnGeneric<palindex_t, PaletteFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_FillColumnGeneric<palindex_t, PaletteFunc>(dcol);
 }
 
 //
@@ -1054,7 +1026,8 @@ void R_FillColumnP()
 //
 void R_FillMaskedColumnP()
 {
-	R_FillMaskedColumnGeneric<palindex_t, PaletteFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_FillMaskedColumnGeneric<palindex_t, PaletteFunc>(dcol);
 }
 
 //
@@ -1065,7 +1038,8 @@ void R_FillMaskedColumnP()
 //
 void R_DrawColumnP()
 {
-	R_DrawColumnGeneric<palindex_t, PaletteColormapFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_DrawColumnGeneric<palindex_t, PaletteColormapFunc>(dcol);
 }
 
 //
@@ -1077,7 +1051,8 @@ void R_DrawColumnP()
 //
 void R_DrawMaskedColumnP()
 {
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteColormapFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteColormapFunc>(dcol);
 }
 
 //
@@ -1090,12 +1065,11 @@ void R_DrawMaskedColumnP()
 void R_DrawFuzzColumnP()
 {
 	// adjust the borders (prevent buffer over/under-reads)
-	if (dcol.yl <= 0)
-		dcol.yl = 1;
-	if (dcol.yh >= realviewheight - 1)
-		dcol.yh = realviewheight - 2;
+	dcol.yl = MIN(1, dcol.yl);
+	dcol.yh = MAX(realviewheight - 2, dcol.yh);
 
-	R_FillColumnGeneric<palindex_t, PaletteFuzzyFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_FillColumnGeneric<palindex_t, PaletteFuzzyFunc>(dcol);
 }
 
 //
@@ -1109,12 +1083,11 @@ void R_DrawFuzzColumnP()
 void R_DrawFuzzMaskedColumnP()
 {
 	// adjust the borders (prevent buffer over/under-reads)
-	if (dcol.yl <= 0)
-		dcol.yl = 1;
-	if (dcol.yh >= realviewheight - 1)
-		dcol.yh = realviewheight - 2;
+	dcol.yl = MIN(1, dcol.yl);
+	dcol.yh = MAX(realviewheight - 2, dcol.yh);
 
-	R_FillMaskedColumnGeneric<palindex_t, PaletteFuzzyFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_FillMaskedColumnGeneric<palindex_t, PaletteFuzzyFunc>(dcol);
 }
 
 //
@@ -1127,7 +1100,8 @@ void R_DrawFuzzMaskedColumnP()
 //
 void R_DrawTranslucentColumnP()
 {
-	R_DrawColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_DrawColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(dcol);
 }
 
 //
@@ -1141,7 +1115,8 @@ void R_DrawTranslucentColumnP()
 //
 void R_DrawTranslucentMaskedColumnP()
 {
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(dcol);
 }
 
 //
@@ -1153,7 +1128,8 @@ void R_DrawTranslucentMaskedColumnP()
 //
 void R_DrawTranslatedColumnP()
 {
-	R_DrawColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_DrawColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(dcol);
 }
 
 //
@@ -1166,7 +1142,8 @@ void R_DrawTranslatedColumnP()
 //
 void R_DrawTranslatedMaskedColumnP()
 {
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(dcol);
 }
 
 //
@@ -1180,7 +1157,8 @@ void R_DrawTranslatedMaskedColumnP()
 //
 void R_DrawTranslatedTranslucentColumnP()
 {
-	R_DrawColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_DrawColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(dcol);
 }
 
 //
@@ -1195,7 +1173,8 @@ void R_DrawTranslatedTranslucentColumnP()
 //
 void R_DrawTranslatedTranslucentMaskedColumnP()
 {
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(FB_COLDEST_P, dcol);
+	dcol.dest = (byte*)FB_COLDEST_P;
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(dcol);
 }
 
 // ----------------------------------------------------------------------------
@@ -1214,7 +1193,8 @@ void R_DrawTranslatedTranslucentMaskedColumnP()
 //
 void R_FillSpanP()
 {
-	R_FillSpanGeneric<palindex_t, PaletteFunc>(FB_SPANDEST_P, dspan);
+	dspan.dest = (byte*)FB_SPANDEST_P;
+	R_FillSpanGeneric<palindex_t, PaletteFunc>(dspan);
 }
 
 //
@@ -1226,7 +1206,8 @@ void R_FillSpanP()
 //
 void R_FillTranslucentSpanP()
 {
-	R_FillSpanGeneric<palindex_t, PaletteTranslucentColormapFunc>(FB_SPANDEST_P, dspan);
+	dspan.dest = (byte*)FB_SPANDEST_P;
+	R_FillSpanGeneric<palindex_t, PaletteTranslucentColormapFunc>(dspan);
 }
 
 //
@@ -1237,7 +1218,8 @@ void R_FillTranslucentSpanP()
 //
 void R_DrawSpanP()
 {
-	R_DrawLevelSpanGeneric<palindex_t, PaletteColormapFunc>(FB_SPANDEST_P, dspan);
+	dspan.dest = (byte*)FB_SPANDEST_P;
+	R_DrawLevelSpanGeneric<palindex_t, PaletteColormapFunc>(dspan);
 }
 
 //
@@ -1248,7 +1230,8 @@ void R_DrawSpanP()
 //
 void R_DrawSlopeSpanP()
 {
-	R_DrawSlopedSpanGeneric<palindex_t, PaletteSlopeColormapFunc>(FB_SPANDEST_P, dspan);
+	dspan.dest = (byte*)FB_SPANDEST_P;
+	R_DrawSlopedSpanGeneric<palindex_t, PaletteSlopeColormapFunc>(dspan);
 }
 
 
@@ -1411,7 +1394,8 @@ private:
 //
 void R_FillColumnD()
 {
-	R_FillColumnGeneric<argb_t, DirectFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_FillColumnGeneric<argb_t, DirectFunc>(dcol);
 }
 
 //
@@ -1423,7 +1407,8 @@ void R_FillColumnD()
 //
 void R_FillMaskedColumnD()
 {
-	R_FillMaskedColumnGeneric<argb_t, DirectFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_FillMaskedColumnGeneric<argb_t, DirectFunc>(dcol);
 }
 
 //
@@ -1434,7 +1419,8 @@ void R_FillMaskedColumnD()
 //
 void R_DrawColumnD()
 {
-	R_DrawColumnGeneric<argb_t, DirectColormapFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_DrawColumnGeneric<argb_t, DirectColormapFunc>(dcol);
 }
 
 //
@@ -1446,7 +1432,8 @@ void R_DrawColumnD()
 //
 void R_DrawMaskedColumnD()
 {
-	R_DrawMaskedColumnGeneric<argb_t, DirectColormapFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_DrawMaskedColumnGeneric<argb_t, DirectColormapFunc>(dcol);
 }
 
 //
@@ -1459,12 +1446,11 @@ void R_DrawMaskedColumnD()
 void R_DrawFuzzColumnD()
 {
 	// adjust the borders (prevent buffer over/under-reads)
-	if (dcol.yl <= 0)
-		dcol.yl = 1;
-	if (dcol.yh >= realviewheight - 1)
-		dcol.yh = realviewheight - 2;
+	dcol.yl = MIN(1, dcol.yl);
+	dcol.yh = MAX(realviewheight - 2, dcol.yh);
 
-	R_FillColumnGeneric<argb_t, DirectFuzzyFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_FillColumnGeneric<argb_t, DirectFuzzyFunc>(dcol);
 }
 
 //
@@ -1478,12 +1464,11 @@ void R_DrawFuzzColumnD()
 void R_DrawFuzzMaskedColumnD()
 {
 	// adjust the borders (prevent buffer over/under-reads)
-	if (dcol.yl <= 0)
-		dcol.yl = 1;
-	if (dcol.yh >= realviewheight - 1)
-		dcol.yh = realviewheight - 2;
+	dcol.yl = MIN(1, dcol.yl);
+	dcol.yh = MAX(realviewheight - 2, dcol.yh);
 
-	R_FillMaskedColumnGeneric<argb_t, DirectFuzzyFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_FillMaskedColumnGeneric<argb_t, DirectFuzzyFunc>(dcol);
 }
 
 //
@@ -1496,7 +1481,8 @@ void R_DrawFuzzMaskedColumnD()
 //
 void R_DrawTranslucentColumnD()
 {
-	R_DrawColumnGeneric<argb_t, DirectTranslucentColormapFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_DrawColumnGeneric<argb_t, DirectTranslucentColormapFunc>(dcol);
 }
 
 //
@@ -1510,7 +1496,8 @@ void R_DrawTranslucentColumnD()
 //
 void R_DrawTranslucentMaskedColumnD()
 {
-	R_DrawMaskedColumnGeneric<argb_t, DirectTranslucentColormapFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslucentColormapFunc>(dcol);
 }
 
 //
@@ -1522,7 +1509,8 @@ void R_DrawTranslucentMaskedColumnD()
 //
 void R_DrawTranslatedColumnD()
 {
-	R_DrawColumnGeneric<argb_t, DirectTranslatedColormapFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_DrawColumnGeneric<argb_t, DirectTranslatedColormapFunc>(dcol);
 }
 
 //
@@ -1535,7 +1523,8 @@ void R_DrawTranslatedColumnD()
 //
 void R_DrawTranslatedMaskedColumnD()
 {
-	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedColormapFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedColormapFunc>(dcol);
 }
 
 //
@@ -1549,7 +1538,8 @@ void R_DrawTranslatedMaskedColumnD()
 //
 void R_DrawTranslatedTranslucentColumnD()
 {
-	R_DrawColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_DrawColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(dcol);
 }
 
 //
@@ -1564,7 +1554,8 @@ void R_DrawTranslatedTranslucentColumnD()
 //
 void R_DrawTranslatedTranslucentMaskedColumnD()
 {
-	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(FB_COLDEST_D, dcol);
+	dcol.dest = (byte*)FB_COLDEST_D;
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(dcol);
 }
 
 // ----------------------------------------------------------------------------
@@ -1583,7 +1574,8 @@ void R_DrawTranslatedTranslucentMaskedColumnD()
 //
 void R_FillSpanD()
 {
-	R_FillSpanGeneric<argb_t, DirectFunc>(FB_SPANDEST_D, dspan);
+	dspan.dest = (byte*)FB_SPANDEST_D;
+	R_FillSpanGeneric<argb_t, DirectFunc>(dspan);
 }
 
 //
@@ -1595,7 +1587,8 @@ void R_FillSpanD()
 //
 void R_FillTranslucentSpanD()
 {
-	R_FillSpanGeneric<argb_t, DirectTranslucentColormapFunc>(FB_SPANDEST_D, dspan);
+	dspan.dest = (byte*)FB_SPANDEST_D;
+	R_FillSpanGeneric<argb_t, DirectTranslucentColormapFunc>(dspan);
 }
 
 //
@@ -1606,7 +1599,8 @@ void R_FillTranslucentSpanD()
 //
 void R_DrawSpanD_c()
 {
-	R_DrawLevelSpanGeneric<argb_t, DirectColormapFunc>(FB_SPANDEST_D, dspan);
+	dspan.dest = (byte*)FB_SPANDEST_D;
+	R_DrawLevelSpanGeneric<argb_t, DirectColormapFunc>(dspan);
 }
 
 //
@@ -1617,7 +1611,8 @@ void R_DrawSpanD_c()
 //
 void R_DrawSlopeSpanD_c()
 {
-	R_DrawSlopedSpanGeneric<argb_t, DirectSlopeColormapFunc>(FB_SPANDEST_D, dspan);
+	dspan.dest = (byte*)FB_SPANDEST_D;
+	R_DrawSlopedSpanGeneric<argb_t, DirectSlopeColormapFunc>(dspan);
 }
 
 
