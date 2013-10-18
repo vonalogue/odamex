@@ -85,27 +85,27 @@ int				detailyshift;		// [RH] Y shift for vertical detail level
 // [RH] Pointers to the different column drawers.
 //		These get changed depending on the current
 //		screen depth.
-void (*R_FillColumn)();
-void (*R_FillMaskedColumn)();
-void (*R_DrawColumn)();
-void (*R_DrawMaskedColumn)();
-void (*R_DrawFuzzColumn)();
-void (*R_DrawFuzzMaskedColumn)();
-void (*R_DrawTranslucentColumn)();
-void (*R_DrawTranslucentMaskedColumn)();
-void (*R_DrawTranslatedColumn)();
-void (*R_DrawTranslatedMaskedColumn)();
-void (*R_DrawTranslatedTranslucentColumn)();
-void (*R_DrawTranslatedTranslucentMaskedColumn)();
+void (*R_FillColumn)(drawcolumn_t&);
+void (*R_FillMaskedColumn)(drawcolumn_t&);
+void (*R_DrawColumn)(drawcolumn_t&);
+void (*R_DrawMaskedColumn)(drawcolumn_t&);
+void (*R_DrawFuzzColumn)(drawcolumn_t&);
+void (*R_DrawFuzzMaskedColumn)(drawcolumn_t&);
+void (*R_DrawTranslucentColumn)(drawcolumn_t&);
+void (*R_DrawTranslucentMaskedColumn)(drawcolumn_t&);
+void (*R_DrawTranslatedColumn)(drawcolumn_t&);
+void (*R_DrawTranslatedMaskedColumn)(drawcolumn_t&);
+void (*R_DrawTranslatedTranslucentColumn)(drawcolumn_t&);
+void (*R_DrawTranslatedTranslucentMaskedColumn)(drawcolumn_t&);
 
-void (*R_DrawSpan)();
-void (*R_DrawSlopeSpan)();
-void (*R_FillSpan)();
-void (*R_FillTranslucentSpan)();
+void (*R_DrawSpan)(drawspan_t&);
+void (*R_DrawSlopeSpan)(drawspan_t&);
+void (*R_FillSpan)(drawspan_t&);
+void (*R_FillTranslucentSpan)(drawspan_t&);
 
 // Possibly vectorized functions:
-void (*R_DrawSpanD)();
-void (*R_DrawSlopeSpanD)();
+void (*R_DrawSpanD)(drawspan_t&);
+void (*R_DrawSlopeSpanD)(drawspan_t&);
 void (*r_dimpatchD)(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h);
 
 // ============================================================================
@@ -420,7 +420,7 @@ void R_BuildPlayerTranslation (int player, int color)
 // [SL] - Does nothing (obviously). Used when a column drawing function
 // pointer should not draw anything.
 //
-void R_BlankColumn()
+void R_BlankColumn(drawcolumn_t& drawcolumn)
 {
 }
 
@@ -430,7 +430,7 @@ void R_BlankColumn()
 // [SL] - Does nothing (obviously). Used when a span drawing function
 // pointer should not draw anything.
 //
-void R_BlankSpan()
+void R_BlankSpan(drawspan_t& drawspan)
 {
 }
 
@@ -1003,18 +1003,15 @@ private:
 //
 // ----------------------------------------------------------------------------
 
-#define FB_COLDEST_P ((palindex_t*)(ylookup[dcol.yl] + columnofs[dcol.x]))
-
 //
 // R_FillColumnP
 //
 // Fills a column in the 8bpp palettized screen buffer with a solid color,
 // determined by dcol.color. Performs no shading.
 //
-void R_FillColumnP()
+void R_FillColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_FillColumnGeneric<palindex_t, PaletteFunc>(dcol);
+	R_FillColumnGeneric<palindex_t, PaletteFunc>(drawcolumn);
 }
 
 //
@@ -1024,10 +1021,9 @@ void R_FillColumnP()
 // determined by dcol.color. Performs no shading.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_FillMaskedColumnP()
+void R_FillMaskedColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_FillMaskedColumnGeneric<palindex_t, PaletteFunc>(dcol);
+	R_FillMaskedColumnGeneric<palindex_t, PaletteFunc>(drawcolumn);
 }
 
 //
@@ -1036,10 +1032,9 @@ void R_FillMaskedColumnP()
 // Renders a column to the 8bpp palettized screen buffer from the source buffer
 // dcol.source and scaled by dcol.iscale. Shading is performed using dcol.colormap.
 //
-void R_DrawColumnP()
+void R_DrawColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_DrawColumnGeneric<palindex_t, PaletteColormapFunc>(dcol);
+	R_DrawColumnGeneric<palindex_t, PaletteColormapFunc>(drawcolumn);
 }
 
 //
@@ -1049,10 +1044,9 @@ void R_DrawColumnP()
 // dc_source and scaled by dc_iscale. Shading is performed using dc_colormap.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawMaskedColumnP()
+void R_DrawMaskedColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteColormapFunc>(dcol);
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteColormapFunc>(drawcolumn);
 }
 
 //
@@ -1062,14 +1056,14 @@ void R_DrawMaskedColumnP()
 // invisibility effect, which shades the column and rearranges the ordering
 // the pixels to create distortion. Shading is performed using colormap 6.
 //
-void R_DrawFuzzColumnP()
+void R_DrawFuzzColumnP(drawcolumn_t& drawcolumn)
 {
 	// adjust the borders (prevent buffer over/under-reads)
 	dcol.yl = MIN(1, dcol.yl);
 	dcol.yh = MAX(realviewheight - 2, dcol.yh);
+	dcol.dest = R_CalculateDestination(dcol);
 
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_FillColumnGeneric<palindex_t, PaletteFuzzyFunc>(dcol);
+	R_FillColumnGeneric<palindex_t, PaletteFuzzyFunc>(drawcolumn);
 }
 
 //
@@ -1080,14 +1074,14 @@ void R_DrawFuzzColumnP()
 // the pixels to create distortion. Shading is performed using colormap 6.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawFuzzMaskedColumnP()
+void R_DrawFuzzMaskedColumnP(drawcolumn_t& drawcolumn)
 {
 	// adjust the borders (prevent buffer over/under-reads)
 	dcol.yl = MIN(1, dcol.yl);
 	dcol.yh = MAX(realviewheight - 2, dcol.yh);
+	dcol.dest = R_CalculateDestination(dcol);
 
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_FillMaskedColumnGeneric<palindex_t, PaletteFuzzyFunc>(dcol);
+	R_FillMaskedColumnGeneric<palindex_t, PaletteFuzzyFunc>(drawcolumn);
 }
 
 //
@@ -1098,10 +1092,9 @@ void R_DrawFuzzMaskedColumnP()
 // translucency is controlled by dcol.translevel. Shading is performed using
 // dcol.colormap.
 //
-void R_DrawTranslucentColumnP()
+void R_DrawTranslucentColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_DrawColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(dcol);
+	R_DrawColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(drawcolumn);
 }
 
 //
@@ -1113,10 +1106,9 @@ void R_DrawTranslucentColumnP()
 // dcol.colormap.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawTranslucentMaskedColumnP()
+void R_DrawTranslucentMaskedColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(dcol);
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslucentColormapFunc>(drawcolumn);
 }
 
 //
@@ -1126,10 +1118,9 @@ void R_DrawTranslucentMaskedColumnP()
 // from the source buffer dcol.source and scaled by dcol.iscale. The translation
 // table is supplied by dcol.translation. Shading is performed using dcol.colormap.
 //
-void R_DrawTranslatedColumnP()
+void R_DrawTranslatedColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_DrawColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(dcol);
+	R_DrawColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(drawcolumn);
 }
 
 //
@@ -1140,10 +1131,9 @@ void R_DrawTranslatedColumnP()
 // table is supplied by dcol.translation. Shading is performed using dcol.colormap.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawTranslatedMaskedColumnP()
+void R_DrawTranslatedMaskedColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(dcol);
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedColormapFunc>(drawcolumn);
 }
 
 //
@@ -1155,10 +1145,9 @@ void R_DrawTranslatedMaskedColumnP()
 // translucency is controlled by dcol.translevel. Shading is performed using
 // dcol.colormap.
 //
-void R_DrawTranslatedTranslucentColumnP()
+void R_DrawTranslatedTranslucentColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_DrawColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(dcol);
+	R_DrawColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(drawcolumn);
 }
 
 //
@@ -1171,10 +1160,9 @@ void R_DrawTranslatedTranslucentColumnP()
 // dcol.colormap.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawTranslatedTranslucentMaskedColumnP()
+void R_DrawTranslatedTranslucentMaskedColumnP(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_P;
-	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(dcol);
+	R_DrawMaskedColumnGeneric<palindex_t, PaletteTranslatedTranslucentColormapFunc>(drawcolumn);
 }
 
 // ----------------------------------------------------------------------------
@@ -1183,18 +1171,15 @@ void R_DrawTranslatedTranslucentMaskedColumnP()
 //
 // ----------------------------------------------------------------------------
 
-#define FB_SPANDEST_P ((palindex_t*)(ylookup[dspan.y] + columnofs[dspan.x1]))
-
 //
 // R_FillSpanP
 //
 // Fills a span in the 8bpp palettized screen buffer with a solid color,
 // determined by ds_color. Performs no shading.
 //
-void R_FillSpanP()
+void R_FillSpanP(drawspan_t& drawspan)
 {
-	dspan.dest = (byte*)FB_SPANDEST_P;
-	R_FillSpanGeneric<palindex_t, PaletteFunc>(dspan);
+	R_FillSpanGeneric<palindex_t, PaletteFunc>(drawspan);
 }
 
 //
@@ -1204,10 +1189,9 @@ void R_FillSpanP()
 // determined by ds_color using translucency. Shading is performed 
 // using ds_colormap.
 //
-void R_FillTranslucentSpanP()
+void R_FillTranslucentSpanP(drawspan_t& drawspan)
 {
-	dspan.dest = (byte*)FB_SPANDEST_P;
-	R_FillSpanGeneric<palindex_t, PaletteTranslucentColormapFunc>(dspan);
+	R_FillSpanGeneric<palindex_t, PaletteTranslucentColormapFunc>(drawspan);
 }
 
 //
@@ -1216,10 +1200,9 @@ void R_FillTranslucentSpanP()
 // Renders a span for a level plane to the 8bpp palettized screen buffer from
 // the source buffer ds_source. Shading is performed using ds_colormap.
 //
-void R_DrawSpanP()
+void R_DrawSpanP(drawspan_t& drawspan)
 {
-	dspan.dest = (byte*)FB_SPANDEST_P;
-	R_DrawLevelSpanGeneric<palindex_t, PaletteColormapFunc>(dspan);
+	R_DrawLevelSpanGeneric<palindex_t, PaletteColormapFunc>(drawspan);
 }
 
 //
@@ -1228,10 +1211,9 @@ void R_DrawSpanP()
 // Renders a span for a sloped plane to the 8bpp palettized screen buffer from
 // the source buffer ds_source. Shading is performed using ds_colormap.
 //
-void R_DrawSlopeSpanP()
+void R_DrawSlopeSpanP(drawspan_t& drawspan)
 {
-	dspan.dest = (byte*)FB_SPANDEST_P;
-	R_DrawSlopedSpanGeneric<palindex_t, PaletteSlopeColormapFunc>(dspan);
+	R_DrawSlopedSpanGeneric<palindex_t, PaletteSlopeColormapFunc>(drawspan);
 }
 
 
@@ -1384,18 +1366,15 @@ private:
 //
 // ----------------------------------------------------------------------------
 
-#define FB_COLDEST_D ((argb_t*)(ylookup[dcol.yl] + columnofs[dcol.x]))
-
 //
 // R_FillColumnD
 //
 // Fills a column in the 32bpp ARGB8888 screen buffer with a solid color,
 // determined by dcol.color. Performs no shading.
 //
-void R_FillColumnD()
+void R_FillColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_FillColumnGeneric<argb_t, DirectFunc>(dcol);
+	R_FillColumnGeneric<argb_t, DirectFunc>(drawcolumn);
 }
 
 //
@@ -1405,10 +1384,9 @@ void R_FillColumnD()
 // determined by dcol.color. Performs no shading.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_FillMaskedColumnD()
+void R_FillMaskedColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_FillMaskedColumnGeneric<argb_t, DirectFunc>(dcol);
+	R_FillMaskedColumnGeneric<argb_t, DirectFunc>(drawcolumn);
 }
 
 //
@@ -1417,10 +1395,9 @@ void R_FillMaskedColumnD()
 // Renders a column to the 32bpp ARGB8888 screen buffer from the source buffer
 // dcol.source and scaled by dcol.iscale. Shading is performed using dcol.colormap.
 //
-void R_DrawColumnD()
+void R_DrawColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_DrawColumnGeneric<argb_t, DirectColormapFunc>(dcol);
+	R_DrawColumnGeneric<argb_t, DirectColormapFunc>(drawcolumn);
 }
 
 //
@@ -1430,10 +1407,9 @@ void R_DrawColumnD()
 // dc_source and scaled by dc_iscale. Shading is performed using dc_colormap.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawMaskedColumnD()
+void R_DrawMaskedColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_DrawMaskedColumnGeneric<argb_t, DirectColormapFunc>(dcol);
+	R_DrawMaskedColumnGeneric<argb_t, DirectColormapFunc>(drawcolumn);
 }
 
 //
@@ -1443,14 +1419,14 @@ void R_DrawMaskedColumnD()
 // invisibility effect, which shades the column and rearranges the ordering
 // the pixels to create distortion. Shading is performed using colormap 6.
 //
-void R_DrawFuzzColumnD()
+void R_DrawFuzzColumnD(drawcolumn_t& drawcolumn)
 {
 	// adjust the borders (prevent buffer over/under-reads)
 	dcol.yl = MIN(1, dcol.yl);
 	dcol.yh = MAX(realviewheight - 2, dcol.yh);
+	dcol.dest = R_CalculateDestination(dcol);
 
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_FillColumnGeneric<argb_t, DirectFuzzyFunc>(dcol);
+	R_FillColumnGeneric<argb_t, DirectFuzzyFunc>(drawcolumn);
 }
 
 //
@@ -1461,14 +1437,14 @@ void R_DrawFuzzColumnD()
 // the pixels to create distortion. Shading is performed using colormap 6.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawFuzzMaskedColumnD()
+void R_DrawFuzzMaskedColumnD(drawcolumn_t& drawcolumn)
 {
 	// adjust the borders (prevent buffer over/under-reads)
 	dcol.yl = MIN(1, dcol.yl);
 	dcol.yh = MAX(realviewheight - 2, dcol.yh);
+	dcol.dest = R_CalculateDestination(dcol);
 
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_FillMaskedColumnGeneric<argb_t, DirectFuzzyFunc>(dcol);
+	R_FillMaskedColumnGeneric<argb_t, DirectFuzzyFunc>(drawcolumn);
 }
 
 //
@@ -1479,10 +1455,9 @@ void R_DrawFuzzMaskedColumnD()
 // translucency is controlled by dcol.translevel. Shading is performed using
 // dcol.colormap.
 //
-void R_DrawTranslucentColumnD()
+void R_DrawTranslucentColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_DrawColumnGeneric<argb_t, DirectTranslucentColormapFunc>(dcol);
+	R_DrawColumnGeneric<argb_t, DirectTranslucentColormapFunc>(drawcolumn);
 }
 
 //
@@ -1494,10 +1469,9 @@ void R_DrawTranslucentColumnD()
 // dcol.colormap.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawTranslucentMaskedColumnD()
+void R_DrawTranslucentMaskedColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_DrawMaskedColumnGeneric<argb_t, DirectTranslucentColormapFunc>(dcol);
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslucentColormapFunc>(drawcolumn);
 }
 
 //
@@ -1507,10 +1481,9 @@ void R_DrawTranslucentMaskedColumnD()
 // from the source buffer dcol.source and scaled by dcol.iscale. The translation
 // table is supplied by dcol.translation. Shading is performed using dcol.colormap.
 //
-void R_DrawTranslatedColumnD()
+void R_DrawTranslatedColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_DrawColumnGeneric<argb_t, DirectTranslatedColormapFunc>(dcol);
+	R_DrawColumnGeneric<argb_t, DirectTranslatedColormapFunc>(drawcolumn);
 }
 
 //
@@ -1521,10 +1494,9 @@ void R_DrawTranslatedColumnD()
 // table is supplied by dcol.translation. Shading is performed using dcol.colormap.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawTranslatedMaskedColumnD()
+void R_DrawTranslatedMaskedColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedColormapFunc>(dcol);
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedColormapFunc>(drawcolumn);
 }
 
 //
@@ -1536,10 +1508,9 @@ void R_DrawTranslatedMaskedColumnD()
 // translucency is controlled by dcol.translevel. Shading is performed using
 // dcol.colormap.
 //
-void R_DrawTranslatedTranslucentColumnD()
+void R_DrawTranslatedTranslucentColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_DrawColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(dcol);
+	R_DrawColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(drawcolumn);
 }
 
 //
@@ -1552,10 +1523,9 @@ void R_DrawTranslatedTranslucentColumnD()
 // dcol.colormap.
 // Pixels identified with a 0 in dcol.mask are not drawn.
 //
-void R_DrawTranslatedTranslucentMaskedColumnD()
+void R_DrawTranslatedTranslucentMaskedColumnD(drawcolumn_t& drawcolumn)
 {
-	dcol.dest = (byte*)FB_COLDEST_D;
-	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(dcol);
+	R_DrawMaskedColumnGeneric<argb_t, DirectTranslatedTranslucentColormapFunc>(drawcolumn);
 }
 
 // ----------------------------------------------------------------------------
@@ -1564,18 +1534,15 @@ void R_DrawTranslatedTranslucentMaskedColumnD()
 //
 // ----------------------------------------------------------------------------
 
-#define FB_SPANDEST_D ((argb_t*)(ylookup[dspan.y] + columnofs[dspan.x1]))
-
 //
 // R_FillSpanD
 //
 // Fills a span in the 32bpp ARGB8888 screen buffer with a solid color,
 // determined by ds_color. Performs no shading.
 //
-void R_FillSpanD()
+void R_FillSpanD(drawspan_t& drawspan)
 {
-	dspan.dest = (byte*)FB_SPANDEST_D;
-	R_FillSpanGeneric<argb_t, DirectFunc>(dspan);
+	R_FillSpanGeneric<argb_t, DirectFunc>(drawspan);
 }
 
 //
@@ -1585,10 +1552,9 @@ void R_FillSpanD()
 // determined by ds_color using translucency. Shading is performed 
 // using ds_colormap.
 //
-void R_FillTranslucentSpanD()
+void R_FillTranslucentSpanD(drawspan_t& drawspan)
 {
-	dspan.dest = (byte*)FB_SPANDEST_D;
-	R_FillSpanGeneric<argb_t, DirectTranslucentColormapFunc>(dspan);
+	R_FillSpanGeneric<argb_t, DirectTranslucentColormapFunc>(drawspan);
 }
 
 //
@@ -1597,10 +1563,9 @@ void R_FillTranslucentSpanD()
 // Renders a span for a level plane to the 32bpp ARGB8888 screen buffer from
 // the source buffer ds_source. Shading is performed using ds_colormap.
 //
-void R_DrawSpanD_c()
+void R_DrawSpanD_c(drawspan_t& drawspan)
 {
-	dspan.dest = (byte*)FB_SPANDEST_D;
-	R_DrawLevelSpanGeneric<argb_t, DirectColormapFunc>(dspan);
+	R_DrawLevelSpanGeneric<argb_t, DirectColormapFunc>(drawspan);
 }
 
 //
@@ -1609,10 +1574,9 @@ void R_DrawSpanD_c()
 // Renders a span for a sloped plane to the 32bpp ARGB8888 screen buffer from
 // the source buffer ds_source. Shading is performed using ds_colormap.
 //
-void R_DrawSlopeSpanD_c()
+void R_DrawSlopeSpanD_c(drawspan_t& drawspan)
 {
-	dspan.dest = (byte*)FB_SPANDEST_D;
-	R_DrawSlopedSpanGeneric<argb_t, DirectSlopeColormapFunc>(dspan);
+	R_DrawSlopedSpanGeneric<argb_t, DirectSlopeColormapFunc>(drawspan);
 }
 
 
@@ -1625,10 +1589,7 @@ void R_DrawSlopeSpanD_c()
 //  for getting the framebuffer address
 //  of a pixel to draw.
 //
-void
-R_InitBuffer
-( int		width,
-  int		height ) 
+void R_InitBuffer(int width, int height) 
 { 
 	int 		i;
 	byte		*buffer;

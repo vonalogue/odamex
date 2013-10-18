@@ -192,8 +192,9 @@ void R_MapSlopedPlane(int y, int x1, int x2)
    	dspan.y = y;
 	dspan.x1 = x1;
 	dspan.x2 = x2;
+	dspan.dest = R_CalculateDestination(dspan);
 
-	spanslopefunc();
+	spanslopefunc(dspan);
 }
 
 
@@ -246,8 +247,9 @@ void R_MapLevelPlane(int y, int x1, int x2)
 	dspan.y = y;
 	dspan.x1 = x1;
 	dspan.x2 = x2;
+	dspan.dest = R_CalculateDestination(dspan);
 
-	spanfunc();
+	spanfunc(dspan);
 }
 
 //

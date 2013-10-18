@@ -96,48 +96,48 @@ void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
 		byte** cols, void (*colblast)(), bool calc_light);
 
 // [RH] Pointers to the different column and span drawers...
-extern void (*R_FillColumn)(void);
-extern void (*R_FillMaskedColumn)(void);
+extern void (*R_FillColumn)(drawcolumn_t&);
+extern void (*R_FillMaskedColumn)(drawcolumn_t&);
 
-extern void (*R_DrawColumn)(void);
-extern void (*R_DrawMaskedColumn)(void);
+extern void (*R_DrawColumn)(drawcolumn_t&);
+extern void (*R_DrawMaskedColumn)(drawcolumn_t&);
 
 // The Spectre/Invisibility effect.
-extern void (*R_DrawFuzzColumn)(void);
-extern void (*R_DrawFuzzMaskedColumn)(void);
+extern void (*R_DrawFuzzColumn)(drawcolumn_t&);
+extern void (*R_DrawFuzzMaskedColumn)(drawcolumn_t&);
 
 // [RH] Draw translucent column;
-extern void (*R_DrawTranslucentColumn)(void);
-extern void (*R_DrawTranslucentMaskedColumn)(void);
+extern void (*R_DrawTranslucentColumn)(drawcolumn_t&);
+extern void (*R_DrawTranslucentMaskedColumn)(drawcolumn_t&);
 
 // Draw with color translation tables,
 //	for player sprite rendering,
 //	Green/Red/Blue/Indigo shirts.
-extern void (*R_DrawTranslatedColumn)(void);
-extern void (*R_DrawTranslatedMaskedColumn)(void);
+extern void (*R_DrawTranslatedColumn)(drawcolumn_t&);
+extern void (*R_DrawTranslatedMaskedColumn)(drawcolumn_t&);
 
 // Translated & translucent
-extern void (*R_DrawTranslatedTranslucentColumn)(void);
-extern void (*R_DrawTranslatedTranslucentMaskedColumn)(void);
+extern void (*R_DrawTranslatedTranslucentColumn)(drawcolumn_t&);
+extern void (*R_DrawTranslatedTranslucentMaskedColumn)(drawcolumn_t&);
 
 // Span blitting for rows, floor/ceiling.
 // No Sepctre effect needed.
-extern void (*R_DrawSpan)(void);
-extern void (*R_DrawSlopeSpan)(void);
+extern void (*R_DrawSpan)(drawspan_t&);
+extern void (*R_DrawSlopeSpan)(drawspan_t&);
 
-extern void (*R_FillSpan)(void);
-extern void (*R_FillTranslucentSpan)(void);
+extern void (*R_FillSpan)(drawspan_t&);
+extern void (*R_FillTranslucentSpan)(drawspan_t&);
 
 // [RH] Initialize the above function pointers
 void R_InitColumnDrawers ();
 
 void R_InitDrawers ();
 
-void	R_BlankColumn (void);
-void	R_BlankSpan (void);
+void	R_BlankColumn (drawcolumn_t&);
+void	R_BlankSpan (drawspan_t&);
 
-void R_DrawSpanD_c(void);
-void R_DrawSlopeSpanD_c(void);
+void R_DrawSpanD_c(drawspan_t&);
+void R_DrawSlopeSpanD_c(drawspan_t&);
 
 #define SPANJUMP 16
 #define INTERPSTEP (0.0625f)
@@ -147,26 +147,26 @@ void R_DrawSlopeSpanD_c(void);
 void r_dimpatchD_c(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h);
 
 #ifdef __SSE2__
-void R_DrawSpanD_SSE2(void);
-void R_DrawSlopeSpanD_SSE2(void);
+void R_DrawSpanD_SSE2(drawspan_t&);
+void R_DrawSlopeSpanD_SSE2(drawspan_t&);
 void r_dimpatchD_SSE2(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h);
 #endif
 
 #ifdef __MMX__
-void R_DrawSpanD_MMX(void);
-void R_DrawSlopeSpanD_MMX(void);
+void R_DrawSpanD_MMX(drawspan_t&);
+void R_DrawSlopeSpanD_MMX(drawspan_t&);
 void r_dimpatchD_MMX(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h);
 #endif
 
 #ifdef __ALTIVEC__
-void R_DrawSpanD_ALTIVEC(void);
-void R_DrawSlopeSpanD_ALTIVEC(void);
+void R_DrawSpanD_ALTIVEC(drawspan_t&);
+void R_DrawSlopeSpanD_ALTIVEC(drawspan_t&);
 void r_dimpatchD_ALTIVEC(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h);
 #endif
 
 // Vectorizable function pointers:
-extern void (*R_DrawSpanD)(void);
-extern void (*R_DrawSlopeSpanD)(void);
+extern void (*R_DrawSpanD)(drawspan_t&);
+extern void (*R_DrawSlopeSpanD)(drawspan_t&);
 extern void (*r_dimpatchD)(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h);
 
 extern byte*			translationtables;
@@ -216,6 +216,16 @@ void R_DrawBorder (int x1, int y1, int x2, int y2);
 // [RH] Added for muliresolution support
 void R_InitFuzzTable (void);
 
+// [SL] Determine the screen buffer position to start drawing
+inline byte* R_CalculateDestination(const drawcolumn_t& drawcolumn)
+{
+	return (byte*)(ylookup[drawcolumn.yl] + columnofs[drawcolumn.x]);
+}
+
+inline byte* R_CalculateDestination(const drawspan_t& drawspan)
+{
+	return (byte*)(ylookup[drawspan.y] + columnofs[drawspan.x1]);
+}
 
 #endif
 

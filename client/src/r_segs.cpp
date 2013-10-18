@@ -143,7 +143,7 @@ static void R_FillWallHeightArray(
 //
 // R_BlastMaskedSegColumn
 //
-static inline void R_BlastMaskedSegColumn(void (*drawfunc)())
+static inline void R_BlastMaskedSegColumn(void (*drawfunc)(drawcolumn_t&))
 {
 	if (wallscalex[dcol.x] <= 0)
 		return;
@@ -153,7 +153,7 @@ static inline void R_BlastMaskedSegColumn(void (*drawfunc)())
 	dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
 
 	if (dcol.yl <= dcol.yh)
-		drawfunc();
+		drawfunc(dcol);
 }
 
 inline void MaskedColumnBlaster()
@@ -165,7 +165,7 @@ inline void MaskedColumnBlaster()
 //
 // R_BlastSolidSegColumn
 //
-static inline void R_BlastSolidSegColumn(void (*drawfunc)())
+static inline void R_BlastSolidSegColumn(void (*drawfunc)(drawcolumn_t&))
 {
 	if (wallscalex[dcol.x] <= 0)
 		return;
@@ -175,7 +175,7 @@ static inline void R_BlastSolidSegColumn(void (*drawfunc)())
 	dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
 
 	if (dcol.yl <= dcol.yh)
-		drawfunc();
+		drawfunc(dcol);
 }
 
 inline void SolidColumnBlaster()
@@ -285,6 +285,7 @@ void R_RenderColumnRange(int start, int stop, int* top, int* bottom, byte** cols
 				dcol.yl = MAX(top[x], blockstarty);
 				dcol.yh = MIN(bottom[x], blockstopy);
 				dcol.source = cols[x];
+				dcol.dest = R_CalculateDestination(dcol);
 				colblast();
 			}
 		}

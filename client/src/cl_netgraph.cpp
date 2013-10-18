@@ -69,7 +69,10 @@ static void NetGraphDrawBar(int startx, int starty, int width, int height, int c
 	dspan.x2 = startx + width - 1;
 
 	for (dspan.y = starty; dspan.y < starty + height; dspan.y++)
-		R_FillSpan();
+	{
+		dspan.dest = R_CalculateDestination(dspan);
+		R_FillSpan(dspan);
+	}
 }
 
 void NetGraph::drawWorldIndexSync(int x, int y)

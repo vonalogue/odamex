@@ -26,6 +26,7 @@
 #define __R_MAIN_H__
 
 #include "d_player.h"
+#include "r_draw.h"
 #include "r_data.h"
 #include "v_palette.h"
 #include "m_vectors.h"
@@ -114,16 +115,10 @@ extern "C" int			detailyshift;
 //
 // Function pointers to switch refresh/drawing functions.
 //
-extern void 			(*colfunc) (void);
-extern void 			(*maskedcolfunc) (void);
-extern void 			(*spanfunc) (void);
-extern void				(*spanslopefunc) (void);
-
-// [RH] Function pointers for the horizontal column drawers.
-extern void (*hcolfunc_pre) (void);
-extern void (*hcolfunc_post1) (int hx, int sx, int yl, int yh);
-extern void (*hcolfunc_post4) (int sx, int yl, int yh);
-
+extern void (*colfunc)(drawcolumn_t&);
+extern void (*maskedcolfunc)(drawcolumn_t&);
+extern void (*spanfunc)(drawspan_t&);
+extern void (*spanslopefunc)(drawspan_t&);
 
 //
 // Utility functions.
@@ -133,18 +128,12 @@ int R_PointOnSide(fixed_t x, fixed_t y, fixed_t xl, fixed_t yl, fixed_t xh, fixe
 int R_PointOnSegSide(fixed_t x, fixed_t y, const seg_t* line);
 bool R_PointOnLine(fixed_t x, fixed_t y, fixed_t xl, fixed_t yl, fixed_t xh, fixed_t yh);
 
-angle_t
-R_PointToAngle
-( fixed_t	x,
-  fixed_t	y );
+angle_t R_PointToAngle(fixed_t x, fixed_t y);
 
 // 2/1/10: Updated (from EE) to restore vanilla style, with tweak for overflow tolerance
 angle_t R_PointToAngle2(fixed_t viewx, fixed_t viewy, fixed_t x, fixed_t y);
 
-fixed_t
-R_PointToDist
-( fixed_t	x,
-  fixed_t	y );
+fixed_t R_PointToDist(fixed_t x, fixed_t y);
 
 int R_ProjectPointX(fixed_t x, fixed_t y);
 int R_ProjectPointY(fixed_t z, fixed_t y);
@@ -161,16 +150,9 @@ void R_ClipLine(const vertex_t* in1, const vertex_t* in2,
 				int32_t lclip, int32_t rclip,
 				v2fixed_t* out1, v2fixed_t* out2);
 
-subsector_t*
-R_PointInSubsector
-( fixed_t	x,
-  fixed_t	y );
+subsector_t* R_PointInSubsector(fixed_t x, fixed_t y);
 
-void
-R_AddPointToBox
-( int		x,
-  int		y,
-  fixed_t*	box );
+void R_AddPointToBox(int x, int y, fixed_t* box);
 
 fixed_t R_PointToDist2 (fixed_t dx, fixed_t dy);
 void R_SetFOV(float fov, bool force);

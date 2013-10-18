@@ -667,7 +667,7 @@ byte* maskedcols[MAXWIDTH];
 //
 // R_BlastSpriteColumn
 //
-static inline void R_BlastSpriteColumn(void (*drawfunc)())
+static inline void R_BlastSpriteColumn(void (*drawfunc)(drawcolumn_t&))
 {
 	// TODO: dc_texturefrac should take y-scaling of textures into account
 	dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
@@ -675,7 +675,7 @@ static inline void R_BlastSpriteColumn(void (*drawfunc)())
 	dcol.mask = maskedcols[dcol.x];
 
 	if (dcol.yl <= dcol.yh)
-		drawfunc();
+		drawfunc(dcol);
 }
 
 
@@ -1681,7 +1681,10 @@ void R_DrawParticle(vissprite_t* vis)
 	dspan.color = vis->startfrac;
 
 	for (dspan.y = y1; dspan.y <= y2; dspan.y++)
-		R_FillTranslucentSpan();
+	{
+		dspan.dest = R_CalculateDestination(dspan);
+		R_FillTranslucentSpan(dspan);
+	}
 }
 
 VERSION_CONTROL (r_things_cpp, "$Id$")

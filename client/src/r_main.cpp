@@ -144,10 +144,10 @@ fixed_t			freelookviewheight;
 
 unsigned int	R_OldBlend = ~0;
 
-void (*colfunc) (void);
-void (*maskedcolfunc) (void);
-void (*spanfunc) (void);
-void (*spanslopefunc) (void);
+void (*colfunc)(drawcolumn_t&);
+void (*maskedcolfunc)(drawcolumn_t&);
+void (*spanfunc)(drawspan_t&);
+void (*spanslopefunc)(drawspan_t&);
 
 // [AM] Number of fineangles in a default 90 degree FOV at a 4:3 resolution.
 int FieldOfView = 2048;

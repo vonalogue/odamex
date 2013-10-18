@@ -139,12 +139,12 @@ void R_InitSkyMap ()
 //
 // R_BlastSkyColumn
 //
-static inline void R_BlastSkyColumn(void (*drawfunc)(void))
+static inline void R_BlastSkyColumn(void (*drawfunc)(drawcolumn_t&))
 {
 	if (dcol.yl <= dcol.yh)
 	{
 		dcol.texturefrac = dcol.texturemid + (dcol.yl - centery + 1) * dcol.iscale;
-		drawfunc();
+		drawfunc(dcol);
 	}
 }
 

@@ -117,18 +117,13 @@ fixed_t		render_lerp_amount;
 
 unsigned int	R_OldBlend = ~0;
 
-void (*colfunc) (void);
-void (*basecolfunc) (void);
-void (*fuzzcolfunc) (void);
-void (*lucentcolfunc) (void);
-void (*transcolfunc) (void);
-void (*tlatedlucentcolfunc) (void);
-void (*spanfunc) (void);
-
-void (*hcolfunc_pre) (void);
-void (*hcolfunc_post1) (int hx, int sx, int yl, int yh);
-void (*hcolfunc_post2) (int hx, int sx, int yl, int yh);
-void (*hcolfunc_post4) (int sx, int yl, int yh);
+void (*colfunc)(drawcolumn_t&);
+void (*basecolfunc)(drawcolumn_t&);
+void (*fuzzcolfunc)(drawcolumn_t&);
+void (*lucentcolfunc)(drawcolumn_t&);
+void (*transcolfunc)(drawcolumn_t&);
+void (*tlatedlucentcolfunc)(drawcolumn_t&);
+void (*spanfunc)(drawspan_t&);
 
 #define R_P2ATHRESHOLD (INT_MAX / 4)
 

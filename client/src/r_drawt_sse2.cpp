@@ -80,20 +80,13 @@
 
 // Direct rendering (32-bit) functions for SSE2 optimization:
 
-void R_DrawSpanD_SSE2 (void)
+void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 {
-	argb_t*             dest;
-
 #ifdef RANGECHECK
-	if (dspan.x2 < dspan.x1
-		|| dspan.x1<0
-		|| dspan.x2>=screen->width
-		|| dspan.y>screen->height)
+	if (dspan.x2 < dspan.x1 || dspan.x1 < 0 || dspan.x2 >= screen->width || dspan.y > screen->height)
 	{
-		I_Error ("R_DrawSpan: %i to %i at %i",
-				 dspan.x1, dspan.x2, dspan.y);
+		I_Error ("R_DrawSpan: %i to %i at %i", dspan.x1, dspan.x2, dspan.y);
 	}
-//		dscount++;
 #endif
 
 	dsfixed_t ufrac = dspan.xfrac;
@@ -101,7 +94,7 @@ void R_DrawSpanD_SSE2 (void)
 	dsfixed_t ustep = dspan.xstep;
 	dsfixed_t vstep = dspan.ystep;
 
-	dest = (argb_t *)(ylookup[dspan.y] + columnofs[dspan.x1]);
+	argb_t* dest = (argb_t*)drawspan.dest;
 
 	// We do not check for zero spans here?
 	int count = dspan.x2 - dspan.x1 + 1;
@@ -182,20 +175,16 @@ void R_DrawSpanD_SSE2 (void)
 	}
 }
 
-void R_DrawSlopeSpanD_SSE2 (void)
+void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 {
 	int count = dspan.x2 - dspan.x1 + 1;
 	if (count <= 0)
 		return;
 
 #ifdef RANGECHECK 
-	if (dspan.x2 < dspan.x1
-		|| dspan.x1<0
-		|| dspan.x2>=screen->width
-		|| dspan.y>screen->height)
+	if (dspan.x2 < dspan.x1 || dspan.x1 < 0 || dspan.x2 >= screen->width || dspan.y > screen->height)
 	{
-		I_Error ("R_DrawSlopeSpan: %i to %i at %i",
-				 dspan.x1, dspan.x2, dspan.y);
+		I_Error ("R_DrawSlopeSpan: %i to %i at %i", dspan.x1, dspan.x2, dspan.y);
 	}
 #endif
 
@@ -212,7 +201,7 @@ void R_DrawSlopeSpanD_SSE2 (void)
 	float id = dspan.id, ids = dspan.idstep;
 	
 	// framebuffer	
-	argb_t *dest = (argb_t *)( ylookup[dspan.y] + columnofs[dspan.x1] );
+	argb_t *dest = (argb_t *)drawspan.dest;
 	
 	// texture data
 	byte *src = (byte *)dspan.source;
