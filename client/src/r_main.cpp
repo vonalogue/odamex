@@ -80,7 +80,7 @@ int 			validcount = 1;
 
 // [RH] colormap currently drawing with
 shaderef_t		basecolormap;
-int				fixedlightlev;
+int				fixedlightlev = -1;
 shaderef_t		fixedcolormap;
 
 shaderef_t		fixed_light_colormap_table[MAXWIDTH];
@@ -720,12 +720,6 @@ void R_InitLightTables (void)
 	}
 
 	lightscalexmul = ((320<<detailyshift) * (1<<LIGHTSCALEMULBITS)) / screen->width;
-
-	for (int i = 0; i < MAXWIDTH; i++)
-	{
-		fixed_light_colormap_table[i] = basecolormap.with(fixedlightlev);
-		fixed_colormap_table[i] = fixedcolormap;
-	}
 }
 
 //
@@ -1124,6 +1118,13 @@ void R_SetupFrame (player_t *player)
 		walllights = scalelightfixed;
 
 		memset (scalelightfixed, 0, MAXLIGHTSCALE*sizeof(*scalelightfixed));
+
+		// TODO: only calculate these when fixedcolormap or fixedlightlev change
+		for (int x = 0; x < viewwidth; x++)
+		{
+			fixed_light_colormap_table[x] = basecolormap.with(fixedlightlev);
+			fixed_colormap_table[x] = fixedcolormap;
+		}
 	}
 
 	// [RH] freelook stuff

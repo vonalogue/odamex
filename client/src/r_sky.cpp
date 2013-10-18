@@ -253,6 +253,9 @@ void R_RenderSkyRange(visplane_t* pl)
 		dcol.colormap = shaderef_t(&pal->maps, 0);
 	}
 
+	static shaderef_t colormap_table[MAXWIDTH];
+	for (int x = pl->minx; x <= pl->maxx; x++)
+		colormap_table[x] = dcol.colormap;
 
 	// determine which texture posts will be used for each screen
 	// column in this range.
@@ -263,7 +266,7 @@ void R_RenderSkyRange(visplane_t* pl)
 	}
 
 	R_DrawColumnRange(pl->minx, pl->maxx, (int*)pl->top, (int*)pl->bottom, skycols,
-						fixed_light_colormap_table, SkyColumnBlaster);
+						colormap_table, SkyColumnBlaster);
 				
 	R_ResetDrawFuncs();
 }
