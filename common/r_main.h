@@ -98,9 +98,11 @@ extern BOOL				foggy;
 extern int				fixedlightlev;
 extern shaderef_t		fixedcolormap;
 
+extern shaderef_t		fixed_light_colormap_table[MAXWIDTH];
+extern shaderef_t		fixed_colormap_table[MAXWIDTH];
+
 extern int				lightscalexmul;	// [RH] for hires lighting fix
 extern int				lightscaleymul;
-
 
 // Number of diminishing brightness levels.
 // There a 0-31, i.e. 32 LUT in the COLORMAP lump.

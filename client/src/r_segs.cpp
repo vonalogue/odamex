@@ -61,6 +61,7 @@ static texhandle_t	midtexture;
 static texhandle_t	maskedmidtexture;
 
 int*			walllights;
+static int		seg_light_table[MAXWIDTH];
 
 //
 // regular wall
@@ -111,6 +112,35 @@ int R_OrthogonalLightnumAdjustment()
 	}
 	
 	return 0;	// no adjustment for diagonal lines
+}
+
+
+//
+// R_SelectColormapTable
+//
+// Fills in light_table with the light level for each column in the range
+// between start and stop. 
+//
+static inline const shaderef_t* R_SelectColormapTable(int start, int stop)
+{
+	if (fixedlightlev)
+		return fixed_light_colormap_table;
+	else if (fixedcolormap.isValid())
+		return fixed_colormap_table;
+
+	static shaderef_t colormap_table[MAXWIDTH];
+
+	if (!walllights)
+		walllights = scalelight[0];
+
+	for (int x = start; x <= stop; x++)
+	{
+		int light_level = walllights[MIN(rw_light >> LIGHTSCALESHIFT, MAXLIGHTSCALE - 1)];
+		colormap_table[x] = basecolormap.with(light_level);
+		rw_light += rw_lightstep;
+	}
+
+	return colormap_table; 
 }
 
 //
@@ -197,101 +227,6 @@ inline void R_ColumnSetup(int x, int* top, int* bottom, tallpost_t** posts, bool
 }
 
 
-static inline int R_ColumnRangeMinimumHeight(int start, int stop, int* top)
-{
-	int minheight = viewheight - 1;
-	for (int x = start; x <= stop; x++)
-		minheight = MIN(minheight, top[x]);
-
-	return MAX(minheight, 0);
-}
-
-static inline int R_ColumnRangeMaximumHeight(int start, int stop, int* bottom)
-{
-	int maxheight = 0;
-	for (int x = start; x <= stop; x++)
-		maxheight = MAX(maxheight, bottom[x]);
-
-	return MIN(maxheight, viewheight - 1);
-}
-
-//
-// R_RenderColumnRange
-//
-// Renders a range of columns to the screen.
-// Columns are written to the screen buffer in 64x64 tiles for better cache
-// usage.
-//
-void R_RenderColumnRange(int start, int stop, int* top, int* bottom, byte** cols, void (*colblast)(), bool calc_light)
-{
-	if (start > stop)
-		return;
-
-	if (calc_light)
-	{
-		if (fixedlightlev)
-		{
-			dcol.colormap = basecolormap.with(fixedlightlev);
-			calc_light = false;
-		}
-		else if (fixedcolormap.isValid())
-		{
-			dcol.colormap = fixedcolormap;	
-			calc_light = false;
-		}
-		else
-		{
-			if (!walllights)
-				walllights = scalelight[0];
-		}
-	}
-
-	// pre-calculate the color map number for lighting for each screen column 
-	static int light_lookup[MAXWIDTH];
-	if (calc_light)
-	{
-		for (int x = start; x <= stop; x++)
-		{
-			light_lookup[x] = walllights[MIN(rw_light >> LIGHTSCALESHIFT, MAXLIGHTSCALE - 1)];
-			rw_light += rw_lightstep;
-		}
-	}
-		
-	#define BLOCKBITS 6
-	#define BLOCKSIZE (1 << BLOCKBITS)
-	#define BLOCKMASK (BLOCKSIZE - 1)
-
-	// [SL] Render the range of columns in 64x64 pixel blocks, aligned to a grid
-	// on the screen. This is to make better use of spatial locality in the cache.
-	for (int bx = start; bx <= stop; bx = (bx & ~BLOCKMASK) + BLOCKSIZE)
-	{
-		int blockstartx = bx;
-		int blockstopx = MIN((bx & ~BLOCKMASK) + BLOCKSIZE - 1, stop);
-
-		int miny = R_ColumnRangeMinimumHeight(blockstartx, blockstopx, top);
-		int maxy = R_ColumnRangeMaximumHeight(blockstartx, blockstopx, bottom);
-
-		for (int by = miny; by <= maxy; by = (by & ~BLOCKMASK) + BLOCKSIZE)
-		{
-			int blockstarty = by;
-			int blockstopy = (by & ~BLOCKMASK) + BLOCKSIZE - 1;
-
-			for (int x = blockstartx; x <= blockstopx; x++)
-			{
-				if (calc_light)
-					dcol.colormap = basecolormap.with(light_lookup[x]);
-
-				dcol.x = x;
-				dcol.yl = MAX(top[x], blockstarty);
-				dcol.yh = MIN(bottom[x], blockstopy);
-				dcol.source = cols[x];
-				dcol.dest = R_CalculateDestination(dcol);
-				colblast();
-			}
-		}
-	}
-}
-
 
 //
 // R_RenderSolidSegRange
@@ -307,12 +242,12 @@ void R_RenderSolidSegRange(int start, int stop)
 {
 	static int lower[MAXWIDTH];
 	int count = stop - start + 1;
-	int initial_light = rw_light;
 
 	if (start > stop)
 		return;
 
-	int columnmethod = 2;
+	// generate the light table
+	const shaderef_t* colormap_table = R_SelectColormapTable(start, stop);
 
 	// clip the front of the walls to the ceiling and floor
 	for (int x = start; x <= stop; x++)
@@ -359,14 +294,12 @@ void R_RenderSolidSegRange(int start, int stop)
 		for (int x = start; x <= stop; x++)
 			lower[x] = wallbottomf[x] - 1;
 
-		rw_light = initial_light;
-
 		const Texture* texture = texturemanager.getTexture(midtexture);
 		dcol.textureheight = texture->getHeight();
 
 		dcol.texturemid = rw_midtexturemid;
 
-		R_RenderColumnRange(start, stop, walltopf, lower, midcols, SolidColumnBlaster, true);
+		R_DrawColumnRange(start, stop, walltopf, lower, midcols, colormap_table, SolidColumnBlaster);
 
 		// indicate that no further drawing can be done in this column
 		memcpy(ceilingclip + start, floorclipinitial + start, count * sizeof(*ceilingclip));
@@ -377,8 +310,6 @@ void R_RenderSolidSegRange(int start, int stop)
 		if (toptexture)
 		{
 			// draw the upper wall tier
-			rw_light = initial_light;
-
 			for (int x = start; x <= stop; x++)
 			{
 				walltopb[x] = MAX(MIN(walltopb[x], floorclip[x]), walltopf[x]);
@@ -389,7 +320,7 @@ void R_RenderSolidSegRange(int start, int stop)
 			dcol.textureheight = texture->getHeight();
 			dcol.texturemid = rw_toptexturemid;
 
-			R_RenderColumnRange(start, stop, walltopf, lower, topcols, SolidColumnBlaster, true);
+			R_DrawColumnRange(start, stop, walltopf, lower, topcols, colormap_table, SolidColumnBlaster);
 
 			memcpy(ceilingclip + start, walltopb + start, count * sizeof(*ceilingclip));
 		}
@@ -402,8 +333,6 @@ void R_RenderSolidSegRange(int start, int stop)
 		if (bottomtexture)
 		{
 			// draw the lower wall tier
-			rw_light = initial_light;
-
 			for (int x = start; x <= stop; x++)
 			{
 				wallbottomb[x] = MIN(MAX(wallbottomb[x], ceilingclip[x]), wallbottomf[x]);
@@ -414,7 +343,7 @@ void R_RenderSolidSegRange(int start, int stop)
 			dcol.textureheight = texture->getHeight();
 			dcol.texturemid = rw_bottomtexturemid;
 
-			R_RenderColumnRange(start, stop, wallbottomb, lower, bottomcols, SolidColumnBlaster, true);
+			R_DrawColumnRange(start, stop, wallbottomb, lower, bottomcols, colormap_table, SolidColumnBlaster);
 
 			memcpy(floorclip + start, wallbottomb + start, count * sizeof(*floorclip));
 		}
@@ -444,6 +373,9 @@ void R_RenderSolidSegRange(int start, int stop)
 
 void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 {
+	if (x1 > x2)
+		return;
+
 	curline = ds->curline;
 
 	// killough 4/11/98: draw translucent 2s normal textures
@@ -525,8 +457,11 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 	rw_lightstep = ds->lightstep;
 	rw_light = ds->light + (x1 - ds->x1) * rw_lightstep;
 
+	// generate the light table
+	const shaderef_t* colormap_table = R_SelectColormapTable(x1, x2);
+
 	// draw the columns
-	R_RenderColumnRange(x1, x2, top, bottom, maskedmidcols, MaskedColumnBlaster, true);
+	R_DrawColumnRange(x1, x2, top, bottom, maskedmidcols, colormap_table, MaskedColumnBlaster);
 }
 
 
@@ -993,6 +928,8 @@ void R_ClearOpenings()
 {
 	openings.clear();
 }
+
+
 
 VERSION_CONTROL (r_segs_cpp, "$Id$")
 

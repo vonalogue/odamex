@@ -92,8 +92,8 @@ typedef struct
 
 extern "C" drawspan_t dspan;
 
-void R_RenderColumnRange(int start, int stop, int* top, int* bottom,
-		byte** cols, void (*colblast)(), bool calc_light);
+void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
+		byte** cols, const shaderef_t* colormap_table, void (*colblast)());
 
 // [RH] Pointers to the different column and span drawers...
 extern void (*R_FillColumn)(drawcolumn_t&);

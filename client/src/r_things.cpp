@@ -775,7 +775,11 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 		bottom[x] = MIN(mfloorclip[x], (centeryfrac - FixedMul(dcol.texturemid - texheight, vis->yscale)) >> FRACBITS) - 1;
 	}
 
-	R_RenderColumnRange(vis->x1, vis->x2, top, bottom, spritecols, SpriteColumnBlaster, false);
+	static shaderef_t colormap_table[MAXWIDTH];
+	for (int x = vis->x1; x <= vis->x2; x++)
+		colormap_table[x] = vis->colormap;
+
+	R_DrawColumnRange(vis->x1, vis->x2, top, bottom, spritecols, colormap_table, SpriteColumnBlaster);
 
 	R_ResetDrawFuncs();
 }

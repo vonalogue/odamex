@@ -83,6 +83,9 @@ shaderef_t		basecolormap;
 int				fixedlightlev;
 shaderef_t		fixedcolormap;
 
+shaderef_t		fixed_light_colormap_table[MAXWIDTH];
+shaderef_t		fixed_colormap_table[MAXWIDTH];
+
 int 			centerx;
 extern "C" {int	centery; }
 
@@ -692,18 +695,16 @@ float R_GetFOV (void)
 
 void R_InitLightTables (void)
 {
-	int i;
-	int j;
 	int level;
 	int startmap;
 	int scale;
 
 	// Calculate the light levels to use
 	//	for each level / distance combination.
-	for (i = 0; i < LIGHTLEVELS; i++)
+	for (int i = 0; i < LIGHTLEVELS; i++)
 	{
 		startmap = ((LIGHTLEVELS-1-i)*2)*NUMCOLORMAPS/LIGHTLEVELS;
-		for (j=0 ; j<MAXLIGHTZ ; j++)
+		for (int j = 0; j < MAXLIGHTZ; j++)
 		{
 			scale = FixedDiv (160*FRACUNIT, (j+1)<<LIGHTZSHIFT);
 			scale >>= LIGHTSCALESHIFT-LIGHTSCALEMULBITS;
@@ -719,6 +720,12 @@ void R_InitLightTables (void)
 	}
 
 	lightscalexmul = ((320<<detailyshift) * (1<<LIGHTSCALEMULBITS)) / screen->width;
+
+	for (int i = 0; i < MAXWIDTH; i++)
+	{
+		fixed_light_colormap_table[i] = basecolormap.with(fixedlightlev);
+		fixed_colormap_table[i] = fixedcolormap;
+	}
 }
 
 //
