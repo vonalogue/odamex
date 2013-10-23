@@ -1582,25 +1582,6 @@ void R_DrawSlopeSpanD_c(drawspan_t& drawspan)
 
 /****************************************************/
 
-static inline int R_ColumnRangeMinimumHeight(int start, int stop, int* top)
-{
-	int minheight = viewheight - 1;
-	for (int x = start; x <= stop; x++)
-		minheight = MIN(minheight, top[x]);
-
-	return MAX(minheight, 0);
-}
-
-static inline int R_ColumnRangeMaximumHeight(int start, int stop, int* bottom)
-{
-	int maxheight = 0;
-	for (int x = start; x <= stop; x++)
-		maxheight = MAX(maxheight, bottom[x]);
-
-	return MIN(maxheight, viewheight - 1);
-}
-
-
 //
 // R_DrawColumnRange
 //
@@ -1647,7 +1628,6 @@ void R_DrawColumnRange(int start, int stop, int* top, int* bottom, byte** cols,
 		}
 	}
 }
-
 
 
 //

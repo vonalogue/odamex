@@ -477,7 +477,13 @@ struct drawseg_s
     fixed_t			scale2;
     fixed_t			scalestep;
 
-	fixed_t			light, lightstep;
+	fixed_t			length;
+	fixed_t			lengthstep;
+
+	fixed_t			textureoffset;
+
+	fixed_t			light;
+	fixed_t			lightstep;
 
     // 0=none, 1=bottom, 2=top, 3=both
     int				silhouette;
@@ -488,6 +494,8 @@ struct drawseg_s
     int*			sprbottomclip;
 	tallpost_t**	midposts;
 	byte**			maskedmidcols;
+
+	const Texture*	texture;
 };
 typedef struct drawseg_s drawseg_t;
 

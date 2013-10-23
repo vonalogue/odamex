@@ -30,6 +30,7 @@
 
 extern "C" byte**		ylookup;
 extern "C" int*			columnofs;
+extern "C" int			viewheight;
 
 typedef struct 
 {
@@ -92,8 +93,92 @@ typedef struct
 
 extern "C" drawspan_t dspan;
 
+// [SL] Determine the screen buffer position to start drawing
+inline byte* R_CalculateDestination(const drawcolumn_t& drawcolumn)
+{
+	return (byte*)(ylookup[drawcolumn.yl] + columnofs[drawcolumn.x]);
+}
+
+inline byte* R_CalculateDestination(const drawspan_t& drawspan)
+{
+	return (byte*)(ylookup[drawspan.y] + columnofs[drawspan.x1]);
+}
+
 void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 		byte** cols, const shaderef_t* colormap_table, void (*colblast)());
+
+
+inline int R_ColumnRangeMinimumHeight(int start, int stop, int* top)
+{
+	int minheight = viewheight - 1;
+	for (int x = start; x <= stop; x++)
+		minheight = MIN(minheight, top[x]);
+
+	return MAX(minheight, 0);
+}
+
+inline int R_ColumnRangeMaximumHeight(int start, int stop, int* bottom)
+{
+	int maxheight = 0;
+	for (int x = start; x <= stop; x++)
+		maxheight = MAX(maxheight, bottom[x]);
+
+	return MIN(maxheight, viewheight - 1);
+}
+
+template <typename TextureMapper>
+inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
+						const Texture* texture, TextureMapper& mapper, 
+						const shaderef_t* colormap_table, void (*colblast)())
+{
+	const int width = stop - start + 1;
+	if (width <= 0)
+		return;
+
+	// generate a table of texture offsets for each column
+	fixed_t texoffset[width];
+	fixed_t texiscale[width];
+	for (int x = 0; x < width; x++)
+	{
+		texoffset[x] = mapper.getOffset();
+		texiscale[x] = mapper.getIScale();
+		mapper.next();
+	}
+
+	const int BLOCKBITS = 6;
+	const int BLOCKSIZE = (1 << BLOCKBITS);
+	const int BLOCKMASK = (BLOCKSIZE - 1);
+
+	// [SL] Render the range of columns in 64x64 pixel blocks, aligned to a grid
+	// on the screen. This is to make better use of spatial locality in the cache.
+	for (int bx = start; bx <= stop; bx = (bx & ~BLOCKMASK) + BLOCKSIZE)
+	{
+		int blockstartx = bx;
+		int blockstopx = MIN((bx & ~BLOCKMASK) + BLOCKSIZE - 1, stop);
+
+		int miny = R_ColumnRangeMinimumHeight(blockstartx, blockstopx, top);
+		int maxy = R_ColumnRangeMaximumHeight(blockstartx, blockstopx, bottom);
+
+		for (int by = miny; by <= maxy; by = (by & ~BLOCKMASK) + BLOCKSIZE)
+		{
+			int blockstarty = by;
+			int blockstopy = (by & ~BLOCKMASK) + BLOCKSIZE - 1;
+
+			for (int x = blockstartx; x <= blockstopx; x++)
+			{
+				dcol.x = x;
+				dcol.yl = MAX(top[x], blockstarty);
+				dcol.yh = MIN(bottom[x], blockstopy);
+				dcol.iscale = texiscale[x - start]; 
+				dcol.source = texture->getColumnDataTiled(texoffset[x - start]);
+				dcol.dest = R_CalculateDestination(dcol);
+				dcol.colormap = colormap_table[x];
+
+				colblast();
+			}
+		}
+	}
+}
 
 // [RH] Pointers to the different column and span drawers...
 extern void (*R_FillColumn)(drawcolumn_t&);
@@ -215,17 +300,6 @@ void R_DrawBorder (int x1, int y1, int x2, int y2);
 
 // [RH] Added for muliresolution support
 void R_InitFuzzTable (void);
-
-// [SL] Determine the screen buffer position to start drawing
-inline byte* R_CalculateDestination(const drawcolumn_t& drawcolumn)
-{
-	return (byte*)(ylookup[drawcolumn.yl] + columnofs[drawcolumn.x]);
-}
-
-inline byte* R_CalculateDestination(const drawspan_t& drawspan)
-{
-	return (byte*)(ylookup[drawspan.y] + columnofs[drawspan.x1]);
-}
 
 #endif
 
