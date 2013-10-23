@@ -170,7 +170,7 @@ inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 				dcol.yl = MAX(top[x], blockstarty);
 				dcol.yh = MIN(bottom[x], blockstopy);
 				dcol.iscale = texiscale[x - start]; 
-				dcol.source = texture->getColumnDataTiled(texoffset[x - start]);
+				dcol.source = texture->getColumnData(texoffset[x - start]);
 				dcol.dest = R_CalculateDestination(dcol);
 				dcol.colormap = colormap_table[x];
 
