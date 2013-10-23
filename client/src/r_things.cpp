@@ -1348,7 +1348,6 @@ void R_DrawSprite (vissprite_t *spr)
 	static int			cliptop[MAXWIDTH];
 	static int			clipbot[MAXWIDTH];
 
-	drawseg_t*			ds;
 	int 				x;
 	int 				r1, r2;
 	fixed_t 			segscale1, segscale2;
@@ -1418,11 +1417,11 @@ void R_DrawSprite (vissprite_t *spr)
 	// (pointer check was originally nonportable
 	// and buggy, by going past LEFT end of array):
 
-	for (ds = ds_p ; ds-- > drawsegs ; )  // new -- killough
+	for (drawseg_t* ds = ds_p ; ds-- > drawsegs ; )  // new -- killough
 	{
 		// determine if the drawseg obscures the sprite
 		if (ds->x1 > spr->x2 || ds->x2 < spr->x1 ||
-			(!(ds->silhouette & SIL_BOTH) && !ds->maskedmidcols) )
+			(!(ds->silhouette & SIL_BOTH) && !R_HasMaskedMidTexture(ds->curline)) )
 		{
 			// does not cover sprite
 			continue;
@@ -1439,8 +1438,8 @@ void R_DrawSprite (vissprite_t *spr)
 			(segscale2 < spr->yscale && !R_PointOnSegSide(spr->gx, spr->gy, ds->curline)))
 		{
 			// masked mid texture?
-			if (ds->maskedmidcols)
-				R_RenderMaskedSegRange(ds, r1, r2);
+			if (R_HasMaskedMidTexture(ds->curline))
+				R_RenderMaskedSegRange(ds);
 			// seg is behind sprite
 			continue;
 		}
@@ -1549,8 +1548,8 @@ void R_DrawMasked (void)
 	//		for (ds=ds_p-1 ; ds >= drawsegs ; ds--)    old buggy code
 
 	for (drawseg_t* ds = ds_p; ds-- > drawsegs; )	// new -- killough
-		if (ds->maskedmidcols)
-			R_RenderMaskedSegRange(ds, ds->x1, ds->x2);
+		if (R_HasMaskedMidTexture(ds->curline))
+			R_RenderMaskedSegRange(ds);
 
 	// draw the psprites on top of everything
 	//	but does not draw on side views

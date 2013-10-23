@@ -65,8 +65,6 @@ int*			walllights;
 //
 // regular wall
 //
-fixed_t			rw_light;		// [RH] Use different scaling for lights
-fixed_t			rw_lightstep;
 
 static fixed_t	rw_midtexturemid;
 static fixed_t	rw_toptexturemid;
@@ -82,9 +80,6 @@ static int walltopf[MAXWIDTH];
 static int walltopb[MAXWIDTH];
 static int wallbottomf[MAXWIDTH];
 static int wallbottomb[MAXWIDTH];
-
-static byte* midcols[MAXWIDTH];
-static byte** maskedmidcols;
 
 extern fixed_t FocalLengthY;
 extern float yfoc;
@@ -105,7 +100,7 @@ static drawseg_t rw;
 class SegTextureMapper
 {
 public:
-	SegTextureMapper(const drawseg_t* ds) :
+	SegTextureMapper(const drawseg_t* ds, const Texture* texture) :
 		mScale(ds->scale1), mUInvZ(0), mOffset(ds->textureoffset)
 	{
 		const int width = ds->x2 - ds->x1 + 1;
@@ -114,7 +109,7 @@ public:
 		mIScale = invert(mScale); 
 
 		// calculate mask to tile texture horizontally
-		mOffsetMask = (1 << (ds->texture->getWidthBits() + FRACBITS)) - 1;
+		mOffsetMask = (1 << (texture->getWidthBits() + FRACBITS)) - 1;
 	}
 
 	void next()
@@ -151,22 +146,12 @@ private:
 	unsigned int	mOffsetMask;
 };
 
-
 //
-// R_OrthogonalLightnumAdjustment
+// R_HasMaskedMidTexture
 //
-int R_OrthogonalLightnumAdjustment()
+bool R_HasMaskedMidTexture(const seg_t* line)
 {
-	// [RH] Only do it if not foggy and allowed
-    if (!foggy && !(level.flags & LEVEL_EVENLIGHTING))
-	{
-		if (curline->linedef->slopetype == ST_HORIZONTAL)
-			return -1;
-		else if (curline->linedef->slopetype == ST_VERTICAL)
-			return 1;
-	}
-	
-	return 0;	// no adjustment for diagonal lines
+	return line->backsector && line->sidedef->_midtexture != 0;
 }
 
 
@@ -176,7 +161,7 @@ int R_OrthogonalLightnumAdjustment()
 // Generates a colormap table for each column in the range, or returns the
 // appropriate table for fixed-colormap or fixed-lightlev.
 //
-static inline const shaderef_t* R_SelectColormapTable(int start, int stop)
+static inline const shaderef_t* R_SelectColormapTable(const drawseg_t* ds)
 {
 	if (fixedlightlev)
 		return fixed_light_colormap_table;
@@ -185,14 +170,38 @@ static inline const shaderef_t* R_SelectColormapTable(int start, int stop)
 
 	static shaderef_t colormap_table[MAXWIDTH];
 
-	if (!walllights)
-		walllights = scalelight[0];
-
-	for (int x = start; x <= stop; x++)
+	// calculate light table
+	//	use different light tables
+	//	for horizontal / vertical / diagonal
+	// OPTIMIZE: get rid of LIGHTSEGSHIFT globally
+	int adjustment = 0;
+	if (!foggy && !(level.flags & LEVEL_EVENLIGHTING))
 	{
-		int light_level = walllights[MIN(rw_light >> LIGHTSCALESHIFT, MAXLIGHTSCALE - 1)];
-		colormap_table[x] = basecolormap.with(light_level);
-		rw_light += rw_lightstep;
+		if (ds->curline->linedef->slopetype == ST_HORIZONTAL)
+			adjustment = -1;
+		else if (ds->curline->linedef->slopetype == ST_VERTICAL)
+			adjustment = 1;
+	}
+
+/*
+	// correct lightnum for 2s lines
+	sector_t tempsec;
+	int lightnum = (R_FakeFlat(ds->curline->frontsector, &tempsec, NULL, NULL, false)->lightlevel >> LIGHTSEGSHIFT)
+				+ (foggy ? 0 : extralight) + adjustment;
+*/
+
+	int lightnum = (ds->curline->frontsector->lightlevel >> LIGHTSEGSHIFT)
+				+ (foggy ? 0 : extralight) + adjustment;
+
+	walllights = scalelight[clamp(lightnum, 0, LIGHTLEVELS - 1)];	
+
+	int light = ds->light;
+	int lightstep = ds->lightstep;
+
+	for (int x = ds->x1; x <= ds->x2; x++)
+	{
+		colormap_table[x] = basecolormap.with(walllights[MIN(light >> LIGHTSCALESHIFT, MAXLIGHTSCALE - 1)]);
+		light += lightstep;
 	}
 
 	return colormap_table; 
@@ -239,7 +248,7 @@ static inline void R_BlastMaskedSegColumn(void (*drawfunc)(drawcolumn_t&))
 
 inline void MaskedColumnBlaster()
 {
-	R_BlastMaskedSegColumn(colfunc);
+	R_BlastMaskedSegColumn(maskedcolfunc);
 }
 
 
@@ -272,25 +281,16 @@ inline void SolidColumnBlaster()
 // The clipping of the seg tiers also vertically clips the ceiling and floor
 // planes.
 //
-void R_RenderSolidSegRange(int start, int stop)
+void R_RenderSolidSegRange(const drawseg_t* ds)
 {
-	static int lower[MAXWIDTH];
+	int start = ds->x1;
+	int stop = ds->x2;
 	int count = stop - start + 1;
 
-	if (start > stop)
-		return;
-
-	// clip the rw drawseg to the range between start and stop
-	drawseg_t ds(rw);
-	ds.x1 = start;
-	ds.x2 = stop;
-	ds.scale1 = rw.scale1 + (start - rw.x1) * rw.scalestep;
-	ds.scale2 = rw.scale1 + (stop - rw.x1) * rw.scalestep;
-	ds.length = count * rw.lengthstep;
-	ds.textureoffset = rw.textureoffset + (start - rw.x1) * rw.lengthstep;
+	static int lower[MAXWIDTH];
 
 	// generate the light table
-	const shaderef_t* colormap_table = R_SelectColormapTable(start, stop);
+	const shaderef_t* colormap_table = R_SelectColormapTable(ds);
 
 	// clip the front of the walls to the ceiling and floor
 	for (int x = start; x <= stop; x++)
@@ -338,13 +338,13 @@ void R_RenderSolidSegRange(int start, int stop)
 			lower[x] = wallbottomf[x] - 1;
 
 		// TODO: texturetranslation[]
-		ds.texture = texturemanager.getTexture(midtexture);
-		dcol.textureheight = ds.texture->getHeight();
+		const Texture* texture = texturemanager.getTexture(midtexture);
+		dcol.textureheight = texture->getHeight();
 		dcol.texturemid = rw_midtexturemid;
 
-		SegTextureMapper mapper(&ds);
+		SegTextureMapper mapper(ds, texture);
 		R_DrawColumnRange<SegTextureMapper>(start, stop, walltopf, lower,
-						ds.texture, mapper, colormap_table, SolidColumnBlaster);
+						texture, mapper, colormap_table, SolidColumnBlaster);
 
 		// indicate that no further drawing can be done in this column
 		memcpy(ceilingclip + start, floorclipinitial + start, count * sizeof(*ceilingclip));
@@ -361,13 +361,13 @@ void R_RenderSolidSegRange(int start, int stop)
 				lower[x] = walltopb[x] - 1;
 			}
 
-			ds.texture = texturemanager.getTexture(toptexture);
-			dcol.textureheight = ds.texture->getHeight();
+			const Texture* texture = texturemanager.getTexture(toptexture);
+			dcol.textureheight = texture->getHeight();
 			dcol.texturemid = rw_toptexturemid;
 
-			SegTextureMapper mapper(&ds);
+			SegTextureMapper mapper(ds, texture);
 			R_DrawColumnRange<SegTextureMapper>(start, stop, walltopf, lower,
-						ds.texture, mapper, colormap_table, SolidColumnBlaster);
+						texture, mapper, colormap_table, SolidColumnBlaster);
 
 			memcpy(ceilingclip + start, walltopb + start, count * sizeof(*ceilingclip));
 		}
@@ -386,13 +386,13 @@ void R_RenderSolidSegRange(int start, int stop)
 				lower[x] = wallbottomf[x] - 1;
 			}
 
-			ds.texture = texturemanager.getTexture(bottomtexture);
-			dcol.textureheight = ds.texture->getHeight();
+			const Texture* texture = texturemanager.getTexture(bottomtexture);
+			dcol.textureheight = texture->getHeight();
 			dcol.texturemid = rw_bottomtexturemid;
 
-			SegTextureMapper mapper(&ds);
+			SegTextureMapper mapper(ds, texture);
 			R_DrawColumnRange<SegTextureMapper>(start, stop, wallbottomb, lower,
-						ds.texture, mapper, colormap_table, SolidColumnBlaster);
+						texture, mapper, colormap_table, SolidColumnBlaster);
 
 			memcpy(floorclip + start, wallbottomb + start, count * sizeof(*floorclip));
 		}
@@ -400,11 +400,6 @@ void R_RenderSolidSegRange(int start, int stop)
 		{
 			// no lower wall
 			memcpy(floorclip + start, wallbottomf + start, count * sizeof(*floorclip));
-		}
-
-		if (maskedmidtexture)
-		{
-			memcpy(maskedmidcols + start, midcols + start, sizeof(*maskedmidcols) * (stop - start + 1));
 		}
 	}
 
@@ -420,51 +415,45 @@ void R_RenderSolidSegRange(int start, int stop)
 	}
 }
 
-void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
+void R_RenderMaskedSegRange(const drawseg_t* ds)
 {
-	return;
-
-	if (x1 > x2)
-		return;
-
-	curline = ds->curline;
+	int start = ds->x1;
+	int stop = ds->x2;
 
 	// killough 4/11/98: draw translucent 2s normal textures
 	// [RH] modified because we don't use user-definable
 	//		translucency maps
-	if (curline->linedef->lucency < 240)
+	if (ds->curline->linedef->lucency < 240)
 	{
 		R_SetLucentDrawFuncs();
-		dcol.translevel = curline->linedef->lucency << 8;
+		dcol.translevel = ds->curline->linedef->lucency << 8;
 	}
 	else
 	{
 		R_ResetDrawFuncs();
 	}
 
-	frontsector = curline->frontsector;
-	backsector = curline->backsector;
+	frontsector = ds->curline->frontsector;
+	backsector = ds->curline->backsector;
 
-	// TODO: texturetranslation[]
-	const Texture* texture = texturemanager.getTexture(curline->sidedef->_midtexture);
+	const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->_midtexture);
 	fixed_t texheight = texture->getHeight();
 
-	fixed_t scalefrac = ds->scale1 + (x1 - ds->x1) * ds->scalestep;
+	fixed_t scalefrac = ds->scale1;
 	fixed_t scalestep = ds->scalestep;
 
 	static int top[MAXWIDTH];
 	static int bottom[MAXWIDTH];
 
-	if (curline->linedef->flags & ML_DONTPEGBOTTOM)
+	if (ds->curline->linedef->flags & ML_DONTPEGBOTTOM)
 	{
 		dcol.texturemid = MAX(P_FloorHeight(frontsector), P_FloorHeight(backsector))
-						+ texheight - viewz + curline->sidedef->rowoffset;
+						+ texheight - viewz + ds->curline->sidedef->rowoffset;
 
-		for (int x = x1; x <= x2; x++)
+		for (int x = start; x <= stop; x++)
 		{
 			top[x] = MAX((centeryfrac - FixedMul(dcol.texturemid, scalefrac)) >> FRACBITS, ds->sprtopclip[x]);
 			bottom[x] = ds->sprbottomclip[x] - 1;
-
 			scalefrac += scalestep;
 		}
 
@@ -472,45 +461,31 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int x1, int x2)
 	else
 	{
 		dcol.texturemid = MIN(P_CeilingHeight(frontsector), P_CeilingHeight(backsector))
-						- viewz + curline->sidedef->rowoffset;
+						- viewz + ds->curline->sidedef->rowoffset;
 
-		for (int x = x1; x <= x2; x++)
+		for (int x = start; x <= stop; x++)
 		{
 			top[x] = ds->sprtopclip[x];
 			bottom[x] = MIN((centeryfrac - FixedMul(dcol.texturemid - texheight, scalefrac)) >> FRACBITS, ds->sprbottomclip[x]) - 1;
-
 			scalefrac += scalestep;
 		}
 	}
 
-	if ((bottom[x1] < 0 && bottom[x2] < 0) ||
-		(top[x1] >= viewheight && top[x2] >= viewheight))
+	// clip entire drawseg if it is above or below the screen
+	if ((bottom[start] < 0 && bottom[stop] < 0) || (top[start] >= viewheight && top[stop] >= viewheight))
 		return;
 
-	maskedmidcols = ds->maskedmidcols;
 	dcol.color = (dcol.color + 4) & 0xFF;	// color if using r_drawflat
 	dcol.textureheight = 256*FRACUNIT;
 
 	basecolormap = frontsector->floorcolormap->maps;	// [RH] Set basecolormap
 
-	// killough 4/13/98: get correct lightlevel for 2s normal textures
-	sector_t tempsec;
-	int lightnum = (R_FakeFlat(frontsector, &tempsec, NULL, NULL, false)
-			->lightlevel >> LIGHTSEGSHIFT) + (foggy ? 0 : extralight);
-
-	lightnum += R_OrthogonalLightnumAdjustment();
-
-	walllights = lightnum >= LIGHTLEVELS ? scalelight[LIGHTLEVELS-1] :
-		lightnum <  0 ? scalelight[0] : scalelight[lightnum];
-
-	rw_lightstep = ds->lightstep;
-	rw_light = ds->light + (x1 - ds->x1) * rw_lightstep;
-
 	// generate the light table
-	const shaderef_t* colormap_table = R_SelectColormapTable(x1, x2);
+	const shaderef_t* colormap_table = R_SelectColormapTable(ds);
 
-	// draw the columns
-	R_DrawColumnRange(x1, x2, top, bottom, maskedmidcols, colormap_table, MaskedColumnBlaster);
+	SegTextureMapper mapper(ds, texture);
+	R_DrawColumnRange<SegTextureMapper>(start, stop, top, bottom,
+				texture, mapper, colormap_table, MaskedColumnBlaster);
 }
 
 
@@ -552,6 +527,7 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 	float scale1 = yfoc / FIXED2FLOAT(dist1);
 	float scale2 = yfoc / FIXED2FLOAT(dist2);
 
+	rw.curline = curline;
 	rw.x1 = start;
 	rw.x2 = stop;
 	rw.scale1 = FLOAT2FIXED(scale1);
@@ -559,7 +535,7 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 	rw.scalestep = (rw.scale2 - rw.scale1) / width;
 	rw.length = R_LineLength(px1, py1, px2, py2);
 	rw.lengthstep = rw.length / width;
-	rw.textureoffset = R_LineLength(v1->x, v1->y, px1, py1) + curline->sidedef->textureoffset;
+	rw.textureoffset = R_LineLength(v1->x, v1->y, px1, py1) + rw.curline->sidedef->textureoffset;
 
 	// get the z coordinates of the line's vertices on each side of the line
 	rw_frontcz1 = P_CeilingHeight(px1, py1, frontsector);
@@ -624,28 +600,31 @@ void R_StoreWallRange(int start, int stop)
 
 	R_ReallocDrawSegs();	// don't overflow and crash
 
-	sidedef = curline->sidedef;
-	linedef = curline->linedef;
+	sidedef = rw.curline->sidedef;
+	linedef = rw.curline->linedef;
 
 	// mark the segment as visible for auto map
 	linedef->flags |= ML_MAPPED;
 
+	// clip the rw drawseg to the range between start and stop
+	*ds_p = rw;
 	ds_p->x1 = start;
 	ds_p->x2 = stop;
-	ds_p->curline = curline;
 
 	// calculate scale at both ends and step
 	ds_p->scale1 = rw.scale1 + (ds_p->x1 - rw.x1) * rw.scalestep;
 	ds_p->scale2 = rw.scale1 + (ds_p->x2 - rw.x1) * rw.scalestep;
 	ds_p->scalestep = rw.scalestep;
 
-	ds_p->light = rw_light = rw.scale1 * lightscalexmul;
- 	ds_p->lightstep = rw_lightstep = rw.scalestep * lightscalexmul;
+	ds_p->light = ds_p->scale1 * lightscalexmul;
+ 	ds_p->lightstep = ds_p->scalestep * lightscalexmul;
+
+	ds_p->length = count * rw.lengthstep;
+	ds_p->textureoffset = rw.textureoffset + (start - rw.x1) * rw.lengthstep;
 
 	// calculate texture boundaries
 	//	and decide if floor / ceiling marks are needed
 	midtexture = toptexture = bottomtexture = maskedmidtexture = 0;
-	ds_p->maskedmidcols = NULL;
 
 	if (!backsector)
 	{
@@ -816,8 +795,6 @@ void R_StoreWallRange(int start, int stop)
 		maskedmidtexture = sidedef->_midtexture;
 		if (maskedmidtexture)
 		{
-			// masked midtexture
-			ds_p->maskedmidcols = maskedmidcols = openings.alloc<byte*>(count) - start;
 			markfloor = markceiling = true;
 		}
 
@@ -829,9 +806,9 @@ void R_StoreWallRange(int start, int stop)
 
 	// [SL] 2012-01-24 - Horizon line extends to infinity by scaling the wall
 	// height to 0
-	if (curline->linedef->special == Line_Horizon)
+	if (rw.curline->linedef->special == Line_Horizon)
 	{
-		rw.scale1 = rw.scale2 = ds_p->scale1 = ds_p->scale2 = rw.scalestep = ds_p->light = rw_light = 0;
+		ds_p->scale1 = ds_p->scale2 = ds_p->light = 0;
 		midtexture = toptexture = bottomtexture = maskedmidtexture = 0;
 
 		for (int n = start; n <= stop; n++)
@@ -839,22 +816,6 @@ void R_StoreWallRange(int start, int stop)
 	}
 
 	segtextured = (midtexture | toptexture) | (bottomtexture | maskedmidtexture);
-
-	if (segtextured)
-	{
-		// calculate light table
-		//	use different light tables
-		//	for horizontal / vertical / diagonal
-		// OPTIMIZE: get rid of LIGHTSEGSHIFT globally
-		if (!fixedcolormap.isValid())
-		{
-			int lightnum = (frontsector->lightlevel >> LIGHTSEGSHIFT)
-					+ (foggy ? 0 : extralight) + R_OrthogonalLightnumAdjustment();
-
-			lightnum = clamp(lightnum, 0, LIGHTLEVELS - 1);
-			walllights = scalelight[lightnum];	
-		}
-	}
 
 	// if a floor / ceiling plane is on the wrong side
 	//	of the view plane, it is definitely invisible
@@ -886,7 +847,7 @@ void R_StoreWallRange(int start, int stop)
 
 	didsolidcol = false;
 
-	R_RenderSolidSegRange(start, stop);
+	R_RenderSolidSegRange(ds_p);
 
 	// [SL] save full clipping info for masked midtextures
 	// cph - if a column was made solid by this wall, we _must_ save full clipping info
