@@ -33,17 +33,8 @@ extern char SKYFLATNAME[8];
 extern texhandle_t		sky1flathandle;
 extern texhandle_t		sky2flathandle;
 
-extern int		sky1shift;
-
 extern texhandle_t sky1texhandle;
 extern texhandle_t sky2texhandle;
-
-extern fixed_t	skypos;	
-extern fixed_t	skytexturemid;
-extern int		skystretch;
-extern fixed_t	skyiscale;
-extern fixed_t	skyscale;
-extern fixed_t	skyheight;
 
 EXTERN_CVAR (r_stretchsky)
 

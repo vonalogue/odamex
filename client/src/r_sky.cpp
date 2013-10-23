@@ -56,14 +56,14 @@ texhandle_t		sky1texhandle;
 texhandle_t		sky2texhandle;
 
 
-fixed_t		skytexturemid;
-fixed_t		skyscale;
-int			skystretch;
-fixed_t		skyiscale;
+static fixed_t	skytexturemid;
+static fixed_t	skyscale;
+static int		skystretch;
+static fixed_t	skyiscale;
 
-int			sky1shift,		sky2shift;
-fixed_t		sky1pos=0,		sky1speed=0;
-fixed_t		sky2pos=0,		sky2speed=0;
+static int		sky1shift,		sky2shift;
+static fixed_t	sky1pos=0,		sky1speed=0;
+static fixed_t	sky2pos=0,		sky2speed=0;
 
 CVAR_FUNC_IMPL(r_stretchsky)
 {
@@ -75,7 +75,49 @@ char SKYFLATNAME[8] = "F_SKY1";
 extern "C" int detailxshift, detailyshift;
 extern fixed_t freelookviewheight;
 
-static byte* skycols[MAXWIDTH];
+//
+// Texture mapping for skies 
+// Used with R_DrawColumnRange
+//
+class SkyTextureMapper
+{
+public:
+	SkyTextureMapper(const visplane_t* pl, angle_t ang, fixed_t offset, const Texture* texture) :
+		mViewAngle(ang), mOffset(offset)
+	{
+		mXToViewAnglePtr = xtoviewangle + pl->minx;
+		mIScale = skyiscale >> skystretch;
+
+		// calculate mask to tile texture horizontally
+		mOffsetMask = (1 << (texture->getWidthBits() + FRACBITS)) - 1;
+	}
+
+	inline void next()
+	{
+		mXToViewAnglePtr++;
+	}
+
+	inline fixed_t getOffset() const
+	{
+		// TODO: use actual value for skyflip
+		int skyflip = 0;
+		// TODO: take texture x-scaling into account
+		return ((((mViewAngle + *mXToViewAnglePtr) ^ skyflip) >> sky1shift) + mOffset) & mOffsetMask;
+	}
+
+	inline fixed_t getIScale() const
+	{
+		// TODO: take texture y-scaling into account
+		return mIScale;
+	}
+
+private:
+	fixed_t			mIScale;
+	angle_t			mViewAngle;
+	angle_t*		mXToViewAnglePtr;
+	fixed_t			mOffset;
+	unsigned int	mOffsetMask;
+};
 
 //
 //
@@ -174,10 +216,11 @@ bool R_IsSkyFlat(texhandle_t handle)
 //
 void R_RenderSkyRange(visplane_t* pl)
 {
-	if (pl->minx > pl->maxx)
-		return;
+	int start = pl->minx;
+	int stop = pl->maxx;
 
-	int columnmethod = 2;
+	if (start > stop)
+		return;
 
 	texhandle_t skytexhandle = sky1texhandle;
 	fixed_t front_offset = 0;
@@ -257,16 +300,9 @@ void R_RenderSkyRange(visplane_t* pl)
 	for (int x = pl->minx; x <= pl->maxx; x++)
 		colormap_table[x] = dcol.colormap;
 
-	// determine which texture posts will be used for each screen
-	// column in this range.
-	for (int x = pl->minx; x <= pl->maxx; x++)
-	{
-		int colnum = (((viewangle + xtoviewangle[x]) ^ skyflip) >> sky1shift) + front_offset;
-		skycols[x] = texture->getColumnDataTiled(colnum);
-	}
-
-	R_DrawColumnRange(pl->minx, pl->maxx, (int*)pl->top, (int*)pl->bottom, skycols,
-						colormap_table, SkyColumnBlaster);
+	SkyTextureMapper mapper(pl, viewangle, front_offset, texture);
+	R_DrawColumnRange<SkyTextureMapper>(start, stop, (int*)pl->top, (int*)pl->bottom,
+						texture, mapper, colormap_table, SkyColumnBlaster);
 				
 	R_ResetDrawFuncs();
 }

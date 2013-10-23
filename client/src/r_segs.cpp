@@ -112,20 +112,20 @@ public:
 		mOffsetMask = (1 << (texture->getWidthBits() + FRACBITS)) - 1;
 	}
 
-	void next()
+	inline void next()
 	{
 		mUInvZ += mUInvZStep;
 		mScale += mScaleStep;
 		mIScale = invert(mScale);
 	}
 
-	fixed_t getOffset() const
+	inline fixed_t getOffset() const
 	{
 		// TODO: take texture x-scaling into account
 		return (mOffset + FixedMul(mUInvZ, mIScale)) & mOffsetMask;
 	}
 
-	fixed_t getIScale() const
+	inline fixed_t getIScale() const
 	{
 		// TODO: take texture y-scaling into account
 		return mIScale;
