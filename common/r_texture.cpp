@@ -50,10 +50,8 @@ Texture::Texture()
 size_t Texture::calculateSize(int width, int height)
 {
 	return sizeof(Texture)						// header
-		+ width * sizeof(*mMaskColumnLookup)	// mMaskColumnLookup
-		+ width * height						// mMask
-		+ width * sizeof(*mColumnLookup)		// mColumnLookup
-		+ width * height;						// mData
+		+ width * height						// mData
+		+ width * height;						// mMask
 }
 
 //
@@ -75,23 +73,10 @@ void Texture::init(int width, int height)
 	mScaleY = FRACUNIT;
 	mHasMask = false;
 
-	// mColumnLookup follows the header in memory
-	size_t column_lookup_size = width * sizeof(*mColumnLookup);
-	mColumnLookup = (byte**)((byte*)this + sizeof(*this));
-	// mData follows mColumnLookup
-	size_t data_size = width * height;
-	mData = (byte*)mColumnLookup + column_lookup_size;
-	// mMaskColumnLookup follows mData
-	size_t mask_column_lookup_size = width * sizeof(*mMaskColumnLookup);
-	mMaskColumnLookup = (byte**)(mData + data_size);
-	// mMask follows mMaskColumnLookup
-	mMask = (byte*)(mMaskColumnLookup) + mask_column_lookup_size;
-
-	for (int colnum = 0; colnum < width; colnum++)
-	{
-		mColumnLookup[colnum] = mData + colnum * height;	
-		mMaskColumnLookup[colnum] = mMask + colnum * height;
-	}
+	// mData follows the header in memory
+	mData = (byte*)((byte*)this + sizeof(*this));
+	// mMask follows mData
+	mMask = (byte*)(mData) + sizeof(byte) * width * height;
 }
 
 
@@ -427,12 +412,13 @@ void TextureManager::cachePatch(texhandle_t handle)
 
 			if (y1 <= y2)
 			{
-				byte* dest = texture->mColumnLookup[x] + y1;
+				byte* dest = texture->getData() + height * x + y1;
 				const byte* source = (byte*)post + 3;
 				memcpy(dest, source, y2 - y1 + 1);
 
 				// set up the mask
-				memset(texture->mMaskColumnLookup[x] + y1, 1, y2 - y1 + 1);	
+				byte* mask = texture->getMaskData() + height * x + y1;
+				memset(mask, 1, y2 - y1 + 1);	
 			}
 		
 			post = (post_t*)((byte*)post + post->length + 4);
@@ -644,12 +630,13 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 
 				if (y1 <= y2)
 				{
-					byte* dest = texture->mColumnLookup[x] + y1;
+					byte* dest = texture->getData() + height * x + y1;
 					const byte* source = (byte*)post + 3;
 					memcpy(dest, source, y2 - y1 + 1);
 
 					// set up the mask
-					memset(texture->mMaskColumnLookup[x] + y1, 1, y2 - y1 + 1);	
+					byte* mask = texture->getMaskData() + height * x + y1;
+					memset(mask, 1, y2 - y1 + 1);	
 				}
 			
 				post = (post_t*)((byte*)post + post->length + 4);

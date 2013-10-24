@@ -767,8 +767,10 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 
 	for (int x = vis->x1; x <= vis->x2; x++)
 	{
-		spritecols[x] = texture->getColumnData(colfrac);
-		maskedcols[x] = texture->getMaskColumnData(colfrac);
+//		spritecols[x] = texture->getColumnData(colfrac);
+		spritecols[x] = texture->getData() + (texheight >> FRACBITS) * (colfrac >> FRACBITS);
+//		maskedcols[x] = texture->getMaskColumnData(colfrac);
+		maskedcols[x] = spritecols[x] - texture->getData() + texture->getMaskData();
 		colfrac += vis->xiscale;
 
 		top[x] = MAX(mceilingclip[x], (centeryfrac - FixedMul(dcol.texturemid, vis->yscale)) >> FRACBITS);
