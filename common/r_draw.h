@@ -48,8 +48,8 @@ typedef struct
 	fixed_t				translevel;
 
 	byte*				dest;
-	byte*				source;
-	byte*				mask;
+	const byte*			source;
+	const byte*			mask;
 	tallpost_t*			post;
 
 	translationref_t	translation;
@@ -84,8 +84,8 @@ typedef struct
 	float				idstep;
 
 	byte*				dest;
-	byte*				source;
-	byte*				mask;
+	const byte*			source;
+	const byte*			mask;
 
 	shaderef_t			colormap;
 	shaderef_t			slopelighting[MAXWIDTH];
@@ -135,12 +135,12 @@ inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 	if (width <= 0)
 		return;
 
-	// generate a table of texture offsets for each column
-	fixed_t texoffset[width];
 	fixed_t texiscale[width];
+	const byte* texdata[width];
+
 	for (int x = 0; x < width; x++)
 	{
-		texoffset[x] = mapper.getOffset();
+		texdata[x] = mapper.getData();
 		texiscale[x] = mapper.getIScale();
 		mapper.next();
 	}
@@ -170,8 +170,8 @@ inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 				dcol.yl = MAX(top[x], blockstarty);
 				dcol.yh = MIN(bottom[x], blockstopy);
 				dcol.iscale = texiscale[x - start]; 
-				dcol.source = texture->getColumnData(texoffset[x - start]);
-				dcol.mask = texture->getMaskColumnData(texoffset[x - start]);
+				dcol.source = texdata[x - start];
+				dcol.mask = dcol.source - texture->getData() + texture->getMaskData();
 				dcol.dest = R_CalculateDestination(dcol);
 				dcol.colormap = colormap_table[x];
 

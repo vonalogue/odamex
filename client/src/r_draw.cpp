@@ -543,7 +543,7 @@ static forceinline void R_DrawColumnGeneric(drawcolumn_t& drawcolumn)
 	if (count <= 0)
 		return;
 
-	palindex_t* source = drawcolumn.source;
+	const palindex_t* source = drawcolumn.source;
 	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
 	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
 
@@ -693,7 +693,7 @@ static forceinline void R_DrawLevelSpanGeneric(drawspan_t& drawspan)
 	if (count <= 0)
 		return;
 
-	palindex_t* source = drawspan.source;
+	const palindex_t* source = drawspan.source;
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
 	int colsize = drawspan.colsize;
 	
@@ -756,7 +756,7 @@ static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 	if (count <= 0)
 		return;
 	
-	palindex_t* source = drawspan.source;
+	const palindex_t* source = drawspan.source;
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
 	int colsize = drawspan.colsize;
 

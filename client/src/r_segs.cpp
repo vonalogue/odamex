@@ -106,10 +106,13 @@ public:
 		const int width = ds->x2 - ds->x1 + 1;
 		mScaleStep = (ds->scale2 - ds->scale1) / width;
 		mUInvZStep = (int64_t(ds->length) * int64_t(ds->scale2) / width) >> FRACBITS;
-		mIScale = invert(mScale); 
+		mIScale = invert(mScale);
+
+		mHeight = texture->getHeight() >> FRACBITS;
+		mData = texture->getData();
 
 		// calculate mask to tile texture horizontally
-		mOffsetMask = (1 << (texture->getWidthBits() + FRACBITS)) - 1;
+		mWidthMask = (1 << texture->getWidthBits()) - 1;
 	}
 
 	inline void next()
@@ -119,10 +122,10 @@ public:
 		mIScale = invert(mScale);
 	}
 
-	inline fixed_t getOffset() const
+	inline const byte* getData() const
 	{
 		// TODO: take texture x-scaling into account
-		return (mOffset + FixedMul(mUInvZ, mIScale)) & mOffsetMask;
+		return mData + mHeight * (((mOffset + FixedMul(mUInvZ, mIScale)) >> FRACBITS) & mWidthMask);
 	}
 
 	inline fixed_t getIScale() const
@@ -143,7 +146,10 @@ private:
 	fixed_t			mUInvZ;
 	fixed_t			mUInvZStep;
 	fixed_t			mOffset;
-	unsigned int	mOffsetMask;
+
+	unsigned int	mHeight;
+	unsigned int	mWidthMask;
+	const byte*		mData;
 };
 
 //

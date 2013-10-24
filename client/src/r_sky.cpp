@@ -88,8 +88,11 @@ public:
 		mXToViewAnglePtr = xtoviewangle + pl->minx;
 		mIScale = skyiscale >> skystretch;
 
+		mHeight = texture->getHeight() >> FRACBITS;
+		mData = texture->getData();
+
 		// calculate mask to tile texture horizontally
-		mOffsetMask = (1 << (texture->getWidthBits() + FRACBITS)) - 1;
+		mWidthMask = (1 << texture->getWidthBits()) - 1;
 	}
 
 	inline void next()
@@ -97,12 +100,13 @@ public:
 		mXToViewAnglePtr++;
 	}
 
-	inline fixed_t getOffset() const
+	inline const byte* getData() const
 	{
 		// TODO: use actual value for skyflip
 		int skyflip = 0;
 		// TODO: take texture x-scaling into account
-		return ((((mViewAngle + *mXToViewAnglePtr) ^ skyflip) >> sky1shift) + mOffset) & mOffsetMask;
+		fixed_t colfrac = (((mViewAngle + *mXToViewAnglePtr) ^ skyflip) >> sky1shift) + mOffset;
+		return mData + mHeight * ((colfrac >> FRACBITS) & mWidthMask);
 	}
 
 	inline fixed_t getIScale() const
@@ -116,7 +120,9 @@ private:
 	angle_t			mViewAngle;
 	angle_t*		mXToViewAnglePtr;
 	fixed_t			mOffset;
-	unsigned int	mOffsetMask;
+	unsigned int	mWidthMask;
+	unsigned int	mHeight;
+	const byte*		mData;
 };
 
 //
