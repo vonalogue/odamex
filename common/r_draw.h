@@ -50,7 +50,6 @@ typedef struct
 	byte*				dest;
 	const byte*			source;
 	const byte*			mask;
-	tallpost_t*			post;
 
 	translationref_t	translation;
 	shaderef_t			colormap;
@@ -104,10 +103,6 @@ inline byte* R_CalculateDestination(const drawspan_t& drawspan)
 	return (byte*)(ylookup[drawspan.y] + columnofs[drawspan.x1]);
 }
 
-void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
-		byte** cols, const shaderef_t* colormap_table, void (*colblast)());
-
-
 inline int R_ColumnRangeMinimumHeight(int start, int stop, int* top)
 {
 	int minheight = viewheight - 1;
@@ -126,6 +121,13 @@ inline int R_ColumnRangeMaximumHeight(int start, int stop, int* bottom)
 	return MIN(maxheight, viewheight - 1);
 }
 
+
+//
+// R_DrawColumnRange
+//
+// Draws a texture to the screen using a cache-friendly 64x64 pixel block
+// scheme.
+//
 template <typename TextureMapper>
 inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 						const Texture* texture, TextureMapper& mapper, 

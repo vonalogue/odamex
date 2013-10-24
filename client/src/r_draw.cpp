@@ -1583,54 +1583,6 @@ void R_DrawSlopeSpanD_c(drawspan_t& drawspan)
 /****************************************************/
 
 //
-// R_DrawColumnRange
-//
-// Draws a range of columns to the screen.
-// Columns are written to the screen buffer in 64x64 tiles for better cache
-// usage.
-//
-void R_DrawColumnRange(int start, int stop, int* top, int* bottom, byte** cols, 
-						const shaderef_t* colormap_table, void (*colblast)())
-{
-	if (start > stop)
-		return;
-
-	const int BLOCKBITS = 6;
-	const int BLOCKSIZE = (1 << BLOCKBITS);
-	const int BLOCKMASK = (BLOCKSIZE - 1);
-
-	// [SL] Render the range of columns in 64x64 pixel blocks, aligned to a grid
-	// on the screen. This is to make better use of spatial locality in the cache.
-	for (int bx = start; bx <= stop; bx = (bx & ~BLOCKMASK) + BLOCKSIZE)
-	{
-		int blockstartx = bx;
-		int blockstopx = MIN((bx & ~BLOCKMASK) + BLOCKSIZE - 1, stop);
-
-		int miny = R_ColumnRangeMinimumHeight(blockstartx, blockstopx, top);
-		int maxy = R_ColumnRangeMaximumHeight(blockstartx, blockstopx, bottom);
-
-		for (int by = miny; by <= maxy; by = (by & ~BLOCKMASK) + BLOCKSIZE)
-		{
-			int blockstarty = by;
-			int blockstopy = (by & ~BLOCKMASK) + BLOCKSIZE - 1;
-
-			for (int x = blockstartx; x <= blockstopx; x++)
-			{
-				dcol.x = x;
-				dcol.yl = MAX(top[x], blockstarty);
-				dcol.yh = MIN(bottom[x], blockstopy);
-				dcol.source = cols[x];
-				dcol.dest = R_CalculateDestination(dcol);
-				dcol.colormap = colormap_table[x];
-
-				colblast();
-			}
-		}
-	}
-}
-
-
-//
 // R_InitBuffer 
 // Creats lookup tables that avoid
 //  multiplies and other hazzles

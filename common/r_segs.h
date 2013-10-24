@@ -35,8 +35,6 @@ void R_StoreWallRange(int start, int stop);
 void R_RenderSegLoop();
 void R_ClearOpenings();
 
-EXTERN_CVAR (r_columnmethod)
-
 #endif
 
 

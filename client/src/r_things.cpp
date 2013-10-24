@@ -653,6 +653,40 @@ vissprite_t *R_NewVisSprite (void)
 }
 
 
+class SpriteTextureMapper
+{
+public:
+	SpriteTextureMapper(const vissprite_t* vis, const Texture* texture) :
+		mFrac(vis->startfrac), mFracStep(vis->xiscale)
+	{
+		mIScale = 0xffffffffu / (unsigned)vis->yscale;
+		mHeight = texture->getHeight() >> FRACBITS;
+		mData = texture->getData();
+	}
+
+	inline void next()
+	{
+		mFrac += mFracStep;
+	}
+
+	inline const byte* getData() const
+	{
+		return mData + mHeight * (mFrac >> FRACBITS);
+	}
+
+	inline fixed_t getIScale() const
+	{
+		return mIScale;
+	}
+
+private:
+	fixed_t			mFrac;
+	fixed_t			mFracStep;
+	fixed_t			mIScale;
+	unsigned int	mHeight;
+	const byte*		mData;
+};
+
 //
 // R_BlastSpriteColum
 // Used for sprites
@@ -662,8 +696,6 @@ vissprite_t *R_NewVisSprite (void)
 int*			mfloorclip;
 int*			mceilingclip;
 
-byte* maskedcols[MAXWIDTH];
-
 //
 // R_BlastSpriteColumn
 //
@@ -671,8 +703,6 @@ static inline void R_BlastSpriteColumn(void (*drawfunc)(drawcolumn_t&))
 {
 	// TODO: dc_texturefrac should take y-scaling of textures into account
 	dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
-
-	dcol.mask = maskedcols[dcol.x];
 
 	if (dcol.yl <= dcol.yh)
 		drawfunc(dcol);
@@ -688,14 +718,16 @@ void SpriteColumnBlaster()
 // R_DrawVisSprite
 //	mfloorclip and mceilingclip should also be set.
 //
-void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
+static void R_DrawVisSprite(vissprite_t *vis)
 {
+	int start = vis->x1;
+	int stop = vis->x2;
+	if (start > stop || vis->yscale <= 0)
+		return;
+
 	bool				fuzz_effect = false;
 	bool				translated = false;
 	bool				lucent = false;
-
-	if (vis->yscale <= 0)
-		return;
 
 	dcol.textureheight = 256 << FRACBITS;
 
@@ -707,8 +739,6 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 		R_DrawParticle(vis);
 		return;
 	}
-
-	dcol.colormap = vis->colormap;
 
 	if (vis->translation)
 	{
@@ -752,36 +782,27 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 	else if (translated)
 		R_SetTranslatedDrawFuncs();
 
-	dcol.iscale = 0xffffffffu / (unsigned)vis->yscale;
 	dcol.texturemid = vis->texturemid;
 
 	static int top[MAXWIDTH];
 	static int bottom[MAXWIDTH];
-	static byte* spritecols[MAXWIDTH];
 
 	const Texture* texture = texturemanager.getTexture(vis->texhandle);
-
-	// [SL] set up the array that indicates which patch column to use for each screen column
-	fixed_t colfrac = vis->startfrac;
 	fixed_t texheight = texture->getHeight();
 
-	for (int x = vis->x1; x <= vis->x2; x++)
+	for (int x = start; x <= stop; x++)
 	{
-//		spritecols[x] = texture->getColumnData(colfrac);
-		spritecols[x] = texture->getData() + (texheight >> FRACBITS) * (colfrac >> FRACBITS);
-//		maskedcols[x] = texture->getMaskColumnData(colfrac);
-		maskedcols[x] = spritecols[x] - texture->getData() + texture->getMaskData();
-		colfrac += vis->xiscale;
-
 		top[x] = MAX(mceilingclip[x], (centeryfrac - FixedMul(dcol.texturemid, vis->yscale)) >> FRACBITS);
 		bottom[x] = MIN(mfloorclip[x], (centeryfrac - FixedMul(dcol.texturemid - texheight, vis->yscale)) >> FRACBITS) - 1;
 	}
 
 	static shaderef_t colormap_table[MAXWIDTH];
-	for (int x = vis->x1; x <= vis->x2; x++)
+	for (int x = start; x <= stop; x++)
 		colormap_table[x] = vis->colormap;
 
-	R_DrawColumnRange(vis->x1, vis->x2, top, bottom, spritecols, colormap_table, SpriteColumnBlaster);
+	SpriteTextureMapper mapper(vis, texture);
+	R_DrawColumnRange<SpriteTextureMapper>(start, stop, top, bottom,
+				texture, mapper, colormap_table, SpriteColumnBlaster);
 
 	R_ResetDrawFuncs();
 }
@@ -1227,7 +1248,7 @@ void R_DrawPSprite (pspdef_t* psp, unsigned flags)
 	if (consoleplayer().spectator && displayplayer_id == consoleplayer_id)
 		return;
 
-	R_DrawVisSprite (vis, vis->x1, vis->x2);
+	R_DrawVisSprite(vis);
 }
 
 
@@ -1461,7 +1482,7 @@ void R_DrawSprite (vissprite_t *spr)
 	// all clipping has been performed, so draw the sprite
 	mfloorclip = clipbot;
 	mceilingclip = cliptop;
-	R_DrawVisSprite (spr, spr->x1, spr->x2);
+	R_DrawVisSprite(spr);
 
 	if (r_drawhitboxes && spr->mo)
 		R_DrawHitBox(spr->mo);
