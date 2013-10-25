@@ -113,8 +113,6 @@ spriteframe_t	sprtemp[MAX_SPRITE_FRAMES];
 int 			maxframe;
 static const char*		spritename;
 
-static tallpost_t* spriteposts[MAXWIDTH];
-
 // [RH] skin globals
 playerskin_t	*skins;
 size_t			numskins;
