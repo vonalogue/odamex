@@ -36,6 +36,56 @@
 
 TextureManager texturemanager;
 
+//
+// R_DrawPatchIntoTexture
+//
+// Draws a patch_t into a Texture at the given offset.
+//
+void R_DrawPatchIntoTexture(Texture* texture, const patch_t* patch, int xoffs, int yoffs)
+{
+	int texwidth = texture->getWidth() >> FRACBITS;
+	int texheight = texture->getHeight() >> FRACBITS;
+
+	const int* colofs = (int*)((byte*)patch + 8);
+
+	int x1 = MAX(xoffs, 0);
+	int x2 = MIN(xoffs + patch->width() - 1, texwidth - 1);
+
+	for (int x = x1; x <= x2; x++)
+	{
+		int abstopdelta = 0;
+
+		post_t* post = (post_t*)((byte*)patch + colofs[x - xoffs]);
+		while (post->topdelta != 0xFF)
+		{
+			// handle DeePsea tall patches where topdelta is treated as a relative
+			// offset instead of an absolute offset
+			if (post->topdelta <= abstopdelta)
+				abstopdelta += post->topdelta;
+			else
+				abstopdelta = post->topdelta;
+
+			int topoffset = yoffs + abstopdelta;
+			int y1 = MAX(topoffset, 0);
+			int y2 = MIN(topoffset + post->length - 1, texheight - 1);
+
+			if (y1 <= y2)
+			{
+				byte* dest = texture->getData() + texheight * x + y1;
+				const byte* source = (byte*)post + 3;
+				memcpy(dest, source, y2 - y1 + 1);
+
+				// set up the mask
+				byte* mask = texture->getMaskData() + texheight * x + y1;
+				memset(mask, 1, y2 - y1 + 1);	
+			}
+			
+			post = (post_t*)((byte*)post + post->length + 4);
+		}
+	}
+}
+
+
 // ============================================================================
 //
 // TextureManager
@@ -108,9 +158,12 @@ void TextureManager::clear()
 	delete [] mPNameLookup;
 	mPNameLookup = NULL;
 
-	for (size_t i = 0; i < mTextureDefinitions.size(); i++)
-		delete mTextureDefinitions[i];
-	mTextureDefinitions.clear();
+	for (unsigned int i = 0; i < mTextureDefinitionCount; i++)
+		delete [] mTextureDefinitions[i];
+	delete [] mTextureDefinitions;
+	mTextureDefinitions = NULL;
+
+	mTextureNameTranslationMap.clear();
 
 	// [SL] the zone memory manager takes care of freeing all allocated
 	// memory for Textures.
@@ -144,8 +197,7 @@ void TextureManager::init()
 	addTextureDirectory("TEXTURE2");
 
 	// initialize mHandleMap for all possible handles
-	unsigned int num_walltextures = mTextureDefinitions.size();
-	for (unsigned int texnum = 0; texnum < num_walltextures; texnum++)
+	for (unsigned int texnum = 0; texnum < mTextureDefinitionCount; texnum++)
 	{
 		texhandle_t handle = getWallTextureHandle(texnum);
 		mHandleMap[handle] = NULL;
@@ -231,16 +283,12 @@ void TextureManager::readPNamesDirectory()
 //
 void TextureManager::generateNotFoundTexture()
 {
-	const int width = 64;
-	const int height = 64;
+	const int width = 64, height = 64;
 
-	texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
-	Texture** owner = &mHandleMap[handle];
-	size_t texture_size = Texture::calculateSize(width, height);
-	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_STATIC, (void**)owner);
-	texture->init(width, height);
+	const texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
+	Texture* texture = createTexture(handle, width, height);
 
-	byte color1 = 0x40, color2 = 0x80;
+	const byte color1 = 0x40, color2 = 0x80;
 
 	for (int y = 0; y < height / 2; y++)
 	{
@@ -277,19 +325,21 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 	byte* rawlumpdata = new byte[lumplen];
 	W_ReadLump(lumpnum, rawlumpdata);
 
-	int numtextures = LELONG(*((int*)(rawlumpdata + 0)));
+	mTextureDefinitionCount = LELONG(*((int*)(rawlumpdata + 0)));
 	int* texoffs = (int*)(rawlumpdata + 4);
 
 	// keep track of the number of texture errors
 	int errors = 0;
 
-	for (int i = 0; i < numtextures; i++)
+	mTextureDefinitions = new texdef_t*[mTextureDefinitionCount];
+
+	for (unsigned int i = 0; i < mTextureDefinitionCount; i++)
 	{
 		maptexture_t* mtexdef = (maptexture_t*)((byte*)rawlumpdata + LELONG(texoffs[i]));
 		
 		size_t texdefsize = sizeof(texdef_t) + sizeof(texdefpatch_t) * (SAFESHORT(mtexdef->patchcount) - 1);
 		texdef_t* texdef = (texdef_t*)(new byte[texdefsize]); 	
-		mTextureDefinitions.push_back(texdef);
+		mTextureDefinitions[i] = texdef;
 
 		texdef->width = SAFESHORT(mtexdef->width);
 		texdef->height = SAFESHORT(mtexdef->height);
@@ -317,7 +367,7 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 			}
 		}
 
-		mTextureNameTranslationMap[uname] = mTextureDefinitions.size() - 1;
+		mTextureNameTranslationMap[uname] = i;
 	}
 
 	delete [] rawlumpdata;
@@ -337,6 +387,22 @@ texhandle_t TextureManager::createSpecialUseHandle()
 		return mNextSpecialUseHandle++;
 	return NOT_FOUND_TEXTURE_HANDLE;
 }
+
+
+//
+// TextureManager::createTexture
+//
+// Allocates memory for a new texture and returns a pointer to it.
+//
+Texture* TextureManager::createTexture(texhandle_t handle, int width, int height)
+{
+	Texture** owner = &mHandleMap[handle];
+	size_t texture_size = Texture::calculateSize(width, height);
+	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
+	texture->init(width, height);
+	return texture;
+}
+
 
 //
 // TextureManager::getPatchHandle
@@ -362,6 +428,8 @@ texhandle_t TextureManager::getPatchHandle(const char* name)
 	return NOT_FOUND_TEXTURE_HANDLE;
 }
 
+
+
 //
 // TextureManger::cachePatch
 //
@@ -374,16 +442,11 @@ void TextureManager::cachePatch(texhandle_t handle)
 	W_ReadLump(lumpnum, rawlumpdata);
 
 	const patch_t* patch = (patch_t*)rawlumpdata;
-	const int* colofs = (int*)(rawlumpdata + 8);
 
 	int width = patch->width();
 	int height = patch->height();
 
-	Texture** owner = &mHandleMap[handle];
-	size_t texture_size = Texture::calculateSize(width, height);
-	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
-	texture->init(width, height);
-
+	Texture* texture = createTexture(handle, width, height);
 	texture->mOffsetX = patch->leftoffset() << FRACBITS;
 	texture->mOffsetY = patch->topoffset() << FRACBITS;
 
@@ -393,37 +456,7 @@ void TextureManager::cachePatch(texhandle_t handle)
 	// initialize the mask to entirely transparent 
 	memset(texture->mMask, 0, width * height);
 
-	for (int x = 0; x < width; x++)
-	{
-		int abstopdelta = 0;
-
-		post_t* post = (post_t*)(rawlumpdata + colofs[x]);
-		while (post->topdelta != 0xFF)
-		{
-			// handle DeePsea tall patches where topdelta is treated as a relative
-			// offset instead of an absolute offset
-			if (post->topdelta <= abstopdelta)
-				abstopdelta += post->topdelta;
-			else
-				abstopdelta = post->topdelta;
-
-			int y1 = abstopdelta;
-			int y2 = abstopdelta + post->length - 1;
-
-			if (y1 <= y2)
-			{
-				byte* dest = texture->getData() + height * x + y1;
-				const byte* source = (byte*)post + 3;
-				memcpy(dest, source, y2 - y1 + 1);
-
-				// set up the mask
-				byte* mask = texture->getMaskData() + height * x + y1;
-				memset(mask, 1, y2 - y1 + 1);	
-			}
-		
-			post = (post_t*)((byte*)post + post->length + 4);
-		}
-	}
+	R_DrawPatchIntoTexture(texture, patch, 0, 0);
 
 	delete [] rawlumpdata;
 
@@ -516,11 +549,7 @@ void TextureManager::cacheFlat(texhandle_t handle)
 	else
 		width = height = Log2(sqrt(lumplen));	// probably not pretty... 
 
-	Texture** owner = &mHandleMap[handle];
-	size_t texture_size = Texture::calculateSize(width, height);
-	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
-
-	texture->init(width, height);
+	Texture* texture = createTexture(handle, width, height);
 
 	byte *rawlumpdata = new byte[lumplen];
 	W_ReadLump(lumpnum, rawlumpdata);
@@ -552,7 +581,7 @@ void TextureManager::cacheFlat(texhandle_t handle)
 texhandle_t TextureManager::getWallTextureHandle(unsigned int texdef_handle)
 {
 	// texdef_handle > number of wall textures in the WAD file?
-	if (texdef_handle >= mTextureDefinitions.size())
+	if (texdef_handle >= mTextureDefinitionCount)
 		return NOT_FOUND_TEXTURE_HANDLE;
 
 	return (texhandle_t)texdef_handle | WALLTEXTURE_HANDLE_MASK;
@@ -580,11 +609,7 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 	int width = texdef->width;
 	int height = texdef->height;
 
-	Texture** owner = &mHandleMap[handle];
-	size_t texture_size = Texture::calculateSize(width, height);
-	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
-	texture->init(width, height);
-
+	Texture* texture = createTexture(handle, width, height);
 	texture->mScaleX = texdef->scalex ? texdef->scalex << (FRACBITS - 3) : FRACUNIT;
 	texture->mScaleY = texdef->scaley ? texdef->scaley << (FRACBITS - 3) : FRACUNIT;
 
@@ -604,44 +629,7 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 		W_ReadLump(texdefpatch->patch, rawlumpdata);
 
 		const patch_t* patch = (patch_t*)rawlumpdata;
-		const int* colofs = (int*)(rawlumpdata + 8);
-
-		int leftoffset = texdefpatch->originx;
-		int x1 = MAX(leftoffset, 0);
-		int x2 = MIN(leftoffset + patch->width() - 1, width - 1);
-
-		for (int x = x1; x <= x2; x++)
-		{
-			int abstopdelta = 0;
-
-			post_t* post = (post_t*)(rawlumpdata + colofs[x - texdefpatch->originx]);
-			while (post->topdelta != 0xFF)
-			{
-				// handle DeePsea tall patches where topdelta is treated as a relative
-				// offset instead of an absolute offset
-				if (post->topdelta <= abstopdelta)
-					abstopdelta += post->topdelta;
-				else
-					abstopdelta = post->topdelta;
-
-				int topoffset = texdefpatch->originy + abstopdelta;
-				int y1 = MAX(topoffset, 0);
-				int y2 = MIN(topoffset + post->length - 1, height - 1);
-
-				if (y1 <= y2)
-				{
-					byte* dest = texture->getData() + height * x + y1;
-					const byte* source = (byte*)post + 3;
-					memcpy(dest, source, y2 - y1 + 1);
-
-					// set up the mask
-					byte* mask = texture->getMaskData() + height * x + y1;
-					memset(mask, 1, y2 - y1 + 1);	
-				}
-			
-				post = (post_t*)((byte*)post + post->length + 4);
-			}
-		}
+		R_DrawPatchIntoTexture(texture, patch, texdefpatch->originx, texdefpatch->originy);
 
 		delete [] rawlumpdata;
 	}

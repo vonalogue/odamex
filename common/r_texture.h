@@ -217,19 +217,21 @@ public:
 	texhandle_t createSpecialUseHandle();
 
 	static const texhandle_t NO_TEXTURE_HANDLE			= 0x0;
-	static const texhandle_t NOT_FOUND_TEXTURE_HANDLE	= 0xFFFFFFFFul;
+	static const texhandle_t NOT_FOUND_TEXTURE_HANDLE	= 0x1;
 
 private:
 	static const unsigned int SPECIAL_USE_HANDLE_MASK	= 0x00008000ul;
-	static const unsigned int FLAT_HANDLE_MASK			= 0x01000000ul;
-	static const unsigned int PATCH_HANDLE_MASK			= 0x02000000ul;
-	static const unsigned int SPRITE_HANDLE_MASK		= 0x04000000ul;
-	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x08000000ul;
+	static const unsigned int FLAT_HANDLE_MASK			= 0x00010000ul;
+	static const unsigned int PATCH_HANDLE_MASK			= 0x00020000ul;
+	static const unsigned int SPRITE_HANDLE_MASK		= 0x00040000ul;
+	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x00080000ul;
 
 	// initialization routines
 	void generateNotFoundTexture();
 	void readPNamesDirectory();
 	void addTextureDirectory(const char* lumpname); 
+
+	Texture* createTexture(texhandle_t handle, int width, int height);
 
 	// patches
 	texhandle_t getPatchHandle(unsigned int lumpnum);
@@ -260,14 +262,14 @@ private:
 	unsigned int				mLastFlatLumpNum;
 
 	int*						mPNameLookup;
-	std::vector<texdef_t*>		mTextureDefinitions;
+	unsigned int				mTextureDefinitionCount;
+	texdef_t**					mTextureDefinitions;
 
 	typedef HashTable<OString, unsigned int> TextureNameTranslationMap;
 	TextureNameTranslationMap	mTextureNameTranslationMap;
 
 	static const unsigned int MAX_SPECIAL_USE_HANDLES = 256;
 	texhandle_t					mNextSpecialUseHandle;
-
 };
 
 extern TextureManager texturemanager;
