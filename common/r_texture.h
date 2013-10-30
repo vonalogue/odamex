@@ -206,9 +206,13 @@ public:
 	TextureManager();
 	~TextureManager();
 
-	void init();
+	void startup();
+	void shutdown();
+
 	void clear();
 	void precache();
+
+	void updateAnimatedTextures();
 
 	texhandle_t getHandle(const char* name, Texture::TextureSourceType type);
 	texhandle_t getHandle(unsigned int lumpnum, Texture::TextureSourceType type);
@@ -230,6 +234,7 @@ private:
 	void generateNotFoundTexture();
 	void readPNamesDirectory();
 	void addTextureDirectory(const char* lumpname); 
+	void setupAnimatedTextures();
 
 	Texture* createTexture(texhandle_t handle, int width, int height);
 
@@ -270,6 +275,24 @@ private:
 
 	static const unsigned int MAX_SPECIAL_USE_HANDLES = 256;
 	texhandle_t					mNextSpecialUseHandle;
+
+	// animated textures
+	typedef struct
+	{
+		static const unsigned int MAX_ANIM_FRAMES = 32;
+		texhandle_t		basepic;
+		short			numframes;
+		byte 			istexture;
+		byte			uniqueframes;
+		byte			countdown;
+		byte			curframe;
+		byte 			speedmin[MAX_ANIM_FRAMES];
+		byte			speedmax[MAX_ANIM_FRAMES];
+		texhandle_t		framepic[MAX_ANIM_FRAMES];
+	} anim_t;
+
+	anim_t*						mAnimDefs;
+	unsigned int				mNumAnimDefs;
 };
 
 extern TextureManager texturemanager;

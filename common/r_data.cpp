@@ -197,7 +197,7 @@ byte* R_GetPatchColumnData(int lumpnum, int colnum)
 //
 void R_InitTextures (void)
 {
-	texturemanager.init();
+	texturemanager.startup();
 }
 
 

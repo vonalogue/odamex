@@ -1812,60 +1812,7 @@ void P_PlayerInSpecialSector (player_t *player)
 
 void P_UpdateSpecials (void)
 {
-	anim_t *anim;
-	int i;
-
-	// ANIMATE FLATS AND TEXTURES GLOBALLY
-	// [RH] Changed significantly to work with ANIMDEFS lumps
-	for (anim = anims; anim < lastanim; anim++)
-	{
-		if (--anim->countdown == 0)
-		{
-			int speedframe;
-
-			anim->curframe = (anim->numframes) ? 
-					(anim->curframe + 1) % anim->numframes : 0;
-
-			speedframe = (anim->uniqueframes) ? anim->curframe : 0;
-
-			if (anim->speedmin[speedframe] == anim->speedmax[speedframe])
-				anim->countdown = anim->speedmin[speedframe];
-			else
-				anim->countdown = M_Random() %
-					(anim->speedmax[speedframe] - anim->speedmin[speedframe]) +
-					anim->speedmin[speedframe];
-		}
-
-		if (anim->uniqueframes)
-		{
-			int pic = anim->framepic[anim->curframe];
-
-/*
-			if (anim->istexture)
-				for (i = 0; i < anim->numframes; i++)
-					texturetranslation[anim->framepic[i]] = pic;
-			else
-				for (i = 0; i < anim->numframes; i++)
-					flattranslation[anim->framepic[i]] = pic;
-*/
-		}
-		else
-		{
-			for (unsigned i = anim->basepic; i < anim->basepic + anim->numframes; i++)
-			{
-				int pic = anim->basepic + (anim->curframe + i) % anim->numframes;
-
-/*
-				if (anim->istexture)
-					texturetranslation[i] = pic;
-				else
-					flattranslation[i] = pic;
-*/
-			}
-		}
-	}
-
-	// [ML] 5/11/06 - Remove sky scrolling ability
+	texturemanager.updateAnimatedTextures();
 }
 
 
