@@ -343,7 +343,6 @@ void R_RenderSolidSegRange(const drawseg_t* ds)
 		for (int x = start; x <= stop; x++)
 			lower[x] = wallbottomf[x] - 1;
 
-		// TODO: texturetranslation[]
 		const Texture* texture = texturemanager.getTexture(midtexture);
 		dcol.textureheight = texture->getHeight();
 		dcol.texturemid = rw_midtexturemid;
@@ -635,7 +634,6 @@ void R_StoreWallRange(int start, int stop)
 	if (!backsector)
 	{
 		// single sided line
-		// TODO: texturetranslation[]
 		midtexture = sidedef->_midtexture;
 
 		// a single sided line is terminal, so it must mark ends
@@ -760,7 +758,6 @@ void R_StoreWallRange(int start, int stop)
 
 		if (rw_hashigh)
 		{
-			// TODO: texturetranslation[]
 			toptexture = sidedef->_toptexture;
 			if (linedef->flags & ML_DONTPEGTOP)
 			{
@@ -781,7 +778,6 @@ void R_StoreWallRange(int start, int stop)
 
 		if (rw_haslow)
 		{
-			// TODO: texturetranslation[]
 			bottomtexture = sidedef->_bottomtexture;
 			if (linedef->flags & ML_DONTPEGBOTTOM)
 			{
@@ -797,7 +793,6 @@ void R_StoreWallRange(int start, int stop)
 			rw_bottomtexturemid += sidedef->rowoffset;
 		}
 
-		// TODO: texturetranslation[]
 		maskedmidtexture = sidedef->_midtexture;
 		if (maskedmidtexture)
 		{

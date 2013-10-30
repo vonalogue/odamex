@@ -234,7 +234,8 @@ private:
 	void generateNotFoundTexture();
 	void readPNamesDirectory();
 	void addTextureDirectory(const char* lumpname); 
-	void setupAnimatedTextures();
+	void readAnimDefLump();
+	void readAnimatedLump();
 
 	Texture* createTexture(texhandle_t handle, int width, int height);
 
@@ -282,8 +283,6 @@ private:
 		static const unsigned int MAX_ANIM_FRAMES = 32;
 		texhandle_t		basepic;
 		short			numframes;
-		byte 			istexture;
-		byte			uniqueframes;
 		byte			countdown;
 		byte			curframe;
 		byte 			speedmin[MAX_ANIM_FRAMES];
@@ -291,8 +290,7 @@ private:
 		texhandle_t		framepic[MAX_ANIM_FRAMES];
 	} anim_t;
 
-	anim_t*						mAnimDefs;
-	unsigned int				mNumAnimDefs;
+	std::vector<anim_t>			mAnimDefs;
 };
 
 extern TextureManager texturemanager;

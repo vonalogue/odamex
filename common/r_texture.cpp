@@ -27,6 +27,7 @@
 #include "r_state.h"
 #include "m_random.h"
 #include "w_wad.h"
+#include "sc_man.h"
 #include "cmdlib.h"
 
 #include <cstring>
@@ -165,9 +166,7 @@ void TextureManager::clear()
 
 	mTextureNameTranslationMap.clear();
 
-	delete [] mAnimDefs;
-	mAnimDefs = NULL;
-	mNumAnimDefs = 0;
+	mAnimDefs.clear();
 
 	// [SL] the zone memory manager takes care of freeing all allocated
 	// memory for Textures.
@@ -215,7 +214,8 @@ void TextureManager::startup()
 
 	generateNotFoundTexture();
 
-	setupAnimatedTextures();
+	readAnimDefLump();
+	readAnimatedLump();
 }
 
 
@@ -289,43 +289,140 @@ void TextureManager::readPNamesDirectory()
 }
 
 
-void TextureManager::setupAnimatedTextures()
+void TextureManager::readAnimDefLump()
 {
+	int lump = -1;
+	
+	while ((lump = W_FindLump("ANIMDEFS", lump)) != -1)
+	{
+		SC_OpenLumpNum(lump, "ANIMDEFS");
 
-/*
- *P_InitPicAnims
- *
- *Load the table of animation definitions, checking for existence of
- *the start and end of each frame. If the start doesn't exist the sequence
- *is skipped, if the last doesn't exist, BOOM exits.
- *
- *Wall/Flat animation sequences, defined by name of first and last frame,
- *The full animation sequence is given using all lumps between the start
- *and end entry, in the order found in the WAD file.
- *
- *This routine modified to read its data from a predefined lump or
- *PWAD lump called ANIMATED rather than a static table in this module to
- *allow wad designers to insert or modify animation sequences.
- *
- *Lump format is an array of byte packed animdef_t structures, terminated
- *by a structure with istexture == -1. The lump can be generated from a
- *text source file using SWANTBLS.EXE, distributed with the BOOM utils.
- *The standard list of switches and animations is contained in the example
- *source text file DEFSWANI.DAT also in the BOOM util distribution.
- *
- *[RH] Rewritten to support BOOM ANIMATED lump but also make absolutely
- *no assumptions about how the compiler packs the animdefs array.
- *
- */
+		while (SC_GetString())
+		{
+			if (SC_Compare("flat") || SC_Compare("texture"))
+			{
+				anim_t anim;
 
-	unsigned int max_animdefs = 32;		// Initial value. Increases as needed
-	mAnimDefs = new anim_t[max_animdefs];
+				Texture::TextureSourceType texture_type = Texture::TEX_WALLTEXTURE;
+				if (SC_Compare("flat"))
+					texture_type = Texture::TEX_FLAT;
 
-	// [RH] Load an ANIMDEFS lump first
-	// [SL] TODO
-//	P_InitAnimDefs ();
+				SC_MustGetString();
+				anim.basepic = texturemanager.getHandle(sc_String, texture_type);
 
-	short lumpnum = W_CheckNumForName("ANIMATED");
+				anim.curframe = 0;
+				anim.numframes = 0;
+				memset(anim.speedmin, 1, anim_t::MAX_ANIM_FRAMES * sizeof(*anim.speedmin));
+				memset(anim.speedmax, 1, anim_t::MAX_ANIM_FRAMES * sizeof(*anim.speedmax));
+
+				while (SC_GetString())
+				{
+					if (!SC_Compare("pic"))
+					{
+						SC_UnGet();
+						break;
+					}
+
+					if (anim.numframes == anim_t::MAX_ANIM_FRAMES)
+						SC_ScriptError ("Animation has too many frames");
+
+					byte min = 1, max = 1;
+					
+					SC_MustGetNumber();
+					int frame = sc_Number;
+					SC_MustGetString();
+					if (SC_Compare("tics"))
+					{
+						SC_MustGetNumber();
+						sc_Number = clamp(sc_Number, 0, 255);
+						min = max = sc_Number;
+					}
+					else if (SC_Compare("rand"))
+					{
+						SC_MustGetNumber();
+						min = MAX(sc_Number, 0);
+						SC_MustGetNumber();
+						max = MIN(sc_Number, 255);
+						if (min > max)
+							min = max = 1;
+					}
+					else
+					{
+						SC_ScriptError ("Must specify a duration for animation frame");
+					}
+
+					anim.speedmin[anim.numframes] = min;
+					anim.speedmax[anim.numframes] = max;
+					anim.framepic[anim.numframes] = frame + anim.basepic - 1;
+					anim.numframes++;
+				}
+
+				anim.countdown = anim.speedmin[0];
+
+				if (anim.basepic != TextureManager::NOT_FOUND_TEXTURE_HANDLE &&
+					anim.basepic != TextureManager::NO_TEXTURE_HANDLE)
+					mAnimDefs.push_back(anim);
+			}
+			else if (SC_Compare ("switch"))   // Don't support switchdef yet...
+			{
+				//P_ProcessSwitchDef ();
+				SC_ScriptError("switchdef not supported.");
+			}
+			else if (SC_Compare("warp"))
+			{
+				SC_MustGetString();
+				if (SC_Compare("flat"))
+				{
+					SC_MustGetString();
+					texhandle_t handle = texturemanager.getHandle(sc_String, Texture::TEX_FLAT);
+					// TODO: [SL] allow warping again
+					//flatwarp[handle] = true;
+				}
+				else if (SC_Compare ("texture"))
+				{
+					// TODO: Make texture warping work with wall textures
+					SC_MustGetString();
+					texhandle_t handle = texturemanager.getHandle(sc_String, Texture::TEX_WALLTEXTURE);
+				}
+				else
+				{
+					SC_ScriptError (NULL, NULL);
+				}
+			}
+		}
+		SC_Close ();
+	}
+}
+
+//
+// TextureManager::readAnimatedLump
+//
+// Reads animation definitions from the ANIMATED lump.
+//
+// Load the table of animation definitions, checking for existence of
+// the start and end of each frame. If the start doesn't exist the sequence
+// is skipped, if the last doesn't exist, BOOM exits.
+//
+// Wall/Flat animation sequences, defined by name of first and last frame,
+// The full animation sequence is given using all lumps between the start
+// and end entry, in the order found in the WAD file.
+//
+// This routine modified to read its data from a predefined lump or
+// PWAD lump called ANIMATED rather than a static table in this module to
+// allow wad designers to insert or modify animation sequences.
+//
+// Lump format is an array of byte packed animdef_t structures, terminated
+// by a structure with istexture == -1. The lump can be generated from a
+// text source file using SWANTBLS.EXE, distributed with the BOOM utils.
+// The standard list of switches and animations is contained in the example
+// source text file DEFSWANI.DAT also in the BOOM util distribution.
+//
+// [RH] Rewritten to support BOOM ANIMATED lump but also make absolutely
+// no assumptions about how the compiler packs the animdefs array.
+//
+void TextureManager::readAnimatedLump()
+{
+	int lumpnum = W_CheckNumForName("ANIMATED");
 	if (lumpnum == -1)
 		return;
 
@@ -338,20 +435,10 @@ void TextureManager::setupAnimatedTextures()
 
 	for (byte* ptr = rawlumpdata; *ptr != 255; ptr += 23)
 	{
-		// reallocate as needed
-		if (mNumAnimDefs >= max_animdefs)
-		{
-			max_animdefs *= 2;
-			anim_t* new_animdefs = new anim_t[max_animdefs];
-			memcpy(new_animdefs, mAnimDefs, max_animdefs/2 * sizeof(anim_t));
-			delete [] mAnimDefs;
-			mAnimDefs = new_animdefs;
-		}
+		anim_t anim;
 
-		anim_t* anim = &mAnimDefs[mNumAnimDefs];
-
-		anim->istexture = *(ptr + 0);
-		Texture::TextureSourceType texture_type = anim->istexture ? Texture::TEX_WALLTEXTURE : Texture::TEX_FLAT;
+		Texture::TextureSourceType texture_type = *(ptr + 0) == 1 ?
+					Texture::TEX_WALLTEXTURE : Texture::TEX_FLAT;
 
 		const char* startname = (const char*)(ptr + 10);
 		const char* endname = (const char*)(ptr + 1);
@@ -367,58 +454,59 @@ void TextureManager::setupAnimatedTextures()
 			end_texhandle == TextureManager::NO_TEXTURE_HANDLE)
 			continue;
 
-		anim->basepic = start_texhandle;
-		anim->numframes = end_texhandle - start_texhandle + 1;
+		anim.basepic = start_texhandle;
+		anim.numframes = end_texhandle - start_texhandle + 1;
 
-		if (anim->numframes <= 0)
+		if (anim.numframes <= 0)
 			continue;
-
-		for (int i = 0; i < anim->numframes; i++)
-		{
-			anim->framepic[i] = anim->basepic + i;
-			// cache the animatino texture
-			getTexture(anim->framepic[i]);
-		}
-
-		anim->uniqueframes = false;
-		anim->curframe = 0;
-
-		if (anim->numframes < 2)
-			Printf(PRINT_HIGH,"P_InitPicAnims: bad cycle from %s to %s", startname, endname);
+		anim.curframe = 0;
 			
 		int speed = LELONG(*(int*)(ptr + 19));
-		anim->speedmin[0] = anim->speedmax[0] = anim->countdown = speed;
+		anim.countdown = speed - 1;
 
-		anim->countdown--;
+		for (int i = 0; i < anim.numframes; i++)
+		{
+			anim.framepic[i] = anim.basepic + i;
+			anim.speedmin[i] = anim.speedmax[i] = speed;
+		}
 
-		mNumAnimDefs++;
+		mAnimDefs.push_back(anim);
 	}
 
 	delete [] rawlumpdata;
 }
 
+
+//
+// TextureManager::updateAnimatedTextures
+//
+// Handles ticking the animated textures and cyles the Textures within an
+// animation definition.
+//
 void TextureManager::updateAnimatedTextures()
 {
-	for (unsigned int i = 0; i < mNumAnimDefs; i++)
+	for (unsigned int i = 0; i < mAnimDefs.size(); i++)
 	{
 		anim_t* anim = &mAnimDefs[i];
 		if (--anim->countdown == 0)
 		{
 			anim->curframe = (anim->curframe + 1) % anim->numframes;
 
-			int speedframe = (anim->uniqueframes) ? anim->curframe : 0;
-			if (anim->speedmin[speedframe] == anim->speedmax[speedframe])
-				anim->countdown = anim->speedmin[speedframe];
+			if (anim->speedmin[anim->curframe] == anim->speedmax[anim->curframe])
+				anim->countdown = anim->speedmin[anim->curframe];
 			else
 				anim->countdown = M_Random() %
-					(anim->speedmax[speedframe] - anim->speedmin[speedframe]) + anim->speedmin[speedframe];
+					(anim->speedmax[anim->curframe] - anim->speedmin[anim->curframe]) +
+					anim->speedmin[anim->curframe];
 
 			// cycle the Textures
+			getTexture(anim->framepic[0]);	// ensure Texture is still cached
 			Texture* first_texture = mHandleMap[anim->framepic[0]];
 
 			for (int frame1 = 0; frame1 < anim->numframes - 1; frame1++)
 			{
 				int frame2 = (frame1 + 1) % anim->numframes;
+				getTexture(anim->framepic[frame2]);	// ensure Texture is still cached
 				mHandleMap[anim->framepic[frame1]] = mHandleMap[anim->framepic[frame2]]; 
 			}
 			
