@@ -60,7 +60,6 @@
 
 int 			firstflat;
 int 			lastflat;
-int				numflats;
 
 int 			firstspritelump;
 int 			lastspritelump;
@@ -206,8 +205,6 @@ void R_InitFlats (void)
 
 	if(firstflat >= lastflat)
 		I_Error("no flats");
-
-	numflats = lastflat - firstflat + 1;
 }
 
 

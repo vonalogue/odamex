@@ -2774,14 +2774,8 @@ void CL_UpdateSector(void)
 
 	char lumpname[9];
 
-	if(fp >= numflats)
-		fp = numflats;
-
 	W_GetLumpName(lumpname, fp + firstflat);
 	sector->floor_texhandle = texturemanager.getHandle(lumpname, Texture::TEX_FLAT);
-
-	if(cp >= numflats)
-		cp = numflats;
 
 	W_GetLumpName(lumpname, cp + firstflat);
 	sector->ceiling_texhandle = texturemanager.getHandle(lumpname, Texture::TEX_FLAT);

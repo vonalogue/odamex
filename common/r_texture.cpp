@@ -230,6 +230,7 @@ void TextureManager::shutdown()
 	clear();
 }
 
+
 //
 // TextureManager::precache
 //
@@ -292,6 +293,11 @@ void TextureManager::readPNamesDirectory()
 }
 
 
+//
+// TextureManager::readAnimDefLump
+//
+// [RH] This uses a Hexen ANIMDEFS lump to define the animation sequences.
+//
 void TextureManager::readAnimDefLump()
 {
 	int lump = -1;
