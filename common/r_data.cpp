@@ -66,11 +66,6 @@ int 			firstspritelump;
 int 			lastspritelump;
 int				numspritelumps;
 
-// for global animation
-bool*			flatwarp;
-byte**			warpedflats;
-int*			flatwarpedwhen;
-
 //
 // R_CalculateNewPatchSize
 //
@@ -213,21 +208,6 @@ void R_InitFlats (void)
 		I_Error("no flats");
 
 	numflats = lastflat - firstflat + 1;
-
-	delete[] flatwarp;
-
-	flatwarp = new bool[numflats+1];
-	memset (flatwarp, 0, sizeof(bool) * (numflats+1));
-
-	delete[] warpedflats;
-
-	warpedflats = new byte *[numflats+1];
-	memset (warpedflats, 0, sizeof(byte *) * (numflats+1));
-
-	delete[] flatwarpedwhen;
-
-	flatwarpedwhen = new int[numflats+1];
-	memset (flatwarpedwhen, 0xff, sizeof(int) * (numflats+1));
 }
 
 

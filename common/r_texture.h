@@ -291,6 +291,15 @@ private:
 	} anim_t;
 
 	std::vector<anim_t>			mAnimDefs;
+
+	// warped textures
+	typedef struct
+	{
+		const Texture*	original_texture;
+		Texture*		warped_texture;
+	} warp_t;
+
+	std::vector<warp_t>			mWarpDefs;
 };
 
 extern TextureManager texturemanager;

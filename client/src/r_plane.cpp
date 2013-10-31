@@ -615,58 +615,11 @@ void R_DrawPlanes (void)
 			else
 			{
 				// regular flat
-//				int useflatnum = flattranslation[pl->picnum < numflats ? pl->picnum : 0];
-
 				dspan.color += 4;	// [RH] color if r_drawflat is 1
-//				dspan.source = (byte *)W_CacheLumpNum (firstflat + useflatnum, PU_STATIC);
 				const Texture* texture = texturemanager.getTexture(pl->texhandle);
 				dspan.source = texture->getData(); 
 				dspan.texturewidthbits = texture->getWidthBits();
 				dspan.textureheightbits = texture->getHeightBits();
-
-/*										   
-				// [RH] warp a flat if desired
-				if (flatwarp[useflatnum])
-				{
-					if ((!warpedflats[useflatnum]
-						 && Z_Malloc (64*64, PU_STATIC, &warpedflats[useflatnum]))
-						|| flatwarpedwhen[useflatnum] != level.time)
-					{
-						static byte buffer[64];
-						int timebase = level.time*23;
-
-						flatwarpedwhen[useflatnum] = level.time;
-						byte *warped = warpedflats[useflatnum];
-
-						for (int x = 63; x >= 0; x--)
-						{
-							int yt, yf = (finesine[(timebase + ((x+17) << 7))&FINEMASK]>>13) & 63;
-							byte *source = dspan.source + x;
-							byte *dest = warped + x;
-							for (yt = 64; yt; yt--, yf = (yf+1)&63, dest += 64)
-								*dest = *(source + (yf << 6));
-						}
-						timebase = level.time*32;
-						for (int y = 63; y >= 0; y--)
-						{
-							int xt, xf = (finesine[(timebase + (y << 7))&FINEMASK]>>13) & 63;
-							byte *source = warped + (y << 6);
-							byte *dest = buffer;
-							for (xt = 64; xt; xt--, xf = (xf+1) & 63)
-								*dest++ = *(source+xf);
-							memcpy (warped + (y << 6), buffer, 64);
-						}
-						Z_ChangeTag (dspan.source, PU_CACHE);
-						dspan.source = warped;
-					}
-					else
-					{
-						Z_ChangeTag (dspan.source, PU_CACHE);
-						dspan.source = warpedflats[useflatnum];
-						Z_ChangeTag (dspan.source, PU_STATIC);
-					}
-				}
-*/
 				
 				pl->top[pl->maxx+1] = viewheight;
 				pl->top[pl->minx-1] = viewheight;

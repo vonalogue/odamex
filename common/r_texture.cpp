@@ -25,6 +25,7 @@
 #include "tables.h"
 #include "r_defs.h"
 #include "r_state.h"
+#include "g_level.h"
 #include "m_random.h"
 #include "w_wad.h"
 #include "sc_man.h"
@@ -167,6 +168,8 @@ void TextureManager::clear()
 	mTextureNameTranslationMap.clear();
 
 	mAnimDefs.clear();
+
+	mWarpDefs.clear();
 
 	// [SL] the zone memory manager takes care of freeing all allocated
 	// memory for Textures.
@@ -323,7 +326,7 @@ void TextureManager::readAnimDefLump()
 						break;
 					}
 
-					if (anim.numframes == anim_t::MAX_ANIM_FRAMES)
+					if ((unsigned)anim.numframes == anim_t::MAX_ANIM_FRAMES)
 						SC_ScriptError ("Animation has too many frames");
 
 					byte min = 1, max = 1;
@@ -371,22 +374,37 @@ void TextureManager::readAnimDefLump()
 			else if (SC_Compare("warp"))
 			{
 				SC_MustGetString();
-				if (SC_Compare("flat"))
+				if (SC_Compare("flat") || SC_Compare("texture"))
 				{
+					warp_t warp;
+
+					Texture::TextureSourceType texture_type = Texture::TEX_WALLTEXTURE;
+					if (SC_Compare("flat"))
+						texture_type = Texture::TEX_FLAT;
+
 					SC_MustGetString();
-					texhandle_t handle = texturemanager.getHandle(sc_String, Texture::TEX_FLAT);
-					// TODO: [SL] allow warping again
-					//flatwarp[handle] = true;
-				}
-				else if (SC_Compare ("texture"))
-				{
-					// TODO: Make texture warping work with wall textures
-					SC_MustGetString();
-					texhandle_t handle = texturemanager.getHandle(sc_String, Texture::TEX_WALLTEXTURE);
+
+					texhandle_t texhandle = texturemanager.getHandle(sc_String, texture_type);
+					if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
+						texhandle == TextureManager::NO_TEXTURE_HANDLE)
+						continue;
+
+					// backup the original texture
+					warp.original_texture = getTexture(texhandle);
+					Z_ChangeTag(warp.original_texture, PU_STATIC);
+
+					int width = 1 << warp.original_texture->getWidthBits();
+					int height = 1 << warp.original_texture->getHeightBits();
+
+					// create a new texture of the same size for the warped image
+					warp.warped_texture = createTexture(texhandle, width, height);
+					Z_ChangeTag(warp.warped_texture, PU_STATIC);
+
+					mWarpDefs.push_back(warp);
 				}
 				else
 				{
-					SC_ScriptError (NULL, NULL);
+					SC_ScriptError(NULL, NULL);
 				}
 			}
 		}
@@ -485,7 +503,8 @@ void TextureManager::readAnimatedLump()
 //
 void TextureManager::updateAnimatedTextures()
 {
-	for (unsigned int i = 0; i < mAnimDefs.size(); i++)
+	// cycle the animdef textures
+	for (size_t i = 0; i < mAnimDefs.size(); i++)
 	{
 		anim_t* anim = &mAnimDefs[i];
 		if (--anim->countdown == 0)
@@ -511,6 +530,55 @@ void TextureManager::updateAnimatedTextures()
 			}
 			
 			mHandleMap[anim->framepic[anim->numframes - 1]] = first_texture;
+		}
+	}
+
+	// warp textures
+	for (size_t i = 0; i < mWarpDefs.size(); i++)
+	{
+		const Texture* original_texture = mWarpDefs[i].original_texture;
+		Texture* warped_texture = mWarpDefs[i].warped_texture;
+
+		const byte* original_buffer = original_texture->getData();
+		byte* warped_buffer = warped_texture->getData();
+
+		int widthbits = original_texture->getWidthBits();
+		int width = (1 << widthbits);
+		int widthmask = width - 1; 
+		int heightbits = original_texture->getHeightBits();
+		int height = (1 << heightbits);
+		int heightmask = height - 1;
+
+		byte temp_buffer[2048];
+
+		int step = level.time * 32;
+		for (int y = height - 1; y >= 0; y--)
+		{
+			const byte* source = original_buffer + y;
+			byte* dest = warped_buffer + y;
+
+			int xf = (finesine[(step + y * 128) & FINEMASK] >> 13) & widthmask;
+			for (int x = 0; x < width; x++)
+			{
+				*dest = source[xf << heightbits];
+				dest += height;
+				xf = (xf + 1) & widthmask;
+			}
+		}
+
+		step = level.time * 23;
+		for (int x = width - 1; x >= 0; x--)
+		{
+			const byte *source = warped_buffer + (x << heightbits);
+			byte *dest = temp_buffer;
+
+			int yf = (finesine[(step + 128 * (x + 17)) & FINEMASK] >> 13) & heightmask;
+			for (int y = 0; y < height; y++)
+			{
+				*dest++ = source[yf];
+				yf = (yf + 1) & heightmask;
+			}
+			memcpy(warped_buffer + (x << heightbits), temp_buffer, height);
 		}
 	}
 }
