@@ -88,7 +88,7 @@ public:
 		mXToViewAnglePtr = xtoviewangle + pl->minx;
 		mIScale = skyiscale >> skystretch;
 
-		mHeight = texture->getHeight() >> FRACBITS;
+		mHeight = texture->getHeight();
 		mData = texture->getData();
 
 		// calculate mask to tile texture horizontally
@@ -155,7 +155,7 @@ void R_InitSkyMap ()
 
 	skystretch = 0;
 
-	if (sky1texture->getHeight() <= 128*FRACUNIT)
+	if (sky1texture->getHeight() <= 128)
 	{
 		skytexturemid = 200/2*FRACUNIT;
 		skystretch = (r_stretchsky == 1) || (r_stretchsky == 2 && sv_freelook && cl_mouselook);
@@ -178,27 +178,10 @@ void R_InitSkyMap ()
 	// The Heretic sky map is 256*200*4 maps.
 	sky1shift = 22+skystretch-16;
 	sky2shift = 22+skystretch-16;	
-	if (sky1texture->getWidth() >= 128*FRACUNIT)
+	if (sky1texture->getWidth() >= 128)
 		sky1shift -= skystretch;
-	if (sky2texture->getWidth() >= 128*FRACUNIT)
+	if (sky2texture->getWidth() >= 128)
 		sky2shift -= skystretch;
-}
-
-//
-// R_BlastSkyColumn
-//
-static inline void R_BlastSkyColumn(void (*drawfunc)(drawcolumn_t&))
-{
-	if (dcol.yl <= dcol.yh)
-	{
-		dcol.texturefrac = dcol.texturemid + (dcol.yl - centery + 1) * dcol.iscale;
-		drawfunc(dcol);
-	}
-}
-
-inline void SkyColumnBlaster()
-{
-	R_BlastSkyColumn(colfunc);
 }
 
 //
@@ -282,7 +265,7 @@ void R_RenderSkyRange(visplane_t* pl)
 
 	dcol.iscale = skyiscale >> skystretch;
 	dcol.texturemid = skytexturemid;
-	dcol.textureheight = texture->getHeight();
+	dcol.textureheight = texture->getHeight() << FRACBITS;
 	skyplane = pl;
 
 	// set up the appropriate colormap for the sky
@@ -307,7 +290,7 @@ void R_RenderSkyRange(visplane_t* pl)
 
 	SkyTextureMapper mapper(pl, viewangle, front_offset, texture);
 	R_DrawColumnRange<SkyTextureMapper>(start, stop, (int*)pl->top, (int*)pl->bottom,
-						texture, mapper, colormap_table, SkyColumnBlaster);
+						texture, mapper, colormap_table, colfunc);
 				
 	R_ResetDrawFuncs();
 }

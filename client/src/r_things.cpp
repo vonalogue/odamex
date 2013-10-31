@@ -53,11 +53,7 @@ extern fixed_t FocalLengthX, FocalLengthY;
 #define MINZ							(FRACUNIT*4)
 #define BASEYCENTER 					(100)
 
-//void R_DrawColumn (void);
-//void R_DrawFuzzColumn (void);
-
 static texhandle_t particle_texhandle;
-
 static texhandle_t crosshair_texhandle;
 
 static void R_InitCrosshair();
@@ -149,8 +145,8 @@ void R_CacheSprite (spritedef_t *sprite)
 				sprite->spriteframes[i].texhandle[r] = texhandle; 
 				const Texture* tex = texturemanager.getTexture(texhandle);
 
-				sprite->spriteframes[i].width[r] = tex->getWidth();
-				sprite->spriteframes[i].height[r] = tex->getHeight();
+				sprite->spriteframes[i].width[r] = tex->getWidth() << FRACBITS;
+				sprite->spriteframes[i].height[r] = tex->getHeight() << FRACBITS;
 				sprite->spriteframes[i].offset[r] = tex->getOffsetX();
 				sprite->spriteframes[i].topoffset[r] = tex->getOffsetY();
 			}
@@ -658,7 +654,7 @@ public:
 		mFrac(vis->startfrac), mFracStep(vis->xiscale)
 	{
 		mIScale = 0xffffffffu / (unsigned)vis->yscale;
-		mHeight = texture->getHeight() >> FRACBITS;
+		mHeight = texture->getHeight();
 		mData = texture->getData();
 	}
 
@@ -693,24 +689,6 @@ private:
 //
 int*			mfloorclip;
 int*			mceilingclip;
-
-//
-// R_BlastSpriteColumn
-//
-static inline void R_BlastSpriteColumn(void (*drawfunc)(drawcolumn_t&))
-{
-	// TODO: dc_texturefrac should take y-scaling of textures into account
-	dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
-
-	if (dcol.yl <= dcol.yh)
-		drawfunc(dcol);
-}
-
-
-void SpriteColumnBlaster()
-{
-	R_BlastSpriteColumn(maskedcolfunc);
-}
 
 //
 // R_DrawVisSprite
@@ -786,7 +764,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 	static int bottom[MAXWIDTH];
 
 	const Texture* texture = texturemanager.getTexture(vis->texhandle);
-	fixed_t texheight = texture->getHeight();
+	fixed_t texheight = texture->getHeight() << FRACBITS;
 
 	for (int x = start; x <= stop; x++)
 	{
@@ -800,7 +778,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 
 	SpriteTextureMapper mapper(vis, texture);
 	R_DrawColumnRange<SpriteTextureMapper>(start, stop, top, bottom,
-				texture, mapper, colormap_table, SpriteColumnBlaster);
+				texture, mapper, colormap_table, maskedcolfunc);
 
 	R_ResetDrawFuncs();
 }
@@ -1460,7 +1438,7 @@ void R_DrawSprite (vissprite_t *spr)
 		{
 			// masked mid texture?
 			if (R_HasMaskedMidTexture(ds->curline))
-				R_RenderMaskedSegRange(ds);
+				R_RenderMaskedSegRange(ds, r1, r2);
 			// seg is behind sprite
 			continue;
 		}
@@ -1568,7 +1546,7 @@ void R_DrawMasked (void)
 
 	for (drawseg_t* ds = ds_p; ds-- > drawsegs; )	// new -- killough
 		if (R_HasMaskedMidTexture(ds->curline))
-			R_RenderMaskedSegRange(ds);
+			R_RenderMaskedSegRange(ds, ds->x1, ds->x2);
 
 	// draw the psprites on top of everything
 	//	but does not draw on side views

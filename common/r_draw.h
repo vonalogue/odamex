@@ -31,6 +31,7 @@
 extern "C" byte**		ylookup;
 extern "C" int*			columnofs;
 extern "C" int			viewheight;
+extern "C" int			centery;
 
 typedef struct 
 {
@@ -131,7 +132,7 @@ inline int R_ColumnRangeMaximumHeight(int start, int stop, int* bottom)
 template <typename TextureMapper>
 inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 						const Texture* texture, TextureMapper& mapper, 
-						const shaderef_t* colormap_table, void (*colblast)())
+						const shaderef_t* colormap_table, void (*drawfunc)(drawcolumn_t&))
 {
 	const int width = stop - start + 1;
 	if (width <= 0)
@@ -168,16 +169,20 @@ inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 
 			for (int x = blockstartx; x <= blockstopx; x++)
 			{
-				dcol.x = x;
 				dcol.yl = MAX(top[x], blockstarty);
 				dcol.yh = MIN(bottom[x], blockstopy);
-				dcol.iscale = texiscale[x - start]; 
-				dcol.source = texdata[x - start];
-				dcol.mask = dcol.source - texture->getData() + texture->getMaskData();
-				dcol.dest = R_CalculateDestination(dcol);
-				dcol.colormap = colormap_table[x];
+				if (dcol.yl <= dcol.yh)
+				{
+					dcol.x = x;
+					dcol.iscale = texiscale[x - start]; 
+					dcol.source = texdata[x - start];
+					dcol.mask = dcol.source - texture->getData() + texture->getMaskData();
+					dcol.dest = R_CalculateDestination(dcol);
+					dcol.colormap = colormap_table[x];
+					dcol.texturefrac = dcol.texturemid + FixedMul((dcol.yl - centery + 1) << FRACBITS, dcol.iscale);
 
-				colblast();
+					drawfunc(dcol);
+				}
 			}
 		}
 	}

@@ -109,10 +109,10 @@ public:
 	byte* getMaskData() const
 	{	return mMask;	}
 
-	fixed_t getWidth() const
+	int getWidth() const
 	{	return mWidth;	}
 
-	fixed_t getHeight() const
+	int getHeight() const
 	{	return mHeight;	}
 
 	int getWidthBits() const
@@ -140,14 +140,14 @@ private:
 	static size_t calculateSize(int width, int height);
 	void init(int width, int height);
 
-	fixed_t				mWidth;
-	fixed_t				mHeight;
+	int					mWidth;
+	int					mHeight;
 	
 	int					mWidthBits;
 	int					mHeightBits;
 
-	fixed_t				mWidthMask;
-	fixed_t				mHeightMask;
+	int					mWidthMask;
+	int					mHeightMask;
 
 	int					mOffsetX;
 	int					mOffsetY;
@@ -195,11 +195,6 @@ private:
 // The texture height should be adjusted to the height of the tallest
 // patch in the texture.
 //
-// TODO: Make a work-around for P_FindShortestUpperAround() which will search
-// for the shortest texture on a linedef bounding the texture. The function
-// considers walltexture 0 valid, which is normally used to denote no texture
-// but should return the height of AASTINKY/AASHITTY instead.
-//
 class TextureManager
 {
 public:
@@ -222,6 +217,7 @@ public:
 
 	static const texhandle_t NO_TEXTURE_HANDLE			= 0x0;
 	static const texhandle_t NOT_FOUND_TEXTURE_HANDLE	= 0x1;
+	static const texhandle_t GARBAGE_TEXTURE_HANDLE;
 
 private:
 	static const unsigned int SPECIAL_USE_HANDLE_MASK	= 0x00008000ul;

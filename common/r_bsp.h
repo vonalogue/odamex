@@ -46,7 +46,6 @@ EXTERN_CVAR (r_drawflat)		// [RH] Don't texture segs?
 
 // BSP?
 void R_ClearClipSegs (void);
-void R_ReallocDrawSegs(void);
 void R_ClearDrawSegs (void);
 void R_RenderBSPNode (int bspnum);
 bool R_DoorClosed(void);	// killough 1/17/98

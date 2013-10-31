@@ -37,7 +37,9 @@
 
 #include "r_texture.h"
 
+
 TextureManager texturemanager;
+
 
 //
 // R_DrawPatchIntoTexture
@@ -46,8 +48,8 @@ TextureManager texturemanager;
 //
 void R_DrawPatchIntoTexture(Texture* texture, const patch_t* patch, int xoffs, int yoffs)
 {
-	int texwidth = texture->getWidth() >> FRACBITS;
-	int texheight = texture->getHeight() >> FRACBITS;
+	int texwidth = texture->getWidth();
+	int texheight = texture->getHeight();
 
 	const int* colofs = (int*)((byte*)patch + 8);
 
@@ -91,7 +93,7 @@ void R_DrawPatchIntoTexture(Texture* texture, const patch_t* patch, int xoffs, i
 
 // ============================================================================
 //
-// TextureManager
+// Texture
 //
 // ============================================================================
 
@@ -114,12 +116,12 @@ size_t Texture::calculateSize(int width, int height)
 //
 void Texture::init(int width, int height)
 {
-	mWidth = width << FRACBITS;
-	mHeight = height << FRACBITS;
+	mWidth = width;
+	mHeight = height;
 	mWidthBits = Log2(width);
 	mHeightBits = Log2(height);
-	mWidthMask = (1 << (mWidthBits + FRACBITS)) - 1;
-	mHeightMask = (1 << (mHeightBits + FRACBITS)) - 1;
+	mWidthMask = (1 << mWidthBits) - 1;
+	mHeightMask = (1 << mHeightBits) - 1;
 	mOffsetX = 0;
 	mOffsetY = 0;
 	mScaleX = FRACUNIT;
@@ -139,6 +141,9 @@ void Texture::init(int width, int height)
 // TextureManager
 //
 // ============================================================================
+
+// define GARBAGE_TEXTURE_HANDLE to be the first wall texture (AASTINKY)
+const texhandle_t TextureManager::GARBAGE_TEXTURE_HANDLE = TextureManager::WALLTEXTURE_HANDLE_MASK;
 
 TextureManager::TextureManager()
 {
@@ -960,7 +965,7 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceType type)
 {
 	// sidedefs with the '-' texture indicate there should be no texture used
-	if (name[0] == '-')
+	if (name[0] == '-' && type == Texture::TEX_WALLTEXTURE)
 		return NO_TEXTURE_HANDLE;
 
 	char uname[9];

@@ -696,30 +696,24 @@ fixed_t P_FindHighestCeilingSurrounding (sector_t *sec)
 // for "-", meaning no texture, but if used as an index, will get
 // the height of the first "garbage" texture (ie. AASTINKY)
 //
-fixed_t P_FindShortestTextureAround (int secnum)
+fixed_t P_FindShortestTextureAround(int secnum)
 {
 	int minsize = MAXINT;
-	side_t *side;
-	int i;
 	sector_t *sec = &sectors[secnum];
 
-	for (i = 0; i < sec->linecount; i++)
+	for (int i = 0; i < sec->linecount; i++)
 	{
 		if (twoSided(secnum, i))
 		{
-			side = getSide(secnum, i, 0);
-			if (side->bottomtexture >= 0)
+			for (int j = 0; j < 2; j++)
 			{
-				const Texture* texture = texturemanager.getTexture(side->bottomtexture);
-				if (texture->getHeight() < minsize)
-					minsize = texture->getHeight();
-			}
-			side = getSide(secnum, i, 1);
-			if (side->bottomtexture >= 0)
-			{
-				const Texture* texture = texturemanager.getTexture(side->bottomtexture);
-				if (texture->getHeight() < minsize)
-					minsize = texture->getHeight();
+				side_t* side = getSide(secnum, i, j);
+				texhandle_t texhandle = side->bottomtexture;
+				if (texhandle == TextureManager::NO_TEXTURE_HANDLE)
+					texhandle = TextureManager::GARBAGE_TEXTURE_HANDLE;
+				
+				fixed_t height = texturemanager.getTexture(texhandle)->getHeight() << FRACBITS;
+				minsize = MIN(minsize, height);
 			}
 		}
 	}
@@ -748,27 +742,21 @@ fixed_t P_FindShortestTextureAround (int secnum)
 fixed_t P_FindShortestUpperAround (int secnum)
 {
 	int minsize = MAXINT;
-	side_t *side;
-	int i;
 	sector_t *sec = &sectors[secnum];
 
-	for (i = 0; i < sec->linecount; i++)
+	for (int i = 0; i < sec->linecount; i++)
 	{
 		if (twoSided(secnum, i))
 		{
-			side = getSide(secnum, i, 0);
-			if (side->bottomtexture >= 0)
+			for (int j = 0; j < 2; j++)
 			{
-				const Texture* texture = texturemanager.getTexture(side->toptexture);
-				if (texture->getHeight() < minsize)
-					minsize = texture->getHeight();
-			}
-			side = getSide(secnum, i, 1);
-			if (side->bottomtexture >= 0)
-			{
-				const Texture* texture = texturemanager.getTexture(side->toptexture);
-				if (texture->getHeight() < minsize)
-					minsize = texture->getHeight();
+				side_t* side = getSide(secnum, i, j);
+				texhandle_t texhandle = side->toptexture;
+				if (texhandle == TextureManager::NO_TEXTURE_HANDLE)
+					texhandle = TextureManager::GARBAGE_TEXTURE_HANDLE;
+				
+				fixed_t height = texturemanager.getTexture(texhandle)->getHeight() << FRACBITS;
+				minsize = MIN(minsize, height);
 			}
 		}
 	}

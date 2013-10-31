@@ -88,7 +88,7 @@ void R_ClearClipSegs (void)
 // R_ReallocDrawSegs
 //
 // [SL] From prboom-plus. Moved out of R_StoreWallRange()
-void R_ReallocDrawSegs(void)
+static void R_ReallocDrawSegs(void)
 {
 	if (ds_p == drawsegs+maxdrawsegs)		// killough 1/98 -- fix 2s line HOM
 	{
@@ -144,7 +144,8 @@ static void R_ClipWallSegment(int first, int last, bool makesolid)
 				to = p - solidcol - 1;
 
 			// set the range for this wall to the range of non-solid columns
-			R_StoreWallRange(first, to);
+			R_ReallocDrawSegs();
+			R_StoreWallRange(ds_p++, first, to);
 
 			// mark the  columns as solid
 			if (makesolid)
@@ -501,10 +502,10 @@ void R_AddLine (seg_t *line)
 		
 		// preserve a kind of transparent door/lift special effect:
 		((rw_backcz1 >= rw_frontcz1 && rw_backcz2 >= rw_frontcz2) ||
-		 line->sidedef->toptexture) &&
+		 line->sidedef->toptexture != TextureManager::NO_TEXTURE_HANDLE) &&
 		
 		((rw_backfz1 <= rw_frontfz1 && rw_backfz2 <= rw_frontfz2) ||
-		 line->sidedef->bottomtexture) &&
+		 line->sidedef->bottomtexture != TextureManager::NO_TEXTURE_HANDLE) &&
 
 		// properly render skies (consider door "open" if both ceilings are sky):
 		(backsector->ceiling_texhandle !=sky1flathandle || frontsector->ceiling_texhandle != sky1flathandle)))
@@ -522,7 +523,7 @@ void R_AddLine (seg_t *line)
 		&& backsector->lightlevel == frontsector->lightlevel
 		&& backsector->floor_texhandle == frontsector->floor_texhandle
 		&& backsector->ceiling_texhandle == frontsector->ceiling_texhandle
-		&& curline->sidedef->midtexture == 0
+		&& curline->sidedef->midtexture == TextureManager::NO_TEXTURE_HANDLE 
 
 		// killough 3/7/98: Take flats offsets into account:
 		&& backsector->floor_xoffs == frontsector->floor_xoffs
