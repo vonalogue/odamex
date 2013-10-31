@@ -128,10 +128,18 @@ void Texture::init(int width, int height)
 	mScaleY = FRACUNIT;
 	mHasMask = false;
 
-	// mData follows the header in memory
-	mData = (byte*)((byte*)this + sizeof(*this));
-	// mMask follows mData
-	mMask = (byte*)(mData) + sizeof(byte) * width * height;
+	if (clientside)
+	{
+		// mData follows the header in memory
+		mData = (byte*)((byte*)this + sizeof(*this));
+		// mMask follows mData
+		mMask = (byte*)(mData) + sizeof(byte) * width * height;
+	}
+	else
+	{
+		mData = NULL;
+		mMask = NULL;
+	}
 }
 
 
@@ -222,8 +230,11 @@ void TextureManager::startup()
 
 	generateNotFoundTexture();
 
-	readAnimDefLump();
-	readAnimatedLump();
+	if (clientside)
+	{	
+		readAnimDefLump();
+		readAnimatedLump();
+	}
 }
 
 
@@ -387,7 +398,6 @@ void TextureManager::readAnimDefLump()
 				SC_MustGetString();
 				if (SC_Compare("flat") || SC_Compare("texture"))
 				{
-					warp_t warp;
 
 					Texture::TextureSourceType texture_type = Texture::TEX_WALLTEXTURE;
 					if (SC_Compare("flat"))
@@ -399,6 +409,8 @@ void TextureManager::readAnimDefLump()
 					if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
 						texhandle == TextureManager::NO_TEXTURE_HANDLE)
 						continue;
+
+					warp_t warp;
 
 					// backup the original texture
 					warp.original_texture = getTexture(texhandle);
@@ -514,6 +526,9 @@ void TextureManager::readAnimatedLump()
 //
 void TextureManager::updateAnimatedTextures()
 {
+	if (!clientside)
+		return;
+
 	// cycle the animdef textures
 	for (size_t i = 0; i < mAnimDefs.size(); i++)
 	{
@@ -607,17 +622,20 @@ void TextureManager::generateNotFoundTexture()
 	const texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
 	Texture* texture = createTexture(handle, width, height);
 
-	const byte color1 = 0x40, color2 = 0x80;
+	if (clientside)
+	{
+		const byte color1 = 0x40, color2 = 0x80;
 
-	for (int y = 0; y < height / 2; y++)
-	{
-		memset(texture->mData + y * width + 0, color1, width / 2);
-		memset(texture->mData + y * width + width / 2, color2, width / 2);
-	}
-	for (int y = height / 2; y < height; y++)
-	{
-		memset(texture->mData + y * width + 0, color2, width / 2);
-		memset(texture->mData + y * width + width / 2, color1, width / 2);
+		for (int y = 0; y < height / 2; y++)
+		{
+			memset(texture->mData + y * width + 0, color1, width / 2);
+			memset(texture->mData + y * width + width / 2, color2, width / 2);
+		}
+		for (int y = height / 2; y < height; y++)
+		{
+			memset(texture->mData + y * width + 0, color2, width / 2);
+			memset(texture->mData + y * width + width / 2, color1, width / 2);
+		}
 	}
 }
 
@@ -716,7 +734,10 @@ texhandle_t TextureManager::createSpecialUseHandle()
 Texture* TextureManager::createTexture(texhandle_t handle, int width, int height)
 {
 	Texture** owner = &mHandleMap[handle];
-	size_t texture_size = Texture::calculateSize(width, height);
+	// server shouldn't allocate memory for texture data, only the header	
+	size_t texture_size = clientside ?
+			Texture::calculateSize(width, height) : sizeof(Texture);
+	
 	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
 	texture->init(width, height);
 	return texture;
@@ -748,7 +769,6 @@ texhandle_t TextureManager::getPatchHandle(const char* name)
 }
 
 
-
 //
 // TextureManger::cachePatch
 //
@@ -769,17 +789,20 @@ void TextureManager::cachePatch(texhandle_t handle)
 	texture->mOffsetX = patch->leftoffset() << FRACBITS;
 	texture->mOffsetY = patch->topoffset() << FRACBITS;
 
-	// TODO: remove this once proper masking is in place
-	memset(texture->mData, 0, width * height);
+	if (clientside)
+	{
+		// TODO: remove this once proper masking is in place
+		memset(texture->mData, 0, width * height);
 
-	// initialize the mask to entirely transparent 
-	memset(texture->mMask, 0, width * height);
+		// initialize the mask to entirely transparent 
+		memset(texture->mMask, 0, width * height);
 
-	R_DrawPatchIntoTexture(texture, patch, 0, 0);
+		R_DrawPatchIntoTexture(texture, patch, 0, 0);
+		texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
+	}
 
 	delete [] rawlumpdata;
 
-	texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
 }
 
 
@@ -806,6 +829,7 @@ texhandle_t TextureManager::getSpriteHandle(const char* name)
 		return getSpriteHandle(lumpnum);
 	return NOT_FOUND_TEXTURE_HANDLE;
 }
+
 
 //
 // TextureManger::cacheSprite
@@ -870,25 +894,28 @@ void TextureManager::cacheFlat(texhandle_t handle)
 
 	Texture* texture = createTexture(handle, width, height);
 
-	byte *rawlumpdata = new byte[lumplen];
-	W_ReadLump(lumpnum, rawlumpdata);
-
-	// convert the row-major flat lump to into column-major
-	byte* dest = texture->mData;
-
-	for (int x = 0; x < width; x++)
+	if (clientside)
 	{
-		const byte* source = rawlumpdata + x;
-		
-		for (int y = 0; y < height; y++)
+		byte *rawlumpdata = new byte[lumplen];
+		W_ReadLump(lumpnum, rawlumpdata);
+
+		// convert the row-major flat lump to into column-major
+		byte* dest = texture->mData;
+
+		for (int x = 0; x < width; x++)
 		{
-			*dest = *source;
-			source += width;
-			dest++;
+			const byte* source = rawlumpdata + x;
+			
+			for (int y = 0; y < height; y++)
+			{
+				*dest = *source;
+				source += width;
+				dest++;
+			}
 		}
+		
+		delete [] rawlumpdata;
 	}
-	
-	delete [] rawlumpdata;
 }
 
 
@@ -932,28 +959,31 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 	texture->mScaleX = texdef->scalex ? texdef->scalex << (FRACBITS - 3) : FRACUNIT;
 	texture->mScaleY = texdef->scaley ? texdef->scaley << (FRACBITS - 3) : FRACUNIT;
 
-	// TODO: remove this once proper masking is in place
-	memset(texture->mData, 0, width * height);
-
-	// initialize the mask to entirely transparent 
-	memset(texture->mMask, 0, width * height);
-
-	// compose the texture out of a set of patches
-	for (int i = 0; i < texdef->patchcount; i++)
+	if (clientside)
 	{
-		texdefpatch_t* texdefpatch = &texdef->patches[i];
+		// TODO: remove this once proper masking is in place
+		memset(texture->mData, 0, width * height);
 
-		unsigned int lumplen = W_LumpLength(texdefpatch->patch);
-		byte* rawlumpdata = new byte[lumplen];
-		W_ReadLump(texdefpatch->patch, rawlumpdata);
+		// initialize the mask to entirely transparent 
+		memset(texture->mMask, 0, width * height);
 
-		const patch_t* patch = (patch_t*)rawlumpdata;
-		R_DrawPatchIntoTexture(texture, patch, texdefpatch->originx, texdefpatch->originy);
+		// compose the texture out of a set of patches
+		for (int i = 0; i < texdef->patchcount; i++)
+		{
+			texdefpatch_t* texdefpatch = &texdef->patches[i];
 
-		delete [] rawlumpdata;
+			unsigned int lumplen = W_LumpLength(texdefpatch->patch);
+			byte* rawlumpdata = new byte[lumplen];
+			W_ReadLump(texdefpatch->patch, rawlumpdata);
+
+			const patch_t* patch = (patch_t*)rawlumpdata;
+			R_DrawPatchIntoTexture(texture, patch, texdefpatch->originx, texdefpatch->originy);
+
+			delete [] rawlumpdata;
+		}
+
+		texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
 	}
-
-	texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
 }
 
 
