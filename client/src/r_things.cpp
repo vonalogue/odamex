@@ -1526,8 +1526,6 @@ static void R_DrawCrosshair (void)
 
 		V_ColorMap = translationref_t(crosshair_trans);
 
-		const Texture* tex = texturemanager.getTexture(crosshair_texhandle);
-		
 		// TODO: replace DCanvas patch drawing functions with functions taking Texture*
 		unsigned int crosshair_lump = crosshair_texhandle & 0xFFFF;
 

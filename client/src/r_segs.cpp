@@ -66,9 +66,9 @@ int*			walllights;
 // regular wall
 //
 
-static fixed_t	rw_midtexturemid;
-static fixed_t	rw_toptexturemid;
-static fixed_t	rw_bottomtexturemid;
+static fixed_t	rwmidtexturemid;
+static fixed_t	rwtoptexturemid;
+static fixed_t	rwbottomtexturemid;
 
 extern fixed_t	rw_frontcz1, rw_frontcz2;
 extern fixed_t	rw_frontfz1, rw_frontfz2;
@@ -157,7 +157,7 @@ private:
 //
 bool R_HasMaskedMidTexture(const seg_t* line)
 {
-	return line->backsector && line->sidedef->_midtexture != 0;
+	return line->backsector && line->sidedef->midtexture != 0;
 }
 
 
@@ -345,7 +345,7 @@ void R_RenderSolidSegRange(const drawseg_t* ds)
 
 		const Texture* texture = texturemanager.getTexture(midtexture);
 		dcol.textureheight = texture->getHeight();
-		dcol.texturemid = rw_midtexturemid;
+		dcol.texturemid = rwmidtexturemid;
 
 		SegTextureMapper mapper(ds, texture);
 		R_DrawColumnRange<SegTextureMapper>(start, stop, walltopf, lower,
@@ -368,7 +368,7 @@ void R_RenderSolidSegRange(const drawseg_t* ds)
 
 			const Texture* texture = texturemanager.getTexture(toptexture);
 			dcol.textureheight = texture->getHeight();
-			dcol.texturemid = rw_toptexturemid;
+			dcol.texturemid = rwtoptexturemid;
 
 			SegTextureMapper mapper(ds, texture);
 			R_DrawColumnRange<SegTextureMapper>(start, stop, walltopf, lower,
@@ -393,7 +393,7 @@ void R_RenderSolidSegRange(const drawseg_t* ds)
 
 			const Texture* texture = texturemanager.getTexture(bottomtexture);
 			dcol.textureheight = texture->getHeight();
-			dcol.texturemid = rw_bottomtexturemid;
+			dcol.texturemid = rwbottomtexturemid;
 
 			SegTextureMapper mapper(ds, texture);
 			R_DrawColumnRange<SegTextureMapper>(start, stop, wallbottomb, lower,
@@ -441,7 +441,7 @@ void R_RenderMaskedSegRange(const drawseg_t* ds)
 	frontsector = ds->curline->frontsector;
 	backsector = ds->curline->backsector;
 
-	const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->_midtexture);
+	const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->midtexture);
 	fixed_t texheight = texture->getHeight();
 
 	fixed_t scalefrac = ds->scale1;
@@ -634,7 +634,7 @@ void R_StoreWallRange(int start, int stop)
 	if (!backsector)
 	{
 		// single sided line
-		midtexture = sidedef->_midtexture;
+		midtexture = sidedef->midtexture;
 
 		// a single sided line is terminal, so it must mark ends
 		markfloor = markceiling = true;
@@ -644,15 +644,15 @@ void R_StoreWallRange(int start, int stop)
 			// bottom of texture at bottom
 			const Texture* texture = texturemanager.getTexture(midtexture);
 			fixed_t texheight = FixedMul(texture->getHeight(), texture->getScaleY());
-			rw_midtexturemid = P_FloorHeight(frontsector) - viewz + texheight;
+			rwmidtexturemid = P_FloorHeight(frontsector) - viewz + texheight;
 		}
 		else
 		{
 			// top of texture at top
-			rw_midtexturemid = P_CeilingHeight(frontsector) - viewz;
+			rwmidtexturemid = P_CeilingHeight(frontsector) - viewz;
 		}
 
-		rw_midtexturemid += sidedef->rowoffset;
+		rwmidtexturemid += sidedef->rowoffset;
 
 		ds_p->silhouette = SIL_BOTH;
 		ds_p->sprtopclip = viewheightarray;
@@ -758,11 +758,11 @@ void R_StoreWallRange(int start, int stop)
 
 		if (rw_hashigh)
 		{
-			toptexture = sidedef->_toptexture;
+			toptexture = sidedef->toptexture;
 			if (linedef->flags & ML_DONTPEGTOP)
 			{
 				// top of texture at top
-				rw_toptexturemid = P_CeilingHeight(frontsector) - viewz;
+				rwtoptexturemid = P_CeilingHeight(frontsector) - viewz;
 			}
 			else
 			{
@@ -770,30 +770,30 @@ void R_StoreWallRange(int start, int stop)
 				fixed_t texheight = 0;
 				if (toptexture)
 					texheight = texturemanager.getTexture(toptexture)->getHeight();
-				rw_toptexturemid = P_CeilingHeight(backsector) - viewz + texheight;
+				rwtoptexturemid = P_CeilingHeight(backsector) - viewz + texheight;
 			}
 
-			rw_toptexturemid += sidedef->rowoffset;
+			rwtoptexturemid += sidedef->rowoffset;
 		}
 
 		if (rw_haslow)
 		{
-			bottomtexture = sidedef->_bottomtexture;
+			bottomtexture = sidedef->bottomtexture;
 			if (linedef->flags & ML_DONTPEGBOTTOM)
 			{
 				// bottom of texture at bottom, top of texture at top
-				rw_bottomtexturemid = P_CeilingHeight(frontsector) - viewz;
+				rwbottomtexturemid = P_CeilingHeight(frontsector) - viewz;
 			}
 			else
 			{
 				// top of texture at top
-				rw_bottomtexturemid = P_FloorHeight(backsector) - viewz;
+				rwbottomtexturemid = P_FloorHeight(backsector) - viewz;
 			}
 		
-			rw_bottomtexturemid += sidedef->rowoffset;
+			rwbottomtexturemid += sidedef->rowoffset;
 		}
 
-		maskedmidtexture = sidedef->_midtexture;
+		maskedmidtexture = sidedef->midtexture;
 		if (maskedmidtexture)
 		{
 			markfloor = markceiling = true;

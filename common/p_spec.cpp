@@ -708,16 +708,16 @@ fixed_t P_FindShortestTextureAround (int secnum)
 		if (twoSided(secnum, i))
 		{
 			side = getSide(secnum, i, 0);
-			if (side->_bottomtexture >= 0)
+			if (side->bottomtexture >= 0)
 			{
-				const Texture* texture = texturemanager.getTexture(side->_bottomtexture);
+				const Texture* texture = texturemanager.getTexture(side->bottomtexture);
 				if (texture->getHeight() < minsize)
 					minsize = texture->getHeight();
 			}
 			side = getSide(secnum, i, 1);
-			if (side->_bottomtexture >= 0)
+			if (side->bottomtexture >= 0)
 			{
-				const Texture* texture = texturemanager.getTexture(side->_bottomtexture);
+				const Texture* texture = texturemanager.getTexture(side->bottomtexture);
 				if (texture->getHeight() < minsize)
 					minsize = texture->getHeight();
 			}
@@ -757,16 +757,16 @@ fixed_t P_FindShortestUpperAround (int secnum)
 		if (twoSided(secnum, i))
 		{
 			side = getSide(secnum, i, 0);
-			if (side->_bottomtexture >= 0)
+			if (side->bottomtexture >= 0)
 			{
-				const Texture* texture = texturemanager.getTexture(side->_toptexture);
+				const Texture* texture = texturemanager.getTexture(side->toptexture);
 				if (texture->getHeight() < minsize)
 					minsize = texture->getHeight();
 			}
 			side = getSide(secnum, i, 1);
-			if (side->_bottomtexture >= 0)
+			if (side->bottomtexture >= 0)
 			{
-				const Texture* texture = texturemanager.getTexture(side->_toptexture);
+				const Texture* texture = texturemanager.getTexture(side->toptexture);
 				if (texture->getHeight() < minsize)
 					minsize = texture->getHeight();
 			}

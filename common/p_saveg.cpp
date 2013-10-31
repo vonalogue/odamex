@@ -146,9 +146,9 @@ void P_SerializeWorld (FArchive &arc)
 				side_t *si = &sides[li->sidenum[j]];
 				arc << si->textureoffset
 					<< si->rowoffset
-					<< si->_toptexture
-					<< si->_bottomtexture
-					<< si->_midtexture;
+					<< si->toptexture
+					<< si->bottomtexture
+					<< si->midtexture;
 			}
 		}
 	}
@@ -239,9 +239,9 @@ void P_SerializeWorld (FArchive &arc)
 				side_t *si = &sides[li->sidenum[j]];
 				arc >> si->textureoffset
 					>> si->rowoffset
-					>> si->_toptexture
-					>> si->_bottomtexture
-					>> si->_midtexture;
+					>> si->toptexture
+					>> si->bottomtexture
+					>> si->midtexture;
 			}
 		}
 	}

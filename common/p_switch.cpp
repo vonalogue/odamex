@@ -201,9 +201,9 @@ void P_ChangeSwitchTexture(line_t* line, int useAgain)
 	if (!useAgain)
 		line->special = 0;
 
-	texhandle_t texTop = sides[line->sidenum[0]]._toptexture;
-	texhandle_t texMid = sides[line->sidenum[0]]._midtexture;
-	texhandle_t texBot = sides[line->sidenum[0]]._bottomtexture;
+	texhandle_t texTop = sides[line->sidenum[0]].toptexture;
+	texhandle_t texMid = sides[line->sidenum[0]].midtexture;
+	texhandle_t texBot = sides[line->sidenum[0]].bottomtexture;
 
 	// EXIT SWITCH?
 	if (line->special == Exit_Normal ||
@@ -221,17 +221,17 @@ void P_ChangeSwitchTexture(line_t* line, int useAgain)
 
 		if (switchlist[i] == texTop)
 		{
-			texture = &sides[line->sidenum[0]]._toptexture;
+			texture = &sides[line->sidenum[0]].toptexture;
 			where = DActiveButton::BUTTON_Top;
 		}
 		else if (switchlist[i] == texBot)
 		{
-			texture = &sides[line->sidenum[0]]._bottomtexture;
+			texture = &sides[line->sidenum[0]].bottomtexture;
 			where = DActiveButton::BUTTON_Bottom;
 		}
 		else if (switchlist[i] == texMid)
 		{
-			texture = &sides[line->sidenum[0]]._midtexture;
+			texture = &sides[line->sidenum[0]].midtexture;
 			where = DActiveButton::BUTTON_Middle;
 		}
 
@@ -307,15 +307,15 @@ void DActiveButton::RunThink ()
 		switch (m_Where)
 		{
 		case BUTTON_Top:
-			sides[m_Line->sidenum[0]]._toptexture = m_Texture;
+			sides[m_Line->sidenum[0]].toptexture = m_Texture;
 			break;
 			
 		case BUTTON_Middle:
-			sides[m_Line->sidenum[0]]._midtexture = m_Texture;
+			sides[m_Line->sidenum[0]].midtexture = m_Texture;
 			break;
 			
 		case BUTTON_Bottom:
-			sides[m_Line->sidenum[0]]._bottomtexture = m_Texture;
+			sides[m_Line->sidenum[0]].bottomtexture = m_Texture;
 			break;
 
 		default:

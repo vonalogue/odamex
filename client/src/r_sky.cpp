@@ -254,7 +254,7 @@ void R_RenderSkyRange(visplane_t* pl)
 			const side_t* side = *line->sidenum + sides;
 
 			// Texture comes from upper texture of reference sidedef
-			skytexhandle = side->_toptexture;
+			skytexhandle = side->toptexture;
 
 			// Horizontal offset is turned into an angle offset,
 			// to allow sky rotation as well as careful positioning.

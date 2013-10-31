@@ -242,12 +242,12 @@ void TextureManager::precache()
 	// precache all the wall textures
 	for (int i = 0; i < numsides; i++)
 	{
-		if (sides[i]._toptexture)
-			getTexture(sides[i]._toptexture);
-		if (sides[i]._midtexture)
-			getTexture(sides[i]._midtexture);
-		if (sides[i]._bottomtexture)
-			getTexture(sides[i]._bottomtexture);
+		if (sides[i].toptexture)
+			getTexture(sides[i].toptexture);
+		if (sides[i].midtexture)
+			getTexture(sides[i].midtexture);
+		if (sides[i].bottomtexture)
+			getTexture(sides[i].bottomtexture);
 	}
 
 	// precache all the floor/ceiling textures

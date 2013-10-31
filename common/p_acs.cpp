@@ -1396,13 +1396,13 @@ void DLevelScript::SetLineTexture (int lineid, int side, int position, int name)
 		switch (position)
 		{
 			case TEXTURE_TOP:
-				sidedef->_toptexture = texhandle;
+				sidedef->toptexture = texhandle;
 				break;
 			case TEXTURE_MIDDLE:
-				sidedef->_midtexture = texhandle;
+				sidedef->midtexture = texhandle;
 				break;
 			case TEXTURE_BOTTOM:
-				sidedef->_bottomtexture = texhandle;
+				sidedef->bottomtexture = texhandle;
 				break;
 			default:
 				break;

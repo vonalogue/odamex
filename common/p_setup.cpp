@@ -790,9 +790,9 @@ void P_LoadSideDefs2 (int lump)
 			  //	  but a packed ARGB word for blending, so we also allow
 			  //	  the blend to be specified directly by the texture names
 			  //	  instead of figuring something out from the colormap.
-			SetTexture(sd->_bottomtexture, sec->bottommap, msd->bottomtexture);
-			SetTexture(sd->_midtexture, sec->midmap, msd->midtexture);
-			SetTexture(sd->_toptexture, sec->topmap, msd->toptexture);
+			SetTexture(sd->bottomtexture, sec->bottommap, msd->bottomtexture);
+			SetTexture(sd->midtexture, sec->midmap, msd->midtexture);
+			SetTexture(sd->toptexture, sec->topmap, msd->toptexture);
 			break;
 
 		  case Static_Init:
@@ -802,9 +802,9 @@ void P_LoadSideDefs2 (int lump)
 			{
 				unsigned int color = 0xffffff, fog = 0x000000;
 
-				SetTextureNoErr(sd->_bottomtexture, fog, msd->bottomtexture);
-				SetTextureNoErr(sd->_toptexture, color, msd->toptexture);
-				sd->_midtexture = texturemanager.getHandle(msd->midtexture, Texture::TEX_WALLTEXTURE);
+				SetTextureNoErr(sd->bottomtexture, fog, msd->bottomtexture);
+				SetTextureNoErr(sd->toptexture, color, msd->toptexture);
+				sd->midtexture = texturemanager.getHandle(msd->midtexture, Texture::TEX_WALLTEXTURE);
 
 				if (fog != 0x000000 || color != 0xffffff) {
 					int s;
@@ -833,9 +833,9 @@ void P_LoadSideDefs2 (int lump)
 			break;
 */
 		  default:			// normal cases
-			sd->_midtexture = texturemanager.getHandle(msd->midtexture, Texture::TEX_WALLTEXTURE);
-			sd->_toptexture = texturemanager.getHandle(msd->toptexture, Texture::TEX_WALLTEXTURE);
-			sd->_bottomtexture = texturemanager.getHandle(msd->bottomtexture, Texture::TEX_WALLTEXTURE);
+			sd->midtexture = texturemanager.getHandle(msd->midtexture, Texture::TEX_WALLTEXTURE);
+			sd->toptexture = texturemanager.getHandle(msd->toptexture, Texture::TEX_WALLTEXTURE);
+			sd->bottomtexture = texturemanager.getHandle(msd->bottomtexture, Texture::TEX_WALLTEXTURE);
 			break;
 		}
 	}
