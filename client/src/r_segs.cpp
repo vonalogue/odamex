@@ -420,7 +420,9 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 			int top1 = (centeryfrac - FixedMul(dcol.texturemid, scalefrac)) >> FRACBITS;
 			int top2 = ds->sprtopclip[x];
 			top[x] = MAX(top1, top2);
-			bottom[x] = ds->sprbottomclip[x] - 1;
+			int bottom1 = ds->sprbottomclip[x];
+			int bottom2 = top1 + (FixedMul(texheight, scalefrac) >> FRACBITS);
+			bottom[x] = MIN(bottom1, bottom2) - 1;
 			scalefrac += scalestep;
 		}
 	}
@@ -431,10 +433,12 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 
 		for (int x = start; x <= stop; x++)
 		{
-			top[x] = ds->sprtopclip[x];
 			int bottom1 = (centeryfrac - FixedMul(dcol.texturemid - texheight, scalefrac)) >> FRACBITS;
 			int bottom2 = ds->sprbottomclip[x];
 			bottom[x] = MIN(bottom1, bottom2) - 1;
+			int top1 = bottom1 - (FixedMul(texheight, scalefrac) >> FRACBITS);
+			int top2 = ds->sprtopclip[x];
+			top[x] = MAX(top1, top2); 
 			scalefrac += scalestep;
 		}
 	}
