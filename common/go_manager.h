@@ -29,6 +29,9 @@
 #include "hashtable.h"
 #include "sarray.h"
 #include <map>
+#include <algorithm>
+#include <utility>
+#include <list>
 #include "m_ostring.h"
 
 #include "go_component.h"
@@ -48,6 +51,66 @@ public:
 	// ------------------------------------------------------------------------
 	
 	typedef uint32_t ComponentId;
+
+	// ------------------------------------------------------------------------
+	// iterator
+	// ------------------------------------------------------------------------
+
+    class const_iterator : public std::iterator<std::forward_iterator_tag, GameObjectManager>
+	{
+	public:
+		bool operator== (const const_iterator& other)
+		{
+			return (mIt == mComponentList.end() && other.mComponentList.empty()) ||
+					mIt == other.mIt;
+		}
+
+		bool operator!= (const const_iterator& other)
+		{
+			return mIt != other.mIt;
+		}
+
+		const ComponentId& operator* ()
+		{
+			return *mIt;
+		}
+
+		const ComponentId* operator-> ()
+		{
+			return &(*mIt);
+		}
+
+		const_iterator& operator++ ()
+		{
+			++mIt;
+			return *this;
+		}
+
+		const_iterator operator++ (int)
+		{
+			const_iterator temp(*this);
+			++mIt;
+			return temp;
+		}
+
+	private:
+		friend class GameObjectManager;
+
+		void addComponent(ComponentId id)
+		{
+			mComponentList.push_back(id);
+		}
+
+		void removeComponent(ComponentId id)
+		{
+			std::list<ComponentId>::iterator it = std::find(mComponentList.begin(), mComponentList.end(), id);
+			if (it != mComponentList.end())
+				mComponentList.erase(it);
+		}
+
+		std::list<ComponentId>						mComponentList;
+		std::list<ComponentId>::const_iterator		mIt;
+	};
 
 	// ------------------------------------------------------------------------
 	// Public functions
@@ -90,6 +153,23 @@ public:
 	ComponentId addAttribute(const OString& attribute_name, const OString& type_name, ComponentId parent_id);
 
 	void clearComponents();
+
+
+	const_iterator getChildren(ComponentId parent_id)
+	{
+		return begin();	
+	}
+
+	const_iterator begin() const
+	{
+		const_iterator it;
+		return it;
+	}
+
+	const_iterator end() const
+	{
+		return const_iterator();
+	}
 
 private:
 

@@ -39,6 +39,8 @@ public:
 	void clear();
 	uint16_t bytesRead() const;
 	uint16_t bytesWritten() const;
+	uint16_t bitsRead() const;
+	uint16_t bitsWritten() const;
 
 	uint16_t readSize() const;
 	uint16_t writeSize() const;

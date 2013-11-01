@@ -119,6 +119,26 @@ uint16_t BitStream::bytesWritten() const
 }
 
 //
+// BitStream::bitsRead
+//
+// Returns how many bits have been read from the buffer.
+//
+uint16_t BitStream::bitsRead() const
+{
+	return mRead;
+}
+
+//
+// BitStream::bitsWritten
+//
+// Returns how many bits have been written to the buffer.
+//
+uint16_t BitStream::bitsWritten() const
+{
+	return mWritten;
+}
+
+//
 // BitStream::readSize
 //
 // Calculates how many bits can be read from the buffer given the buffer size
