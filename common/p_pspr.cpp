@@ -23,7 +23,6 @@
 //-----------------------------------------------------------------------------
 
 #include <stdlib.h>
-#include <map>
 
 #include "doomdef.h"
 #include "d_event.h"
@@ -77,62 +76,6 @@ const char *weaponnames[] =
 	"Super Shotgun"
 };
 
-// [SL] 2011-11-14 - Maintain what the vertical position of the weapon sprite
-// would be for each player if full movebob were enabled.  This allows the
-// timing of changing weapons to remain in sync with vanilla Doom. The map's
-// key is the player's id, with the value being psp->sy.
-std::map<byte, fixed_t> weapon_ypos;
-
-//
-// P_CalculateBobXPosition
-//
-// Determines the horizontal position of the weapon sprite on the screen.
-// Weapon bobbing is scaled by the scale parameter, where scale is a
-// percentage between 0 and 1.
-//
-int P_CalculateBobXPosition(player_t *player, float scale)
-{
-	if (!player)
-		return FRACUNIT;
-
-	if (scale < 0.0f)
-		scale = 0.0f;
-	if (scale > 1.0f)
-		scale = 1.0f;
-
-	angle_t angle = (128*level.time)&FINEMASK;
-
-	fixed_t bobamount = FixedMul(player->bob, finecosine[angle]);
-	fixed_t scaledbob = FixedMul(bobamount, scale * FRACUNIT);
-	return FRACUNIT + scaledbob;
-}
-
-//
-// P_CalculateBobYPosition
-//
-// Determines the vertical position of the weapon sprite on the screen.
-// Weapon bobbing is scaled by the scale parameter, where scale is a
-// percentage between 0 and 1.
-//
-static int P_CalculateBobYPosition(player_t *player, float scale)
-{
-	if (!player)
-		return WEAPONTOP;
-
-	if (scale < 0.0f)
-		scale = 0.0f;
-	if (scale > 1.0f)
-		scale = 1.0f;
-
-	angle_t angle = (128*level.time) & FINEMASK;
-	angle &= FINEANGLES/2-1;
-
-	fixed_t bobamount = FixedMul(player->bob, finesine[angle]);
-	fixed_t scaledbob = FixedMul(bobamount, scale * FRACUNIT);
-
-	return WEAPONTOP + scaledbob;
-}
-
 
 //
 // A_BobWeapon
@@ -146,17 +89,46 @@ static void P_BobWeapon(player_t *player)
 	if (!player)
 		return;
 
-	float scale_amount = 1.0f;
+	struct pspdef_s *psp = &player->psprites[player->psprnum];
+	angle_t angle;
 
+	angle = (128 * level.time) & FINEMASK;
+	psp->sx = FRACUNIT + FixedMul(player->bob, finecosine[angle]);
+	angle &= FINEANGLES / 2 - 1;
+	psp->sy = WEAPONTOP + FixedMul(player->bob, finesine[angle]);
+}
+
+
+fixed_t P_CalculateWeaponBobX()
+{
+	player_t* player = &displayplayer();
+	struct pspdef_s *psp = &player->psprites[player->psprnum];
+	if (psp->state != &states[weaponinfo[player->readyweapon].readystate])
+		return psp->sx;
+
+	float scale_amount = 1.0f;
 	if ((clientside && sv_allowmovebob) || (clientside && serverside))
 		scale_amount = cl_movebob;
 
-	struct pspdef_s *psp = &player->psprites[player->psprnum];
-	psp->sx = P_CalculateBobXPosition(player, scale_amount);
-	psp->sy = P_CalculateBobYPosition(player, scale_amount);
-
-	weapon_ypos[player->id] = P_CalculateBobYPosition(player, 1.0f);
+	angle_t angle = (128 * level.time) & FINEMASK;
+	return FRACUNIT + scale_amount * FixedMul(player->bob, finecosine[angle]);
 }
+	
+fixed_t P_CalculateWeaponBobY()
+{
+	player_t* player = &displayplayer();
+	struct pspdef_s *psp = &player->psprites[player->psprnum];
+	if (psp->state != &states[weaponinfo[player->readyweapon].readystate])
+		return psp->sy;
+
+	float scale_amount = 1.0f;
+	if ((clientside && sv_allowmovebob) || (clientside && serverside))
+		scale_amount = cl_movebob;
+
+	angle_t angle = ((128 * level.time) & FINEMASK) & (FINEANGLES / 2 - 1);
+	return WEAPONTOP + scale_amount * FixedMul(player->bob, finesine[angle]);
+}
+	
 
 
 //
@@ -191,7 +163,6 @@ void P_SetPsprite(player_t* player, int position, statenum_t stnum)
 			// coordinate set
 			psp->sx = state->misc1 << FRACBITS;
 			psp->sy = state->misc2 << FRACBITS;
-			weapon_ypos[player->id] = psp->sy;
 		}
 
 		// Call action routine.
@@ -249,7 +220,6 @@ void P_BringUpWeapon (player_t *player)
 
 	player->pendingweapon = wp_nochange;
 	player->psprites[ps_weapon].sy = WEAPONBOTTOM;
-	weapon_ypos[player->id] = WEAPONBOTTOM;
 
 	P_SetPsprite (player, ps_weapon, newstate);
 }
@@ -266,7 +236,8 @@ bool P_EnoughAmmo(player_t *player, weapontype_t weapon, bool switching = false)
 	ammotype_t		ammotype = weaponinfo[weapon].ammotype;
 	int				count = 1;	// default amount of ammo for most weapons
 
-	count = weaponinfo[weapon].minammo;
+	// [SL] Fix for when DeHackEd doesn't patch minammo
+	count = MAX(weaponinfo[weapon].minammo, weaponinfo[weapon].ammouse);
 
 	// Vanilla Doom requires > 40 cells to switch to BFG and > 2 shells to
 	// switch to SSG when current weapon is out of ammo due to a bug.
@@ -541,8 +512,7 @@ void A_WeaponReady(AActor *mo)
 // The player can re-fire the weapon
 // without lowering it entirely.
 //
-void A_ReFire
-(AActor *mo)
+void A_ReFire(AActor *mo)
 {
     player_t *player = mo->player;
 
@@ -564,9 +534,7 @@ void A_ReFire
 }
 
 
-void
-A_CheckReload
-(AActor *mo)
+void A_CheckReload(AActor *mo)
 {
     player_t *player = mo->player;
 
@@ -582,27 +550,21 @@ A_CheckReload
 // Lowers current weapon,
 //  and changes weapon at bottom.
 //
-void
-A_Lower
-(AActor *mo)
+void A_Lower(AActor *mo)
 {
     player_t *player = mo->player;
     struct pspdef_s *psp = &player->psprites[player->psprnum];
 
 	psp->sy += LOWERSPEED;
-	weapon_ypos[player->id] += LOWERSPEED;
 
 	// Not yet lowered to the bottom
-	if (weapon_ypos[player->id] < WEAPONBOTTOM)
+	if (psp->sy < WEAPONBOTTOM)
 		return;
 
 	// Player is dead.
 	if (player->playerstate == PST_DEAD)
 	{
 		psp->sy = WEAPONBOTTOM;
-		weapon_ypos[player->id] = WEAPONBOTTOM;
-
-		// don't bring weapon back up
 		return;
 	}
 
@@ -625,9 +587,7 @@ A_Lower
 //
 // A_Raise
 //
-void
-A_Raise
-(AActor *mo)
+void A_Raise(AActor *mo)
 {
 	statenum_t	newstate;
 
@@ -635,13 +595,11 @@ A_Raise
     struct pspdef_s *psp = &player->psprites[player->psprnum];
 
 	psp->sy -= RAISESPEED;
-	weapon_ypos[player->id] -= RAISESPEED;
 
-	if (weapon_ypos[player->id] > WEAPONTOP)
+	if (psp->sy > WEAPONTOP)
 		return;
 
 	psp->sy = WEAPONTOP;
-	weapon_ypos[player->id] = WEAPONTOP;
 
 	// The weapon has been raised all the way,
 	//	so change to the ready state.
@@ -879,11 +837,11 @@ void A_RailWait (AActor *mo)
 // Sets a slope so a near miss is at aproximately
 // the height of the intended target
 //
-fixed_t bulletslope;
 
-void P_BulletSlope (AActor *mo)
+fixed_t P_BulletSlope(AActor *mo)
 {
 	fixed_t pitchslope = finetangent[FINEANGLES/4 - (mo->pitch>>ANGLETOFINESHIFT)];
+	fixed_t bulletslope;
 
 	// see which target is to be aimed at
 	angle_t an = mo->angle;
@@ -903,24 +861,8 @@ void P_BulletSlope (AActor *mo)
 	{
 		bulletslope = pitchslope;
 	}
-}
 
-
-//
-// P_GunShot
-//
-void P_GunShot (AActor *mo, BOOL accurate)
-{
-	angle_t 	angle;
-	int 		damage;
-
-	damage = 5*(P_Random (mo)%3+1);
-	angle = mo->angle;
-
-	if (!accurate)
-		angle += P_RandomDiff(mo) << 18;
-
-	P_LineAttack (mo, angle, MISSILERANGE, bulletslope, damage);
+	return bulletslope;
 }
 
 //
@@ -967,7 +909,7 @@ void P_FireHitscan (player_t *player, size_t quantity, spreadtype_t spread)
 	if (serverside)
 		Unlag::getInstance().reconcile(player->id);
 
-	P_BulletSlope (player->mo);
+	fixed_t bulletslope = P_BulletSlope(player->mo);
 
 	for (size_t i=0; i<quantity; i++)
 	{
@@ -1139,11 +1081,9 @@ void A_BFGSpray (AActor *mo)
 		if (!linetarget)
 			continue;
 
-		fixed_t xoffs = 0, yoffs = 0, zoffs = 0;
-
-		new AActor (linetarget->x + xoffs,
-					linetarget->y + yoffs,
-					linetarget->z + zoffs+ (linetarget->height>>2),
+		new AActor (linetarget->x,
+					linetarget->y,
+					linetarget->z + (linetarget->height>>2),
 					MT_EXTRABFG);
 
 		damage = 0;
@@ -1229,8 +1169,6 @@ void A_LoadShotgun2 (AActor *mo)
 	A_FireSound(player, "weapons/sshotl");
 }
 
-void A_ReFire (AActor *mo);
-
 void A_CloseShotgun2 (AActor *mo)
 {
     player_t *player = mo->player;
@@ -1254,8 +1192,10 @@ void A_ForceWeaponFire(AActor *mo, weapontype_t weapon, int tic)
 
 	player->weaponowned[weapon] = true;
 	player->readyweapon = weapon;
+
+	P_BobWeapon(player);
+
 	P_SetPsprite(player, ps_weapon, weaponinfo[player->readyweapon].atkstate);
-	player->psprites[player->psprnum].sy = WEAPONTOP;
 
 	while (tic++ < gametic)
 		P_MovePsprites(player);

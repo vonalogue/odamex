@@ -36,7 +36,7 @@
 
 #include "net_type.h"
 #include "net_bitstream.h"
-#include "vectors.h"
+#include "m_vectors.h"
 #include "hashtable.h"
 #include "m_ostring.h"
 
