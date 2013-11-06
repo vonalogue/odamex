@@ -847,6 +847,8 @@ void D_DoomMain (void)
 	Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
 	R_Init ();
 
+	V_LoadConsoleFont();
+
 	Printf (PRINT_HIGH, "P_Init: Init Playloop state.\n");
 	P_InitEffects();	// [ML] Do this here so we don't have to put particle crap in server
 	P_Init ();

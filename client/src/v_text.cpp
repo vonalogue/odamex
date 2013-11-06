@@ -40,12 +40,9 @@
 
 EXTERN_CVAR(hud_scaletext)
 
-static texhandle_t console_font[256];
+static Texture* console_font[256];
 
 extern patch_t *hu_font[HU_FONTSIZE];
-
-
-static byte *ConChars;
 
 extern byte *Ranges;
 
@@ -73,9 +70,10 @@ int V_TextScaleYAmount()
 //
 void V_LoadConsoleFont()
 {
-	texhandle_t conchars_handle = texturemanager.getHandle("CONCHARS", Texture::TEX_PATCH);
+	static const char lumpname[] = "CONCHARS";
+	texhandle_t conchars_handle = texturemanager.getHandle(lumpname, Texture::TEX_PATCH);
 	if (conchars_handle == TextureManager::NOT_FOUND_TEXTURE_HANDLE)
-		I_Error("Unable to load CONCHARS lump.");
+		I_Error("Unable to load %s lump.", lumpname);
 	const Texture* conchars_texture = texturemanager.getTexture(conchars_handle);
 
 	const int charwidth = 8, charheight = 8;
@@ -90,81 +88,12 @@ void V_LoadConsoleFont()
 			texhandle_t texhandle = texturemanager.createSpecialUseHandle();			
 			Texture* texture = texturemanager.createTexture(texhandle, charwidth, charheight);
 			Z_ChangeTag(texture, PU_STATIC);	// don't allow texture to be purged from cache
-			console_font[charnum] = texhandle;
+			console_font[charnum] = texture;
 
 			R_CopySubimage(texture, conchars_texture, column * charwidth, row * charheight, charwidth, charheight);
 		}
 	}
 }
-
-// Convert the CONCHARS patch into the internal format used by
-// the console font drawer.
-void V_InitConChars(byte transcolor)
-{
-	byte *d, *s, v, *src;
-	patch_t *chars;
-	int x, y, z, a;
-	DCanvas *scrn = I_AllocateScreen(128, 128, 8);
-	DCanvas &temp = *scrn;
-
-	if (temp.is8bit())
-	{
-		chars = W_CachePatch ("CONCHARS");
-		temp.Lock ();
-
-		argb_t *tempscrn, fill;
-
-		fill = (transcolor << 24) | (transcolor << 16) | (transcolor << 8) | transcolor;
-		for (y = 0; y < 128; y++)
-		{
-			tempscrn = (argb_t *)(temp.buffer + temp.pitch * y);
-			for (x = 0; x < 128/4; x++)
-				*tempscrn++ = fill;
-			temp.DrawPatch (chars, 0, 0);
-		}
-
-		src = temp.buffer;
-
-		if ( (ConChars = new byte[256*8*8*2]) )
-		{
-			d = ConChars;
-			for (y = 0; y < 16; y++)
-			{
-				for (x = 0; x < 16; x++)
-				{
-					s = src + x * 8 + (y * 8 * temp.pitch);
-					for (z = 0; z < 8; z++)
-					{
-						for (a = 0; a < 8; a++)
-						{
-							v = s[a];
-							if (v == transcolor)
-							{
-								d[a] = 0x00;
-								d[a+8] = 0xff;
-							}
-							else
-							{
-								d[a] = v;
-								d[a+8] = 0x00;
-							}
-						}
-						d += 16;
-						s += temp.pitch;
-					}
-				}
-			}
-		}
-
-		temp.Unlock ();
-	}
-	else
-	{
-		ConChars = new byte[256*8*8*2];
-	}
-	I_FreeScreen(scrn);
-}
-
 
 //
 // V_PrintStr
@@ -174,96 +103,43 @@ void V_InitConChars(byte transcolor)
 extern "C" void STACK_ARGS PrintChar1P (DWORD *charimg, byte *dest, int screenpitch);
 extern "C" void STACK_ARGS PrintChar2P_MMX (DWORD *charimg, byte *dest, int screenpitch);
 
+static void V_PrintCharacter(const DCanvas* canvas, int& x, int& y, char c, fixed_t scale)
+{
+	byte charnum = (byte)c;
+	if (charnum == '\t')
+		charnum = ' ';
+
+	const Texture* texture = console_font[charnum];
+
+	int charwidth = (texture->getWidth() * scale) >> FRACBITS;
+	int charheight = (texture->getHeight() * scale) >> FRACBITS;
+
+	if (c == '\t')
+	{
+		// convert tabs into 4 spaces
+		for (int i = 0; i < 4; i++)
+		{
+			canvas->DrawTextureStretched(texture, x, y, charwidth, charheight);
+			x += charwidth;
+		}
+	}
+	else
+	{
+		canvas->DrawTextureStretched(texture, x, y, charwidth, charheight);
+		x += charwidth;
+	}
+}
+
+
 void DCanvas::PrintStr(int x, int y, const char *s, int count) const
 {
-	const byte *str = (const byte *)s;
-	byte *temp;
-	argb_t *charimg;
-
 	if (!buffer)
 		return;
 
-	if (y > (height - 8) || y<0)
-		return;
-
-	if (x < 0)
+	while (*s != 0 && count--)
 	{
-		int skip;
-
-		skip = -(x - 7) / 8;
-		x += skip * 8;
-		if (count <= skip)
-		{
-			return;
-		}
-		else
-		{
-			count -= skip;
-			str += skip;
-		}
-	}
-
-	x &= ~3;
-	temp = buffer + y * pitch;
-
-	while (count && x <= (width - 8))
-	{
-	    // john - tab 4 spaces
-	    if (*str == '\t')
-	    {
-	        str++;
-	        count--;
-	        x += 8 * 4;
-	        continue;
-	    }
-
-		charimg = (argb_t *)&ConChars[(*str) * 128];
-		if (is8bit())
-		{
-			int z;
-			argb_t *writepos;
-
-			writepos = (argb_t *)(temp + x);
-			for (z = 0; z < 8; z++)
-			{
-				*writepos = (*writepos & charimg[2]) ^ charimg[0];
-				writepos++;
-				*writepos = (*writepos & charimg[3]) ^ charimg[1];
-				writepos += (pitch >> 2) - 1;
-				charimg += 4;
-			}
-		}
-		else
-		{
-			int z;
-			argb_t *writepos;
-
-			writepos = (argb_t *)(temp + (x << 2));
-			for (z = 0; z < 8; z++)
-			{
-#define BYTEIMG ((byte *)charimg)
-#define SPOT(a) \
-	writepos[a] = (writepos[a] & \
-				 ((BYTEIMG[a+8]<<16)|(BYTEIMG[a+8]<<8)|(BYTEIMG[a+8]))) \
-				 ^ V_Palette.shade(BYTEIMG[a])
-
-				SPOT(0);
-				SPOT(1);
-				SPOT(2);
-				SPOT(3);
-				SPOT(4);
-				SPOT(5);
-				SPOT(6);
-				SPOT(7);
-#undef SPOT
-#undef BYTEIMG
-				writepos += pitch >> 2;
-				charimg += 4;
-			}
-		}
-		str++;
-		count--;
-		x += 8;
+		V_PrintCharacter(this, x, y, *s, FRACUNIT);
+		s++;
 	}
 }
 
@@ -273,95 +149,13 @@ void DCanvas::PrintStr(int x, int y, const char *s, int count) const
 //
 void DCanvas::PrintStr2(int x, int y, const char *s, int count) const
 {
-	const byte *str = (const byte *)s;
-	byte *temp;
-	argb_t *charimg;
-
-	if (y > (height - 16))
+	if (!buffer)
 		return;
 
-	if (x < 0)
+	while (*s != 0 && count--)
 	{
-		int skip;
-
-		skip = -(x - 15) / 16;
-		x += skip * 16;
-		if (count <= skip)
-		{
-			return;
-		}
-		else
-		{
-			count -= skip;
-			str += skip;
-		}
-	}
-
-	x &= ~3;
-	temp = buffer + y * pitch;
-
-	while (count && x <= (width - 16))
-	{
-	    // john - tab 4 spaces
-        if (*str == '\t')
-	    {
-	        str++;
-	        count--;
-	        x += 16 * 4;
-	        continue;
-	    }
-
-		charimg = (argb_t *)&ConChars[(*str) * 128];
-
-		{
-			int z;
-			byte *buildmask, *buildbits, *image;
-			unsigned int m1, s1;
-			unsigned int *writepos;
-
-			writepos = (unsigned int *)(temp + x);
-			buildbits = (byte *)&s1;
-			buildmask = (byte *)&m1;
-			image = (byte *)charimg;
-
-			for (z = 0; z < 8; z++)
-			{
-				buildmask[0] = buildmask[1] = image[8];
-				buildmask[2] = buildmask[3] = image[9];
-				buildbits[0] = buildbits[1] = image[0];
-				buildbits[2] = buildbits[3] = image[1];
-				writepos[0] = (writepos[0] & m1) ^ s1;
-				writepos[pitch/4] = (writepos[pitch/4] & m1) ^ s1;
-
-				buildmask[0] = buildmask[1] = image[10];
-				buildmask[2] = buildmask[3] = image[11];
-				buildbits[0] = buildbits[1] = image[2];
-				buildbits[2] = buildbits[3] = image[3];
-				writepos[1] = (writepos[1] & m1) ^ s1;
-				writepos[1+pitch/4] = (writepos[1+pitch/4] & m1) ^ s1;
-
-				buildmask[0] = buildmask[1] = image[12];
-				buildmask[2] = buildmask[3] = image[13];
-				buildbits[0] = buildbits[1] = image[4];
-				buildbits[2] = buildbits[3] = image[5];
-				writepos[2] = (writepos[2] & m1) ^ s1;
-				writepos[2+pitch/4] = (writepos[2+pitch/4] & m1) ^ s1;
-
-				buildmask[0] = buildmask[1] = image[14];
-				buildmask[2] = buildmask[3] = image[15];
-				buildbits[0] = buildbits[1] = image[6];
-				buildbits[2] = buildbits[3] = image[7];
-				writepos[3] = (writepos[3] & m1) ^ s1;
-				writepos[3+pitch/4] = (writepos[3+pitch/4] & m1) ^ s1;
-
-				writepos += pitch >> 1;
-				image += 16;
-			}
-
-		}
-		str++;
-		count--;
-		x += 16;
+		V_PrintCharacter(this, x, y, *s, 2 * FRACUNIT);
+		s++;
 	}
 }
 
