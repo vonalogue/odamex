@@ -51,31 +51,30 @@
 #include "cl_vote.h"
 
 static int		widestnum, numheight;
-static const patch_t	*medi;
-static const patch_t	*armors[2];
-static const patch_t	*ammos[4];
-static const patch_t	*bigammos[4];
-static const patch_t	*flagiconteam;
-static const patch_t	*flagiconbhome;
-static const patch_t	*flagiconrhome;
-static const patch_t	*flagiconbtakenbyb;
-static const patch_t	*flagiconbtakenbyr;
-static const patch_t	*flagiconrtakenbyb;
-static const patch_t	*flagiconrtakenbyr;
-static const patch_t	*flagicongtakenbyb;
-static const patch_t	*flagicongtakenbyr;
-static const patch_t	*flagiconbdropped;
-static const patch_t	*flagiconrdropped;
-static const patch_t *line_leftempty;
-static const patch_t *line_leftfull;
-static const patch_t *line_centerempty;
-static const patch_t *line_centerleft;
-static const patch_t *line_centerright;
-static const patch_t *line_centerfull;
-static const patch_t *line_rightempty;
-static const patch_t *line_rightfull;
-static const char ammopatches[4][8] = {"CLIPA0", "SHELA0", "CELLA0", "ROCKA0"};
-static const char bigammopatches[4][8] = {"AMMOA0", "SBOXA0", "CELPA0", "BROKA0"};
+
+static texhandle_t		medi;
+static texhandle_t		armors[2];
+static texhandle_t		ammos[4];
+static texhandle_t		bigammos[4];
+static texhandle_t		flagiconteam;
+static texhandle_t		flagiconbhome;
+static texhandle_t		flagiconrhome;
+static texhandle_t		flagiconbtakenbyb;
+static texhandle_t		flagiconbtakenbyr;
+static texhandle_t		flagiconrtakenbyb;
+static texhandle_t		flagiconrtakenbyr;
+static texhandle_t		flagicongtakenbyb;
+static texhandle_t		flagicongtakenbyr;
+static texhandle_t		flagiconbdropped;
+static texhandle_t		flagiconrdropped;
+static texhandle_t		line_leftempty;
+static texhandle_t		line_leftfull;
+static texhandle_t		line_centerempty;
+static texhandle_t		line_centerleft;
+static texhandle_t		line_centerright;
+static texhandle_t		line_centerfull;
+static texhandle_t		line_rightempty;
+static texhandle_t		line_rightfull;
 static int		NameUp = -1;
 
 extern patch_t	*sttminus;
@@ -97,81 +96,109 @@ EXTERN_CVAR (hud_targetcount)
 EXTERN_CVAR (st_scale)
 EXTERN_CVAR (sv_fraglimit)
 
+//
+// ST_LoadSprite
+//
+// Loads a status bar sprite and prevents it from being freed when the
+// Zone memory manager is low on memory.
+// 
+static texhandle_t ST_LoadSprite(const char* name)
+{
+	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_SPRITE);
+	if (texhandle != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+	{
+		const Texture* texture = texturemanager.getTexture(texhandle);
+		Z_ChangeTag(texture, PU_STATIC);
+	}
+	return texhandle;
+}
+
+//
+// ST_UnloadSprite
+//
+static void ST_UnloadSprite(texhandle_t texhandle)
+{
+	if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
+		texhandle == TextureManager::NO_TEXTURE_HANDLE)
+		return;
+
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	Z_ChangeTag(texture, PU_CACHE);
+}
+
 void ST_unloadNew (void)
 {
-	int i;
+	ST_UnloadSprite(medi);
 
-	Z_ChangeTag (medi, PU_CACHE);
+	ST_UnloadSprite(flagiconteam);
+	ST_UnloadSprite(flagiconbhome);
+	ST_UnloadSprite(flagiconrhome);
+	ST_UnloadSprite(flagiconbtakenbyb);
+	ST_UnloadSprite(flagiconbtakenbyr);
+	ST_UnloadSprite(flagiconrtakenbyb);
+	ST_UnloadSprite(flagiconrtakenbyr);
+	ST_UnloadSprite(flagicongtakenbyb);
+	ST_UnloadSprite(flagicongtakenbyr);
+	ST_UnloadSprite(flagiconbdropped);
+	ST_UnloadSprite(flagiconrdropped);
 
-	Z_ChangeTag (flagiconteam, PU_CACHE);
-	Z_ChangeTag (flagiconbhome, PU_CACHE);
-	Z_ChangeTag (flagiconrhome, PU_CACHE);
-	Z_ChangeTag (flagiconbtakenbyb, PU_CACHE);
-	Z_ChangeTag (flagiconbtakenbyr, PU_CACHE);
-	Z_ChangeTag (flagiconrtakenbyb, PU_CACHE);
-	Z_ChangeTag (flagiconrtakenbyr, PU_CACHE);
-	Z_ChangeTag (flagicongtakenbyb, PU_CACHE);
-	Z_ChangeTag (flagicongtakenbyr, PU_CACHE);
-	Z_ChangeTag (flagiconbdropped, PU_CACHE);
-	Z_ChangeTag (flagiconrdropped, PU_CACHE);
-	Z_ChangeTag (line_leftempty, PU_CACHE);
-	Z_ChangeTag (line_leftfull, PU_CACHE);
-	Z_ChangeTag (line_centerempty, PU_CACHE);
-	Z_ChangeTag (line_centerleft, PU_CACHE);
-	Z_ChangeTag (line_centerright, PU_CACHE);
-	Z_ChangeTag (line_centerfull, PU_CACHE);
-	Z_ChangeTag (line_rightempty, PU_CACHE);
-	Z_ChangeTag (line_rightfull, PU_CACHE);
+	ST_UnloadSprite(line_leftempty);
+	ST_UnloadSprite(line_leftfull);
+	ST_UnloadSprite(line_centerempty);
+	ST_UnloadSprite(line_centerleft);
+	ST_UnloadSprite(line_centerright);
+	ST_UnloadSprite(line_centerfull);
+	ST_UnloadSprite(line_rightempty);
+	ST_UnloadSprite(line_rightfull);
 
-	for (i = 0; i < 2; i++)
-		Z_ChangeTag (armors[i], PU_CACHE);
+	for (int i = 0; i < 2; i++)
+		ST_UnloadSprite(armors[i]);
 
-	for (i = 0; i < 4; i++)
-		Z_ChangeTag (ammos[i], PU_CACHE);
+	for (int i = 0; i < 4; i++)
+	{
+		ST_UnloadSprite(ammos[i]);
+		ST_UnloadSprite(bigammos[i]);
+	}
 }
+
 
 void ST_initNew (void)
 {
-	int i;
 	int widest = 0;
-	char name[8];
-	int lump;
 
 	// denis - todo - security - these patches have unchecked dimensions
 	// ie, if a patch has a 0 width/height, it may cause a divide by zero
 	// somewhere else in the code. we download wads, so this is an issue!
 
-	for (i = 0; i < 10; i++) {
+	for (int i = 0; i < 10; i++) {
 		if (tallnum[i]->width() > widest)
 			widest = tallnum[i]->width();
 	}
 
-	strcpy (name, "ARM1A0");
-	for (i = 0; i < 2; i++) {
-		name[3] = i + '1';
-		if ((lump = W_CheckNumForName (name, ns_sprites)) != -1)
-			armors[i] = W_CachePatch (lump, PU_STATIC);
-	}
+	medi = ST_LoadSprite("MEDIA0");
 
-	for (i = 0; i < 4; i++) {
-		if ((lump = W_CheckNumForName (ammopatches[i], ns_sprites)) != -1)
-			ammos[i] = W_CachePatch (lump, PU_STATIC);
-		if ((lump = W_CheckNumForName (bigammopatches[i], ns_sprites)) != -1)
-			bigammos[i] = W_CachePatch (lump, PU_STATIC);
-	}
+	armors[0] = ST_LoadSprite("ARM1A0");
+	armors[1] = ST_LoadSprite("ARM2A0");
 
-	if ((lump = W_CheckNumForName ("MEDIA0", ns_sprites)) != -1)
-		medi = W_CachePatch (lump, PU_STATIC);
+	ammos[0] = ST_LoadSprite("CLIPA0");
+	ammos[1] = ST_LoadSprite("SHELA0");
+	ammos[2] = ST_LoadSprite("CELLA0");
+	ammos[3] = ST_LoadSprite("ROCKA0");
 
-	flagiconteam = W_CachePatch ("FLAGIT", PU_STATIC);
-	flagiconbhome = W_CachePatch ("FLAGIC2B", PU_STATIC);
-	flagiconrhome = W_CachePatch ("FLAGIC2R", PU_STATIC);
-	flagiconbtakenbyb = W_CachePatch ("FLAGI3BB", PU_STATIC);
-	flagiconbtakenbyr = W_CachePatch ("FLAGI3BR", PU_STATIC);
-	flagiconrtakenbyb = W_CachePatch ("FLAGI3RB", PU_STATIC);
-	flagiconrtakenbyr = W_CachePatch ("FLAGI3RR", PU_STATIC);
-	flagiconbdropped = W_CachePatch ("FLAGIC4B", PU_STATIC);
-	flagiconrdropped = W_CachePatch ("FLAGIC4R", PU_STATIC);
+	bigammos[0] = ST_LoadSprite("AMMOA0");
+	bigammos[1] = ST_LoadSprite("SBOXA0");
+	bigammos[2] = ST_LoadSprite("CELPA0");
+	bigammos[3] = ST_LoadSprite("BROKA0");
+	
+	flagiconteam		= ST_LoadSprite("FLAGIT");
+	flagiconbhome		= ST_LoadSprite("FLAGIC2B");
+	flagiconrhome		= ST_LoadSprite("FLAGIC2R");
+	flagiconbtakenbyb	= ST_LoadSprite("FLAGI3BB");
+	flagiconbtakenbyr	= ST_LoadSprite("FLAGI3BR");
+	flagiconrtakenbyb	= ST_LoadSprite("FLAGI3RB");
+	flagiconrtakenbyr	= ST_LoadSprite("FLAGI3RR");
+	flagiconbdropped	= ST_LoadSprite("FLAGIC4B");
+	flagiconrdropped	= ST_LoadSprite("FLAGIC4R");
 
 	widestnum = widest;
 	numheight = tallnum[0]->height();
@@ -179,14 +206,14 @@ void ST_initNew (void)
 	if (multiplayer && (sv_gametype == GM_COOP || demoplayback || !netgame) && level.time)
 		NameUp = level.time + 2*TICRATE;
 
-	line_leftempty = W_CachePatch ("ODABARLE", PU_STATIC);
-	line_leftfull = W_CachePatch ("ODABARLF", PU_STATIC);
-	line_centerempty = W_CachePatch ("ODABARCE", PU_STATIC);
-	line_centerleft = W_CachePatch ("ODABARCL", PU_STATIC);
-	line_centerright = W_CachePatch ("ODABARCR", PU_STATIC);
-	line_centerfull = W_CachePatch ("ODABARCF", PU_STATIC);
-	line_rightempty = W_CachePatch ("ODABARRE", PU_STATIC);
-	line_rightfull = W_CachePatch ("ODABARRF", PU_STATIC);
+	line_leftempty		= ST_LoadSprite("ODABARLE");
+	line_leftfull		= ST_LoadSprite("ODABARLF");
+	line_centerempty	= ST_LoadSprite("ODABARCE");
+	line_centerleft		= ST_LoadSprite("ODABARCL");
+	line_centerright	= ST_LoadSprite("ODABARCR");
+	line_centerfull		= ST_LoadSprite("ODABARCF");
+	line_rightempty		= ST_LoadSprite("ODABARRE");
+	line_rightfull		= ST_LoadSprite("ODABARRF");
 }
 
 void ST_DrawNum (int x, int y, DCanvas *scrn, int num)
@@ -275,78 +302,84 @@ void ST_DrawBar (int normalcolor, unsigned int value, unsigned int total,
 	int bar_width = width / (2 * xscale);
 
 	int bar_filled;
-	if (value == 0) {
-		// Bar is forced empty.
+	if (value == 0)				// Bar is forced empty.
 		bar_filled = 0;
-	} else if (value >= total) {
-		// Bar is forced full.
+	else if (value >= total)	// Bar is forced full.
 		bar_filled = bar_width;
-	} else {
+	else
+	{
 		bar_filled = (value * bar_width) / total;
-		if (bar_filled == 0) {
-			// Bar is prevented from being empty.
+		if (bar_filled == 0)	// Bar is prevented from being empty.
 			bar_filled = 1;
-		} else if (bar_filled >= bar_width) {
-			// Bar is prevented from being full.
+		else if (bar_filled >= bar_width)	// Bar is prevented from being full.
 			bar_filled = bar_width - 1;
-		}
 	}
 
 	V_ColorMap = translationref_t(Ranges + normalcolor * 256);
-	for (int i = 0;i < bar_width;i++) {
-		const patch_t* linepatch;
-		if (!reverse) {
-			if (i == 0 && !cutleft) {
-				if (bar_filled == 0) {
-					linepatch = line_leftempty;
-				} else {
-					linepatch = line_leftfull;
-				}
-			} else if (i == bar_width - 1 && !cutright) {
-				if (bar_filled == bar_width) {
-					linepatch = line_rightfull;
-				} else {
-					linepatch = line_rightempty;
-				}
-			} else {
-				if (i == bar_filled - 1) {
-					linepatch = line_centerleft;
-				} else if (i < bar_filled) {
-					linepatch = line_centerfull;
-				} else {
-					linepatch = line_centerempty;
-				}
+	for (int i = 0; i < bar_width; i++)
+	{
+		texhandle_t line_texhandle;
+
+		if (!reverse)
+		{
+			if (i == 0 && !cutleft)
+			{
+				if (bar_filled == 0)
+					line_texhandle = line_leftempty;
+				else
+					line_texhandle = line_leftfull;
 			}
-		} else {
-			if (i == 0 && !cutleft) {
-				if (bar_filled == bar_width) {
-					linepatch = line_leftfull;
-				} else {
-					linepatch = line_leftempty;
-				}
-			} else if (i == bar_width - 1 && !cutright) {
-				if (bar_filled == 0) {
-					linepatch = line_rightempty;
-				} else {
-					linepatch = line_rightfull;
-				}
-			} else {
-				if (i == (bar_width - bar_filled)) {
-					linepatch = line_centerright;
-				} else if (i >= (bar_width - bar_filled)) {
-					linepatch = line_centerfull;
-				} else {
-					linepatch = line_centerempty;
-				}
+			else if (i == bar_width - 1 && !cutright)
+			{
+				if (bar_filled == bar_width)
+					line_texhandle = line_rightfull;
+				else
+					line_texhandle = line_rightempty;
+			}
+			else
+			{
+				if (i == bar_filled - 1)
+					line_texhandle = line_centerleft;
+				else if (i < bar_filled)
+					line_texhandle = line_centerfull;
+				else
+					line_texhandle = line_centerempty;
+			}
+		}
+		else
+		{
+			if (i == 0 && !cutleft)
+			{
+				if (bar_filled == bar_width)
+					line_texhandle = line_leftfull;
+				else
+					line_texhandle = line_leftempty;
+			}
+			else if (i == bar_width - 1 && !cutright)
+			{
+				if (bar_filled == 0)
+					line_texhandle = line_rightempty;
+				else
+					line_texhandle = line_rightfull;
+			}
+			else
+			{
+				if (i == (bar_width - bar_filled))
+					line_texhandle = line_centerright;
+				else if (i >= (bar_width - bar_filled))
+					line_texhandle = line_centerfull;
+				else
+					line_texhandle = line_centerempty;
 			}
 		}
 
+		const Texture* line_texture = texturemanager.getTexture(line_texhandle);
+
 		int xi = x + (i * xscale * 2);
-		if (hud_scale) {
-			screen->DrawTranslatedPatchCleanNoMove(linepatch, xi, y);
-		} else {
-			screen->DrawTranslatedPatch(linepatch, xi, y);
-		}
+		if (hud_scale)
+			screen->DrawTranslatedTextureCleanNoMove(line_texture, xi, y);
+		else
+			screen->DrawTranslatedTexture(line_texture, xi, y);
 	}
 }
 
@@ -446,68 +479,77 @@ void drawCTF() {
 	player_t *plyr = &consoleplayer();
 	int xscale = hud_scale ? CleanXfac : 1;
 	int yscale = hud_scale ? CleanYfac : 1;
-	const patch_t *flagbluepatch = flagiconbhome;
-	const patch_t *flagredpatch = flagiconrhome;
 
-	switch (CTFdata[it_blueflag].state) {
+	texhandle_t flagblue_texhandle = flagiconbhome;
+	texhandle_t flagred_texhandle = flagiconrhome;
+
+	switch (CTFdata[it_blueflag].state)
+	{
 		case flag_carried:
-			if (CTFdata[it_blueflag].flagger) {
+			if (CTFdata[it_blueflag].flagger)
+			{
 				player_t &player = idplayer(CTFdata[it_blueflag].flagger);
-				if (player.userinfo.team == TEAM_BLUE) {
-					flagbluepatch = flagiconbtakenbyb;
-				} else if (player.userinfo.team == TEAM_RED) {
-					flagbluepatch = flagiconbtakenbyr;
-				}
+				if (player.userinfo.team == TEAM_BLUE)
+					flagblue_texhandle = flagiconbtakenbyb;
+				else if (player.userinfo.team == TEAM_RED)
+					flagblue_texhandle = flagiconbtakenbyr;
 			}
 			break;
 		case flag_dropped:
-			flagbluepatch = flagiconbdropped;
+			flagblue_texhandle = flagiconbdropped;
 			break;
 		default:
 			break;
 	}
 
-	switch (CTFdata[it_redflag].state) {
+	switch (CTFdata[it_redflag].state)
+	{
 		case flag_carried:
-			if (CTFdata[it_redflag].flagger) {
+			if (CTFdata[it_redflag].flagger)
+			{
 				player_t &player = idplayer(CTFdata[it_redflag].flagger);
-				if (player.userinfo.team == TEAM_BLUE) {
-					flagredpatch = flagiconrtakenbyb;
-				} else if (player.userinfo.team == TEAM_RED) {
-					flagredpatch = flagiconrtakenbyr;
-				}
+				if (player.userinfo.team == TEAM_BLUE)
+					flagred_texhandle = flagiconrtakenbyb;
+				else if (player.userinfo.team == TEAM_RED)
+					flagred_texhandle = flagiconrtakenbyr;
 			}
 			break;
 		case flag_dropped:
-			flagredpatch = flagiconrdropped;
+			flagred_texhandle = flagiconrdropped;
 			break;
 		default:
 			break;
 	}
 
 	// Draw base flag patches
-	hud::DrawPatch(4, 61, hud_scale,
+	const Texture* flagblue_texture = texturemanager.getTexture(flagblue_texhandle);
+	const Texture* flagred_texture = texturemanager.getTexture(flagred_texhandle);
+
+	hud::DrawTexture(4, 61, hud_scale,
 	               hud::X_RIGHT, hud::Y_BOTTOM,
 	               hud::X_RIGHT, hud::Y_BOTTOM,
-	               flagbluepatch);
-	hud::DrawPatch(4, 43, hud_scale,
+	               flagblue_texture);
+	hud::DrawTexture(4, 43, hud_scale,
 	               hud::X_RIGHT, hud::Y_BOTTOM,
 	               hud::X_RIGHT, hud::Y_BOTTOM,
-	               flagredpatch);
+	               flagred_texture);
 
 	// Draw team border
-	switch (plyr->userinfo.team) {
+	const Texture* flagborder_texture = texturemanager.getTexture(flagiconteam);
+
+	switch (plyr->userinfo.team)
+	{
 		case TEAM_BLUE:
-			hud::DrawPatch(4, 61, hud_scale,
+			hud::DrawTexture(4, 61, hud_scale,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
-			               flagiconteam);
+			               flagborder_texture);
 			break;
 		case TEAM_RED:
-			hud::DrawPatch(4, 43, hud_scale,
+			hud::DrawTexture(4, 43, hud_scale,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
-			               flagiconteam);
+			               flagborder_texture);
 			break;
 		default:
 			break;
@@ -565,19 +607,16 @@ void OdamexHUD() {
 	y = screen->height - (numheight + 4) * yscale;
 
 	// Draw Armor if the player has any
-	if (plyr->armortype && plyr->armorpoints) {
-		const patch_t *current_armor = armors[1];
-		if (plyr->armortype == 1) {
-			current_armor = armors[0];
-		}
+	if (plyr->armortype && plyr->armorpoints)
+	{
+		texhandle_t armor_texhandle = armors[plyr->armortype - 1];
+		const Texture* armor_texture = texturemanager.getTexture(armor_texhandle);
 
-		if (current_armor) {
-			// Draw Armor type.  Vertically centered against armor number.
-			hud::DrawPatchScaled(48 + 2 + 10, 32, 20, 20, hud_scale,
+		// Draw Armor type.  Vertically centered against armor number.
+		hud::DrawTextureScaled(48 + 2 + 10, 32, 20, 20, hud_scale,
 			                     hud::X_LEFT, hud::Y_BOTTOM,
 			                     hud::X_CENTER, hud::Y_MIDDLE,
-			                     current_armor);
-		}
+			                     armor_texture);
 		ST_DrawNumRight(48 * xscale, y - 20 * yscale, screen, plyr->armorpoints);
 	}
 
@@ -591,30 +630,30 @@ void OdamexHUD() {
 
 	// Draw Ammo
 	ammotype_t ammotype = weaponinfo[plyr->readyweapon].ammotype;
-	if (ammotype < NUMAMMO) {
-		const patch_t *ammopatch;
+	if (ammotype < NUMAMMO)
+	{
 		// Use big ammo if the player has a backpack.
-		if (plyr->backpack) {
-			ammopatch = bigammos[ammotype];
-		} else {
-			ammopatch = ammos[ammotype];
-		}
+		texhandle_t ammo_texhandle = plyr->backpack ? bigammos[ammotype] : ammos[ammotype];
+		const Texture* ammo_texture = texturemanager.getTexture(ammo_texhandle);
 
 		// Draw ammo.  We have a 16x16 box to the right of the ammo where the
 		// ammo type is drawn.
 		// TODO: This "scale only if bigger than bounding box" can
 		//       probably be commonized, along with "scale only if
 		//       smaller than bounding box".
-		if (ammopatch->width() > 16 || ammopatch->height() > 16) {
-			hud::DrawPatchScaled(12, 12, 16, 16, hud_scale,
+		if (ammo_texture->getWidth() > 16 || ammo_texture->getHeight() > 16)
+		{
+			hud::DrawTextureScaled(12, 12, 16, 16, hud_scale,
 			                     hud::X_RIGHT, hud::Y_BOTTOM,
 			                     hud::X_CENTER, hud::Y_MIDDLE,
-			                     ammopatch);
-		} else {
-			hud::DrawPatch(12, 12, hud_scale,
+			                     ammo_texture);
+		}
+		else
+		{
+			hud::DrawTexture(12, 12, hud_scale,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
 			               hud::X_CENTER, hud::Y_MIDDLE,
-			               ammopatch);
+			               ammo_texture);
 		}
 		ST_DrawNumRight(screen->width - 24 * xscale, y, screen, plyr->ammo[ammotype]);
 	}
@@ -741,45 +780,39 @@ void ZDoomHUD() {
 	y = screen->height - (numheight + 4) * yscale;
 
 	// Draw health
+	const Texture* medi_texture = texturemanager.getTexture(medi);
 	if (hud_scale)
-		screen->DrawLucentPatchCleanNoMove (medi, 20 * CleanXfac,
-									  screen->height - 2*CleanYfac);
+		screen->DrawLucentTextureCleanNoMove(medi_texture, 20 * CleanXfac, screen->height - 2*CleanYfac);
 	else
-		screen->DrawLucentPatch (medi, 20, screen->height - 2);
+		screen->DrawLucentTexture(medi_texture, 20, screen->height - 2);
 	ST_DrawNum (40 * xscale, y, screen, plyr->health);
 
 	// Draw armor
 	if (plyr->armortype && plyr->armorpoints)
 	{
-		const patch_t *current_armor = armors[1];
-		if(plyr->armortype == 1)
-			current_armor = armors[0];
+		texhandle_t armor_texhandle = armors[plyr->armortype - 1];
+		const Texture* armor_texture = texturemanager.getTexture(armor_texhandle);
 
-		if (current_armor)
-		{
-			if (hud_scale)
-				screen->DrawLucentPatchCleanNoMove (current_armor, 20 * CleanXfac, y - 4*CleanYfac);
-			else
-				screen->DrawLucentPatch (current_armor, 20, y - 4);
-		}
-		ST_DrawNum (40*xscale, y - (armors[0]->height()+3)*yscale,
-					 screen, plyr->armorpoints);
+		if (hud_scale)
+			screen->DrawLucentTextureCleanNoMove(armor_texture, 20 * CleanXfac, y - 4*CleanYfac);
+		else
+			screen->DrawLucentTexture(armor_texture, 20, y - 4);
+
+		int texheight = armor_texture->getHeight();
+		ST_DrawNum(40 * xscale, y - (texheight + 3) * yscale, screen, plyr->armorpoints);
 	}
 
 	// Draw ammo
 	if (ammotype < NUMAMMO)
 	{
-		const patch_t *ammopatch = ammos[weaponinfo[plyr->readyweapon].ammotype];
+		texhandle_t ammo_texhandle = ammos[weaponinfo[plyr->readyweapon].ammotype];
+		const Texture* ammo_texture = texturemanager.getTexture(ammo_texhandle);
 
 		if (hud_scale)
-			screen->DrawLucentPatchCleanNoMove (ammopatch,
-										  screen->width - 14 * CleanXfac,
-										  screen->height - 4 * CleanYfac);
+			screen->DrawLucentTextureCleanNoMove(ammo_texture, screen->width - 14 * CleanXfac, screen->height - 4 * CleanYfac);
 		else
-			screen->DrawLucentPatch (ammopatch, screen->width - 14,
-							   screen->height - 4);
-		ST_DrawNumRight (screen->width - 25 * xscale, y, screen,
-						 plyr->ammo[ammotype]);
+			screen->DrawLucentTexture(ammo_texture, screen->width - 14, screen->height - 4);
+		ST_DrawNumRight (screen->width - 25 * xscale, y, screen, plyr->ammo[ammotype]);
 	}
 
 	// Draw top-right info. (Keys/Frags/Score)

@@ -190,6 +190,91 @@ void DrawText(int x, int y, const float scale,
 	}
 }
 
+void DrawTexture(int x, int y, const float scale,
+               const x_align_t x_align, const y_align_t y_align,
+               const x_align_t x_origin, const y_align_t y_origin,
+               const Texture* texture, const bool force_opaque,
+               const bool use_offsets)
+{
+	// Calculate width and height of texture
+	unsigned short w = texture->getWidth(); 
+	unsigned short h = texture->getHeight(); 
+
+	// Turn our scaled coordinates into real coordinates.
+	int x_scale, y_scale;
+	calculateOrigin(x, y, w, h, scale, x_scale, y_scale,
+	                x_align, y_align, x_origin, y_origin);
+
+	if (!use_offsets)
+	{
+		// Negate scaled texture offsets.
+		x += texture->getOffsetX();	
+		y += texture->getOffsetY();	
+	}
+
+	w *= x_scale;
+	h *= y_scale;
+
+	if (force_opaque)
+		screen->DrawTextureStretched(texture, x, y, w, h);
+	else
+		screen->DrawLucentTextureStretched(texture, x, y, w, h);
+}
+
+void DrawTextureScaled(const int x, const int y,
+                     unsigned short w, unsigned short h,
+                     const float scale,
+                     const x_align_t x_align, const y_align_t y_align,
+                     const x_align_t x_origin, const y_align_t y_origin,
+                     const Texture* texture, const bool force_opaque,
+                     const bool use_offsets)
+{
+	// Calculate aspect ratios of texture and destination.
+	float texture_aspect = texture->getWidth() / (float)texture->getHeight();
+	float dest_aspect = w / (float)h;
+
+	if (texture_aspect < dest_aspect)
+	{
+		// Destination is wider than texture.  Keep height, calculate width.
+		w = (texture->getWidth() * h) / texture->getHeight();
+	}
+	else if (texture_aspect > dest_aspect)
+	{
+		// Destination is taller than patch.  Keep width, calculate height.
+		h = (texture->getHeight() * w) / texture->getWidth();
+	}
+
+	// Call the 'stretched' drawer with our new dest. width and height.
+	DrawTextureStretched(x, y, w, h, scale, x_align, y_align, x_origin, y_origin,
+	                   texture, force_opaque, use_offsets);
+}
+
+void DrawTextureStretched(int x, int y,
+                        const unsigned short w, const unsigned short h,
+                        const float scale,
+                        const x_align_t x_align, const y_align_t y_align,
+                        const x_align_t x_origin, const y_align_t y_origin,
+                        const Texture* texture, const bool force_opaque,
+                        const bool use_offsets)
+{
+	// Turn our scaled coordinates into real coordinates.
+	int x_scale, y_scale;
+	calculateOrigin(x, y, w, h, scale, x_scale, y_scale,
+	                x_align, y_align, x_origin, y_origin);
+
+	if (!use_offsets)
+	{
+		// Negate scaled texture offsets.
+		x += (roundToShort(texture->getOffsetX() * ((float)w / texture->getWidth()))) * x_scale;
+		y += (roundToShort(texture->getOffsetY() * ((float)h / texture->getHeight()))) * y_scale;
+	}
+
+	if (force_opaque)
+		screen->DrawTextureStretched(texture, x, y, w * x_scale, h * y_scale);
+	else
+		screen->DrawLucentTextureStretched(texture, x, y, w * x_scale, h * y_scale);
+}
+
 // Draw a patch.
 void DrawPatch(int x, int y, const float scale,
                const x_align_t x_align, const y_align_t y_align,

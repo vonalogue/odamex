@@ -74,7 +74,7 @@ typedef struct
 	dsfixed_t			ystep;
 
 	int					color;
-	fixed_t				translevel;
+	fixed_t 			translevel;
 
 	float				iu;
 	float				iv;

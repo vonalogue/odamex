@@ -817,8 +817,8 @@ void TextureManager::cachePatch(texhandle_t handle)
 	int height = patch->height();
 
 	Texture* texture = createTexture(handle, width, height);
-	texture->mOffsetX = patch->leftoffset() << FRACBITS;
-	texture->mOffsetY = patch->topoffset() << FRACBITS;
+	texture->mOffsetX = patch->leftoffset();
+	texture->mOffsetY = patch->topoffset();
 
 	if (clientside)
 	{
@@ -856,6 +856,9 @@ texhandle_t TextureManager::getSpriteHandle(unsigned int lumpnum)
 texhandle_t TextureManager::getSpriteHandle(const char* name)
 {
 	int lumpnum = W_CheckNumForName(name);
+	if (lumpnum >= 0)
+		return getSpriteHandle(lumpnum);
+	lumpnum = W_CheckNumForName(name, ns_sprites);
 	if (lumpnum >= 0)
 		return getSpriteHandle(lumpnum);
 	return NOT_FOUND_TEXTURE_HANDLE;

@@ -34,6 +34,8 @@
 
 #include "cmdlib.h"
 
+#include "r_draw.h"
+
 // [RH] Stretch values for V_DrawPatchClean()
 int CleanXfac, CleanYfac;
 
@@ -83,6 +85,8 @@ DCanvas::vdrawsfunc DCanvas::Dsfuncs[6] =
 	(vdrawsfunc)DCanvas::DrawColoredPatchD,
 	(vdrawsfunc)DCanvas::DrawColorLucentPatchD
 };
+
+
 
 translationref_t V_ColorMap;
 int V_ColorFill;
@@ -525,6 +529,111 @@ void DCanvas::DrawColorLucentPatchD (const byte *source, byte *dest, int count, 
 /* The patch drawing wrappers */
 /*							  */
 /******************************/
+
+
+void DCanvas::DrawWrapper(EWrapperCode drawer, const Texture* texture, int x0, int y0) const
+{
+	DrawSWrapper(drawer, texture, x0, y0, texture->getWidth(), texture->getHeight());
+}
+
+void DCanvas::DrawSWrapper(EWrapperCode drawer, const Texture* texture, int x0, int y0,
+							const int destwidth, const int destheight) const
+{
+	if (destwidth <= 0 || destheight <= 0)
+		return;
+
+	int texwidth = texture->getWidth();
+	int texheight = texture->getHeight();
+
+	// [AM] Adding 1 to the inc variables leads to fewer weird scaling
+	//      artifacts since it forces col to roll over to the next real number
+	//      a column-of-real-pixels sooner.
+	fixed_t xinc = (texwidth << FRACBITS) / destwidth + 1;
+	fixed_t yinc = (texheight << FRACBITS) / destheight + 1;
+	fixed_t xmul = (destwidth << FRACBITS) / texwidth;
+	fixed_t ymul = (destheight << FRACBITS) / texheight;
+
+	x0 -= (texture->getOffsetX() * xmul) >> FRACBITS;
+	y0 -= (texture->getOffsetY() * ymul) >> FRACBITS;
+
+	#ifdef RANGECHECK
+	if (x0 < 0 || x0 + destwidth > width || y0 < 0 || y0 + destheight > height)
+	{
+	  // Printf (PRINT_HIGH, "Patch at %d,%d exceeds LFB\n", x,y );
+	  // No I_Error abort - what is up with TNT.WAD?
+	  DPrintf ("DCanvas::DrawSWrapper: bad texture (ignored) (%i, %i) - (%i, %i)\n",
+			x0, y0, x0 + destwidth, y0 + destheight);
+	  return;
+	}
+	#endif
+
+	if (this == screen)
+		V_MarkRect(x0, y0, destwidth, destheight);
+	
+	// choose the drawing function based on 'drawer'
+	typedef void (*ColumnDrawFunc)(drawcolumn_t&);
+	ColumnDrawFunc DrawFuncs[6] =
+	{
+		R_DrawMaskedColumn,
+		R_DrawTranslucentMaskedColumn,
+		R_DrawTranslatedMaskedColumn,
+		R_DrawTranslatedTranslucentMaskedColumn,
+		R_FillMaskedColumn,
+		R_FillMaskedColumn
+	};
+	ColumnDrawFunc drawfunc = DrawFuncs[drawer];
+
+	int colstep = is8bit() ? 1 : 4;
+	dcol.dest = buffer + y0 * pitch + x0 * colstep;
+	dcol.source = texture->getData();
+	dcol.mask = texture->getMaskData();
+	dcol.colormap = V_Palette;
+	dcol.color = 0x80;
+
+	dcol.translevel = FLOAT2FIXED(hud_transparency);
+	dcol.yl = y0;
+	dcol.yh = y0 + destheight - 1;
+	dcol.iscale = yinc;
+	dcol.texturefrac = 0;
+	dcol.textureheight = texheight << FRACBITS;
+
+	for (fixed_t colnum = 0; colnum < destwidth * xinc; colnum += xinc)
+	{
+		dcol.source = texture->getData() + texheight * (colnum >> FRACBITS);
+		dcol.mask = texture->getMaskData() + texheight * (colnum >> FRACBITS);
+		drawfunc(dcol);
+
+		dcol.dest += colstep;
+	} 
+}
+
+void DCanvas::DrawIWrapper(EWrapperCode drawer, const Texture* texture, int x0, int y0) const
+{
+	if (width == 320 && height == 200)
+		DrawWrapper(drawer, texture, x0, y0);
+	else
+		DrawSWrapper(drawer, texture,
+			 (width * x0) / 320, (height * y0) / 200,
+			 (width * texture->getWidth()) / 320, (height * texture->getHeight()) / 200);
+}
+
+void DCanvas::DrawCWrapper(EWrapperCode drawer, const Texture* texture, int x0, int y0) const
+{
+	if (CleanXfac == 1 && CleanYfac == 1)
+		DrawWrapper(drawer, texture, (x0 - 160) + (width / 2), (y0 - 100) + (height / 2));
+	else
+		DrawSWrapper(drawer, texture,
+			(x0 - 160) * CleanXfac + (width / 2), (y0 - 100) * CleanYfac + (height / 2),
+			texture->getWidth() * CleanXfac, texture->getHeight() * CleanYfac);
+}
+
+void DCanvas::DrawCNMWrapper(EWrapperCode drawer, const Texture* texture, int x0, int y0) const
+{
+	if (CleanXfac == 1 && CleanYfac == 1)
+		DrawWrapper(drawer, texture, x0, y0);
+	else
+		DrawSWrapper(drawer, texture, x0, y0, texture->getWidth() * CleanXfac, texture->getHeight() * CleanYfac);
+}
 
 //
 // V_DrawWrapper

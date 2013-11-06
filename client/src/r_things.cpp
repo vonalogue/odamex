@@ -147,8 +147,8 @@ void R_CacheSprite (spritedef_t *sprite)
 
 				sprite->spriteframes[i].width[r] = tex->getWidth() << FRACBITS;
 				sprite->spriteframes[i].height[r] = tex->getHeight() << FRACBITS;
-				sprite->spriteframes[i].offset[r] = tex->getOffsetX();
-				sprite->spriteframes[i].topoffset[r] = tex->getOffsetY();
+				sprite->spriteframes[i].offset[r] = tex->getOffsetX() << FRACBITS;
+				sprite->spriteframes[i].topoffset[r] = tex->getOffsetY() << FRACBITS;
 			}
 		}
 	}
