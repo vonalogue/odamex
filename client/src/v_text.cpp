@@ -40,6 +40,8 @@
 
 EXTERN_CVAR(hud_scaletext)
 
+static texhandle_t console_font[256];
+
 extern patch_t *hu_font[HU_FONTSIZE];
 
 
@@ -63,9 +65,41 @@ int V_TextScaleYAmount()
 	return int(hud_scaletext);
 }
 
+//
+// V_LoadConsoleFont
+//
+// Reads the CONCHARS lump from disk and converts it into an array with a
+// separate Texture for each character in the font.
+//
+void V_LoadConsoleFont()
+{
+	texhandle_t conchars_handle = texturemanager.getHandle("CONCHARS", Texture::TEX_PATCH);
+	if (conchars_handle == TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+		I_Error("Unable to load CONCHARS lump.");
+	const Texture* conchars_texture = texturemanager.getTexture(conchars_handle);
+
+	const int charwidth = 8, charheight = 8;
+	const int numcolumns = conchars_texture->getWidth() / charwidth;
+	const int numrows = conchars_texture->getHeight() / charheight;
+
+	for (int row = 0; row < numrows; row++)
+	{
+		for (int column = 0; column < numcolumns; column++)
+		{	
+			int charnum = row * numrows + column;
+			texhandle_t texhandle = texturemanager.createSpecialUseHandle();			
+			Texture* texture = texturemanager.createTexture(texhandle, charwidth, charheight);
+			Z_ChangeTag(texture, PU_STATIC);	// don't allow texture to be purged from cache
+			console_font[charnum] = texhandle;
+
+			R_CopySubimage(texture, conchars_texture, column * charwidth, row * charheight, charwidth, charheight);
+		}
+	}
+}
+
 // Convert the CONCHARS patch into the internal format used by
 // the console font drawer.
-void V_InitConChars (byte transcolor)
+void V_InitConChars(byte transcolor)
 {
 	byte *d, *s, v, *src;
 	patch_t *chars;
@@ -75,58 +109,54 @@ void V_InitConChars (byte transcolor)
 
 	if (temp.is8bit())
 	{
-	chars = W_CachePatch ("CONCHARS");
-	temp.Lock ();
+		chars = W_CachePatch ("CONCHARS");
+		temp.Lock ();
 
-	{
-			argb_t *scrn, fill;
+		argb_t *tempscrn, fill;
 
 		fill = (transcolor << 24) | (transcolor << 16) | (transcolor << 8) | transcolor;
 		for (y = 0; y < 128; y++)
 		{
-				scrn = (argb_t *)(temp.buffer + temp.pitch * y);
+			tempscrn = (argb_t *)(temp.buffer + temp.pitch * y);
 			for (x = 0; x < 128/4; x++)
-			{
-				*scrn++ = fill;
-			}
+				*tempscrn++ = fill;
+			temp.DrawPatch (chars, 0, 0);
 		}
-		temp.DrawPatch (chars, 0, 0);
-	}
 
-	src = temp.buffer;
+		src = temp.buffer;
 
-	if ( (ConChars = new byte[256*8*8*2]) )
-	{
-		d = ConChars;
-		for (y = 0; y < 16; y++)
+		if ( (ConChars = new byte[256*8*8*2]) )
 		{
-			for (x = 0; x < 16; x++)
+			d = ConChars;
+			for (y = 0; y < 16; y++)
 			{
-				s = src + x * 8 + (y * 8 * temp.pitch);
-				for (z = 0; z < 8; z++)
+				for (x = 0; x < 16; x++)
 				{
-					for (a = 0; a < 8; a++)
+					s = src + x * 8 + (y * 8 * temp.pitch);
+					for (z = 0; z < 8; z++)
 					{
-						v = s[a];
-						if (v == transcolor)
+						for (a = 0; a < 8; a++)
 						{
-							d[a] = 0x00;
-							d[a+8] = 0xff;
+							v = s[a];
+							if (v == transcolor)
+							{
+								d[a] = 0x00;
+								d[a+8] = 0xff;
+							}
+							else
+							{
+								d[a] = v;
+								d[a+8] = 0x00;
+							}
 						}
-						else
-						{
-							d[a] = v;
-							d[a+8] = 0x00;
-						}
+						d += 16;
+						s += temp.pitch;
 					}
-					d += 16;
-					s += temp.pitch;
 				}
 			}
 		}
-	}
 
-	temp.Unlock ();
+		temp.Unlock ();
 	}
 	else
 	{
@@ -144,7 +174,7 @@ void V_InitConChars (byte transcolor)
 extern "C" void STACK_ARGS PrintChar1P (DWORD *charimg, byte *dest, int screenpitch);
 extern "C" void STACK_ARGS PrintChar2P_MMX (DWORD *charimg, byte *dest, int screenpitch);
 
-void DCanvas::PrintStr (int x, int y, const char *s, int count) const
+void DCanvas::PrintStr(int x, int y, const char *s, int count) const
 {
 	const byte *str = (const byte *)s;
 	byte *temp;
@@ -241,7 +271,7 @@ void DCanvas::PrintStr (int x, int y, const char *s, int count) const
 // V_PrintStr2
 // Same as V_PrintStr but doubles the size of every character.
 //
-void DCanvas::PrintStr2 (int x, int y, const char *s, int count) const
+void DCanvas::PrintStr2(int x, int y, const char *s, int count) const
 {
 	const byte *str = (const byte *)s;
 	byte *temp;

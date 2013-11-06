@@ -34,7 +34,13 @@
 
 typedef unsigned int texhandle_t;
 
+class Texture;
 class TextureManager;
+
+
+void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x, int y, int width, int height);
+
+
 
 // A single patch from a texture definition,
 //	basically a rectangular area within
@@ -213,6 +219,8 @@ public:
 	texhandle_t getHandle(unsigned int lumpnum, Texture::TextureSourceType type);
 	const Texture* getTexture(texhandle_t handle);
 
+	Texture* createTexture(texhandle_t handle, int width, int height);
+
 	texhandle_t createSpecialUseHandle();
 
 	static const texhandle_t NO_TEXTURE_HANDLE			= 0x0;
@@ -232,8 +240,6 @@ private:
 	void addTextureDirectory(const char* lumpname); 
 	void readAnimDefLump();
 	void readAnimatedLump();
-
-	Texture* createTexture(texhandle_t handle, int width, int height);
 
 	// patches
 	texhandle_t getPatchHandle(unsigned int lumpnum);
@@ -270,7 +276,7 @@ private:
 	typedef HashTable<OString, unsigned int> TextureNameTranslationMap;
 	TextureNameTranslationMap	mTextureNameTranslationMap;
 
-	static const unsigned int MAX_SPECIAL_USE_HANDLES = 256;
+	static const unsigned int MAX_SPECIAL_USE_HANDLES = 4096;
 	texhandle_t					mNextSpecialUseHandle;
 
 	// animated textures

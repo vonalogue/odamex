@@ -663,6 +663,7 @@ void D_NewWadInit()
 
 	M_Init();
 	R_Init();
+	V_LoadConsoleFont();
 	P_InitEffects();	// [ML] Do this here so we don't have to put particle crap in server
 	P_Init();
 

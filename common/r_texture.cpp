@@ -91,6 +91,37 @@ void R_DrawPatchIntoTexture(Texture* texture, const patch_t* patch, int xoffs, i
 }
 
 
+//
+// R_CopySubimage
+//
+// Copies a portion of source_texture and draws it into dest_texture
+//
+void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x, int y, int width, int height)
+{
+	width = MIN(width, source_texture->getWidth() - x);
+	width = MIN(width, dest_texture->getWidth());
+	height = MIN(height, source_texture->getHeight() - y);
+	height = MIN(height, dest_texture->getHeight());
+
+	byte* dest = dest_texture->getData();
+	byte* dest_mask = dest_texture->getMaskData();
+	int dest_step = dest_texture->getHeight();
+
+	const byte* source = source_texture->getData() + x * source_texture->getHeight() + y;
+	const byte* source_mask = source_texture->getMaskData() + x * source_texture->getHeight() + y;
+	int source_step = source_texture->getHeight();
+
+	memset(dest_mask, 1, sizeof(*dest_mask) * dest_texture->getHeight() * dest_texture->getWidth());
+
+	for (int x = 0; x < width; x++)
+	{
+		memcpy(dest, source, sizeof(*dest) * height);
+		memcpy(dest_mask, source_mask, sizeof(*dest_mask) * height); 
+		dest += dest_step;	dest_mask += dest_step;
+		source += source_step;	source_mask += source_step;
+	}
+}
+
 // ============================================================================
 //
 // Texture
@@ -188,6 +219,8 @@ void TextureManager::clear()
 	// memory for Textures.
 
 	mHandleMap.clear();
+
+	mNextSpecialUseHandle = 0;
 }
 
 
@@ -201,8 +234,6 @@ void TextureManager::clear()
 void TextureManager::startup()
 {
 	clear();
-
-	mNextSpecialUseHandle = SPECIAL_USE_HANDLE_MASK;
 
 	// initialize the FLATS data
 	mFirstFlatLumpNum = W_GetNumForName("F_START") + 1;
@@ -720,8 +751,8 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 //
 texhandle_t TextureManager::createSpecialUseHandle()
 {
-	if (mNextSpecialUseHandle < SPECIAL_USE_HANDLE_MASK + MAX_SPECIAL_USE_HANDLES)
-		return mNextSpecialUseHandle++;
+	if (mNextSpecialUseHandle < MAX_SPECIAL_USE_HANDLES)
+		return SPECIAL_USE_HANDLE_MASK | mNextSpecialUseHandle++;
 	return NOT_FOUND_TEXTURE_HANDLE;
 }
 

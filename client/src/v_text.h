@@ -105,5 +105,7 @@ inline brokenlines_t *V_BreakLines (int maxwidth, const char *str) { return V_Br
 
 void V_InitConChars (byte transcolor);
 
+void V_LoadConsoleFont();
+
 #endif //__V_TEXT_H__
 
