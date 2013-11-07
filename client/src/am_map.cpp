@@ -45,8 +45,6 @@
 
 #include "v_text.h"
 
-extern patch_t *hu_font[];
-
 // State.
 #include "doomstat.h"
 #include "r_state.h"
@@ -1691,9 +1689,11 @@ void AM_Drawer (void)
 	if (!(viewactive && am_overlay < 2)) {
 
 		char line[64+10];
-		int OV_Y, i, time = level.time / TICRATE, height;
+		int OV_Y, i, time = level.time / TICRATE;
 
-		height = (hu_font[0]->height() + 1) * CleanYfac;
+		const int charheight = hud_font->getHeight();
+		const int rowheight = charheight + charheight / 7;
+
 		OV_Y = screen->height - ((32 * screen->height) / 200);
 
 		if (sv_gametype == GM_COOP)
@@ -1704,11 +1704,11 @@ void AM_Drawer (void)
 							   TEXTCOLOR_NORMAL " %d / %d",
 							   level.killed_monsters, level.total_monsters);
                 if (viewactive && screenblocks == 11)
-                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth (line) * CleanXfac, OV_Y - (height * 4) + 1, line);
+                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), OV_Y - (rowheight * 4) + 1, line);
                 else if (viewactive && screenblocks == 12)
-                    FB->DrawTextClean (CR_GREY, 0, screen->height - (height * 2) + 1, line);
+                    FB->DrawTextClean (CR_GREY, 0, screen->height - (rowheight * 2) + 1, line);
                 else
-                    FB->DrawTextClean (CR_GREY, 0, ST_Y - (height * 2) + 1, line);
+                    FB->DrawTextClean (CR_GREY, 0, ST_Y - (rowheight * 2) + 1, line);
 			}
 
 			if (am_showsecrets)
@@ -1717,11 +1717,11 @@ void AM_Drawer (void)
 							   TEXTCOLOR_NORMAL " %d / %d",
 							   level.found_secrets, level.total_secrets);
                 if (viewactive && screenblocks == 11)
-                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth (line) * CleanXfac, OV_Y - (height * 3) + 1, line);
+                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), OV_Y - (rowheight * 3) + 1, line);
                 else if (viewactive && screenblocks == 12)
-                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth (line) * CleanXfac, screen->height - (height * 2) + 1, line);
+                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), screen->height - (rowheight * 2) + 1, line);
                 else
-                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth (line) * CleanXfac, ST_Y - (height * 2) + 1, line);
+                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), ST_Y - (rowheight * 2) + 1, line);
 			}
 		}
 
@@ -1748,11 +1748,11 @@ void AM_Drawer (void)
 			strcpy(line, GStrings(firstmap + level.levelnum - mapoffset));
 
 			if (viewactive && screenblocks == 11)
-				FB->DrawTextClean(CR_RED, screen->width - V_StringWidth (line) * CleanXfac, OV_Y - (height * 1) + 1, line);
+				FB->DrawTextClean(CR_RED, screen->width - V_StringWidth(line), OV_Y - (rowheight * 1) + 1, line);
 			else if (viewactive && screenblocks == 12)
-				FB->DrawTextClean (CR_RED, 0, screen->height - (height * 1) + 1, line);
+				FB->DrawTextClean (CR_RED, 0, screen->height - (rowheight * 1) + 1, line);
 			else
-				FB->DrawTextClean (CR_RED, 0, ST_Y - (height * 1) + 1, line);
+				FB->DrawTextClean (CR_RED, 0, ST_Y - (rowheight * 1) + 1, line);
 		}
 		else
 		{
@@ -1770,21 +1770,21 @@ void AM_Drawer (void)
             line[i++] = '-';
             strcpy (&line[i], level.level_name);
             if (viewactive && screenblocks == 11)
-                FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth (line) * CleanXfac, OV_Y - (height * 1) + 1, line);
+                FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), OV_Y - (rowheight * 1) + 1, line);
             else if (viewactive && screenblocks == 12)
-                FB->DrawTextClean (CR_GREY, 0, screen->height - (height * 1) + 1, line);
+                FB->DrawTextClean (CR_GREY, 0, screen->height - (rowheight * 1) + 1, line);
             else
-                FB->DrawTextClean (CR_GREY, 0, ST_Y - (height * 1) + 1, line);
+                FB->DrawTextClean (CR_GREY, 0, ST_Y - (rowheight * 1) + 1, line);
 		}
 
 		if (am_showtime) {
 			sprintf (line, " %02d:%02d:%02d", time/3600, (time%3600)/60, time%60);	// Time
             if (viewactive && screenblocks == 11)
-                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth (line) * CleanXfac, OV_Y - (height * 2) + 1, line);
+                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth(line), OV_Y - (rowheight * 2) + 1, line);
             else if (viewactive && screenblocks == 12)
-                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth (line) * CleanXfac, screen->height - (height * 1) + 1, line);
+                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth(line), screen->height - (rowheight * 1) + 1, line);
             else
-                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth (line) * CleanXfac, ST_Y - (height * 1) + 1, line);
+                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth(line), ST_Y - (rowheight * 1) + 1, line);
 		}
 
 	}

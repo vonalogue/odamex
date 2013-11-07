@@ -375,8 +375,8 @@ inline void DCanvas::DrawTextCleanLuc (int normalcolor, int x, int y, const byte
 inline void DCanvas::DrawTextCleanMove (int normalcolor, int x, int y, const byte *string) const
 {
 	TextSWrapper (EWrapper_Translated, normalcolor,
-		(x - 160) * CleanXfac + width / 2,
-		(y - 100) * CleanYfac + height / 2,
+		(x - 160) + width / 2,
+		(y - 100) + height / 2,
 		string);
 }
 inline void DCanvas::DrawTextStretched (int normalcolor, int x, int y, const byte *string, int scalex, int scaley) const

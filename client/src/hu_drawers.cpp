@@ -163,7 +163,7 @@ void Dim(int x, int y,
 	screen->Dim(x, y, w * x_scale, h * y_scale);
 }
 
-// Draw hu_font text.
+// Draw HUD text using hud_font.
 void DrawText(int x, int y, const float scale,
               const x_align_t x_align, const y_align_t y_align,
               const x_align_t x_origin, const y_align_t y_origin,
@@ -176,7 +176,7 @@ void DrawText(int x, int y, const float scale,
 
 	// Calculate width and height of string
 	unsigned short w = V_StringWidth(str);
-	unsigned short h = 7;
+	unsigned short h = hud_font->getHeight();
 
 	// Turn our scaled coordinates into real coordinates.
 	int x_scale, y_scale;

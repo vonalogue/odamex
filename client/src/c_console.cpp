@@ -122,9 +122,6 @@ CVAR_FUNC_IMPL (hud_scaletext)
 		var.Set(4.0f);
 }
 
-int V_TextScaleXAmount();
-int V_TextScaleYAmount();
-
 static struct NotifyText
 {
 	int timeout;
@@ -382,16 +379,16 @@ void C_AddNotifyString (int printlevel, const char *source)
 		(gamestate != GS_LEVEL && gamestate != GS_INTERMISSION) )
 		return;
 
-	width = DisplayWidth / V_TextScaleXAmount();
+	width = DisplayWidth;
 
 	if (addtype == APPENDLINE && NotifyStrings[NUMNOTIFIES-1].printlevel == printlevel)
 	{
 		sprintf (work, "%s%s", NotifyStrings[NUMNOTIFIES-1].text, source);
-		lines = V_BreakLines (width, work);
+		lines = V_BreakLines(hud_font, width, work);
 	}
 	else
 	{
-		lines = V_BreakLines (width, source);
+		lines = V_BreakLines(hud_font, width, source);
 		addtype = (addtype == APPENDLINE) ? NEWLINE : addtype;
 	}
 
@@ -730,29 +727,28 @@ void C_Ticker (void)
 
 static void C_DrawNotifyText (void)
 {
-	int i, line, color;
-
-	if (   (gamestate != GS_LEVEL && gamestate != GS_INTERMISSION)
-		|| menuactive)
+	if ((gamestate != GS_LEVEL && gamestate != GS_INTERMISSION) || menuactive)
 		return;
 
-	line = 0;
+	const int charheight = hud_font->getHeight();
+	const int rowheight = charheight + charheight / 7;
+	int line = 0;
 
-	for (i = 0; i < NUMNOTIFIES; i++)
+	for (int i = 0; i < NUMNOTIFIES; i++)
 	{
 		if (NotifyStrings[i].timeout > gametic)
 		{
 			if (!show_messages && NotifyStrings[i].printlevel != 128)
 				continue;
 
+			int color;
 			if (NotifyStrings[i].printlevel >= PRINTLEVELS)
 				color = CR_RED;
 			else
 				color = PrintColors[NotifyStrings[i].printlevel];
 
-			screen->DrawTextStretched (color, 0, line, NotifyStrings[i].text,
-										V_TextScaleXAmount(), V_TextScaleYAmount());
-			line += 8 * V_TextScaleYAmount();
+			screen->DrawText(color, 0, line, NotifyStrings[i].text);
+			line += rowheight;
 		}
 	}
 }
@@ -1448,8 +1444,6 @@ EXTERN_CVAR (con_midtime)
 
 void C_MidPrint (const char *msg, player_t *p, int msgtime)
 {
-	unsigned int i;
-
     if (!msgtime)
         msgtime = con_midtime.asInt();
 
@@ -1475,13 +1469,13 @@ void C_MidPrint (const char *msg, player_t *p, int msgtime)
 		Printf (PRINT_HIGH, "%s\n", newmsg);
 		midprinting = false;
 
-		if ( (MidMsg = V_BreakLines(screen->width / V_TextScaleXAmount(), (byte *)newmsg)) )
+		if ( (MidMsg = V_BreakLines(hud_font, screen->width, (byte *)newmsg)) )
 		{
 			MidTicker = (int)(msgtime * TICRATE) + gametic;
 
-			for (i = 0; MidMsg[i].width != -1; i++)
-				;
-
+			unsigned int i = 0;
+			while (MidMsg[i].width != -1)
+				i++;
 			MidLines = i;
 		}
 
@@ -1495,23 +1489,19 @@ void C_DrawMid (void)
 {
 	if (MidMsg)
 	{
-		int i, line, x, y, xscale, yscale;
+		const int charheight = hud_font->getHeight();
+		const int rowheight = charheight + charheight / 7;
 
-		xscale = V_TextScaleXAmount();
-		yscale = V_TextScaleYAmount();
+		int screen_mid = screen->width / 2;
 
-		y = 8 * yscale;
-		x = screen->width >> 1;
-		for (i = 0, line = (ST_Y * 3) / 8 - MidLines * 4 * yscale; i < MidLines; i++, line += y)
-		{
-			screen->DrawTextStretched (PrintColors[PRINTLEVELS],
-					x - (MidMsg[i].width >> 1) * xscale,
-					line, (byte *)MidMsg[i].string, xscale, yscale);
-		}
+		int row = (ST_Y * 3) / rowheight - MidLines * rowheight / 2;
+
+		for (int i = 0; i < MidLines; i++, row += rowheight)
+			screen->DrawText(PrintColors[PRINTLEVELS], screen_mid - MidMsg[i].width / 2, row, (byte *)MidMsg[i].string);
 
 		if (gametic >= MidTicker)
 		{
-			V_FreeBrokenLines (MidMsg);
+			V_FreeBrokenLines(MidMsg);
 			MidMsg = NULL;
 		}
 	}
@@ -1548,7 +1538,7 @@ void C_GMidPrint(const char* msg, int color, int msgtime)
 
 		char *newmsg = strdup(str.c_str());
 
-		if ((GameMsg = V_BreakLines(screen->width / V_TextScaleXAmount(), (byte *)newmsg)) )
+		if ((GameMsg = V_BreakLines(hud_font, screen->width, (byte *)newmsg)) )
 		{
 			GameTicker = (int)(msgtime * TICRATE) + gametic;
 
@@ -1572,19 +1562,15 @@ void C_DrawGMid()
 {
 	if (GameMsg)
 	{
-		int i, line, x, y, xscale, yscale;
+		const int charheight = hud_font->getHeight();
+		const int rowheight = charheight + charheight / 7;
 
-		xscale = V_TextScaleXAmount();
-		yscale = V_TextScaleYAmount();
+		int screen_mid = screen->width / 2;
 
-		y = 8 * yscale;
-		x = screen->width >> 1;
-		for (i = 0, line = (ST_Y * 2) / 8 - GameLines * 4 * yscale;i < GameLines; i++, line += y)
-		{
-			screen->DrawTextStretched(GameColor,
-			                          x - (GameMsg[i].width >> 1) * xscale,
-			                          line, (byte *)GameMsg[i].string, xscale, yscale);
-		}
+		int row = (ST_Y * 2) / rowheight - GameLines * rowheight / 2;
+
+		for (int i = 0; i < GameLines; i++, row += rowheight)
+			screen->DrawText(GameColor, screen_mid - GameMsg[i].width / 2, row, (byte *)GameMsg[i].string);
 
 		if (gametic >= GameTicker)
 		{

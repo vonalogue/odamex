@@ -51,8 +51,6 @@
 #include "v_video.h"
 
 #define QUEUESIZE		128
-#define HU_INPUTX		0
-#define HU_INPUTY		(0 + (LESHORT(hu_font[0]->height) +1))
 
 #define CTFBOARDWIDTH	236
 #define CTFBOARDHEIGHT	40
@@ -74,15 +72,11 @@ EXTERN_CVAR (sv_scorelimit)
 EXTERN_CVAR (cl_netgraph)
 EXTERN_CVAR (hud_mousegraph)
 
-int V_TextScaleXAmount();
-int V_TextScaleYAmount();
-
 // Chat
 void HU_Init (void);
 void HU_Drawer (void);
 BOOL HU_Responder (event_t *ev);
 
-patch_t *hu_font[HU_FONTSIZE];
 patch_t* sbline;
 
 void HU_DrawScores (player_t *plyr);
@@ -136,22 +130,8 @@ cvar_t *chat_macros[10] =
 //
 void HU_Init (void)
 {
-	int i, j, sub;
-	const char *tplate = "STCFN%.3d";
-	char buffer[12];
-
 	headsupactive = 0;
 	input_text = "";
-
-	// load the heads-up font
-	j = HU_FONTSTART;
-	sub = 0;
-
-	for (i = 0; i < HU_FONTSIZE; i++)
-	{
-		sprintf (buffer, tplate, j++ - sub);
-		hu_font[i] = W_CachePatch(buffer, PU_STATIC);
-	}
 
 	// Load the status bar line
 	sbline = W_CachePatch("SBLINE", PU_STATIC);
@@ -254,18 +234,10 @@ EXTERN_CVAR (sv_maxplayers)
 //
 void HU_Drawer (void)
 {
-	// Set up text scaling
-	int scaledxfac = CleanXfac, scaledyfac = CleanYfac;
-	if (hud_scaletext)
-	{
-		scaledxfac = V_TextScaleXAmount();
-		scaledyfac = V_TextScaleYAmount();
-	}
-
 	if (headsupactive)
 	{
 		static const char *prompt;
-		int i, x, c, y, promptwidth;
+		int x, y;
 
 		// Determine what Y height to display the chat prompt at.
 		// * screen->height is the "actual" screen height.
@@ -274,16 +246,18 @@ void HU_Drawer (void)
 		// * viewactive is false if you have a fullscreen automap or
 		//   intermission on-screen.
 		// * ST_Y is the current Y height of the status bar.
+		
+		int font_height = hud_font->getHeight();
 
 		if (!viewactive && gamestate != GS_INTERMISSION) {
 			// Fullscreen automap is visible
-			y = ST_Y - (20 * scaledyfac);
+			y = ST_Y - (3 * font_height - font_height / 7);
 		} else if (viewactive && screen->height != realviewheight) {
 			// Status bar is visible
-			y = ST_Y - (10 * scaledyfac);
+			y = ST_Y - (font_height + 3 * font_height / 7);
 		} else {
 			// Must be fullscreen HUD or intermission
-			y = screen->height - (10 * scaledyfac);
+			y = screen->height - (font_height + 3 * font_height / 7);
 		}
 
 		if (headsupactive == 2)
@@ -291,36 +265,26 @@ void HU_Drawer (void)
 		else if (headsupactive == 1)
 			prompt = "Say: ";
 
-		promptwidth = V_StringWidth (prompt) * scaledxfac;
-		x = hu_font['_' - HU_FONTSTART]->width() * scaledxfac * 2 + promptwidth;
+		int promptwidth = hud_font->getTextWidth(prompt);
+		x = hud_font->getTextWidth('_') * 2 + promptwidth;
 
 		// figure out if the text is wider than the screen->
 		// if so, only draw the right-most portion of it.
-		for (i = input_text.length() - 1; i >= 0 && x < screen->width; i--)
-		{
-			c = toupper(input_text[i] & 0x7f) - HU_FONTSTART;
-			if (c < 0 || c >= HU_FONTSIZE)
-			{
-				x += 4 * scaledxfac;
-			}
-			else
-			{
-				x += hu_font[c]->width() * scaledxfac;
-			}
-		}
+		int string_offset;
 
-		if (i >= 0)
-			i++;
+		for (string_offset = input_text.length() - 1; string_offset >= 0 && x < screen->width; string_offset--)
+			x += hud_font->getTextWidth(input_text[string_offset]);
+
+		if (string_offset >= 0)
+			string_offset++;
 		else
-			i = 0;
+			string_offset = 0;
 
 		// draw the prompt, text, and cursor
 		std::string show_text = input_text;
 		show_text += '_';
-		screen->DrawTextStretched (	CR_RED, 0, y, prompt,
-									scaledxfac, scaledyfac);
-		screen->DrawTextStretched (	CR_GREY, promptwidth, y, show_text.c_str() + i,
-									scaledxfac, scaledyfac);
+		screen->DrawText(CR_RED, 0, y, prompt);
+		screen->DrawText(CR_GREY, promptwidth, y, show_text.c_str() + string_offset);
 	}
 
 	if (multiplayer && consoleplayer().camera && !(demoplayback && democlassic)) {
@@ -486,7 +450,7 @@ void drawHeader(player_t *player, int y) {
 	              hud::X_CENTER, hud::Y_TOP,
 	              str.c_str(), CR_GOLD, true);
 
-	brokenlines_t *hostname = V_BreakLines(192, sv_hostname.cstring());
+	brokenlines_t *hostname = V_BreakLines(hud_font, 192, sv_hostname.cstring());
 	for (size_t i = 0; i < 2 && hostname[i].width > 0; i++)
 	{
 		hud::DrawText(0, y + 8 * (i + 1), hud_scalescoreboard,

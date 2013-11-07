@@ -188,7 +188,6 @@ void M_ChangeMessages(void);
 void M_SizeDisplay(float diff);
 void M_StartControlPanel(void);
 
-int  M_StringHeight(char *string);
 void M_ClearMenus (void);
 
 static bool CanScrollUp;
@@ -1392,7 +1391,7 @@ void M_OptDrawer (void)
 		}
 		else
 		{
-			width = V_StringWidth (item->label);
+			width = V_StringWidth(item->label);
 			switch (item->type)
 			{
 			case more:
@@ -1425,7 +1424,7 @@ void M_OptDrawer (void)
 				color = CR_RED;
 				break;
 			}
-			screen->DrawTextCleanMove (color, x, y, item->label);
+			screen->DrawTextCleanMove(color, x, y, item->label);
 
 			switch (item->type)
 			{

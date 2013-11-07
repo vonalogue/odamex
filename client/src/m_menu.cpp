@@ -58,8 +58,6 @@
 #include "i_xbox.h"
 #endif
 
-extern patch_t* 	hu_font[HU_FONTSIZE];
-
 // temp for screenblocks (0-9)
 int 				screenSize;
 
@@ -164,7 +162,6 @@ void M_DrawSaveLoadBorder(int x,int y, int len);
 void M_SetupNextMenu(oldmenu_t *menudef);
 void M_DrawEmptyCell(oldmenu_t *menu,int item);
 void M_DrawSelCell(oldmenu_t *menu,int item);
-int  M_StringHeight(char *string);
 void M_StartControlPanel(void);
 void M_StartMessage(const char *string,void (*routine)(int),bool input);
 void M_StopMessage(void);
@@ -1729,25 +1726,6 @@ void M_StopMessage (void)
 	messageToPrint = 0;
 }
 
-
-//
-//		Find string height from hu_font chars
-//
-int M_StringHeight(char* string)
-{
-	int h;
-	int height = hu_font[0]->height();
-
-	h = height;
-	while (*string)
-		if ((*string++) == '\n')
-			h += height;
-
-	return h;
-}
-
-
-
 //
 // CONTROL PANEL
 //
@@ -2077,16 +2055,17 @@ void M_Drawer (void)
 	// Horiz. & Vertically center string and print it.
 	if (messageToPrint)
 	{
-		brokenlines_t *lines = V_BreakLines (320, messageString);
+		const int charheight = hud_font->getHeight();
+		brokenlines_t *lines = V_BreakLines(hud_font, 320, messageString);
 		y = 100;
 
 		for (i = 0; lines[i].width != -1; i++)
-			y -= hu_font[0]->height() / 2;
+			y -= charheight / 2;
 
 		for (i = 0; lines[i].width != -1; i++)
 		{
 			screen->DrawTextCleanMove (CR_RED, 160 - lines[i].width/2, y, lines[i].string);
-			y += hu_font[0]->height();
+			y += charheight;
 		}
 
 		V_FreeBrokenLines (lines);

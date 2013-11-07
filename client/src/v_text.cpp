@@ -41,28 +41,10 @@
 
 EXTERN_CVAR(hud_scaletext)
 
-static ConCharsFont* console_font;
-static HudFont* hud_font;
-
-extern patch_t *hu_font[HU_FONTSIZE];
+OFont* console_font;
+OFont* hud_font;
 
 extern byte *Ranges;
-
-int V_TextScaleXAmount()
-{
-	if (hud_scaletext < 1.0f)
-		return 1;
-
-	return int(hud_scaletext);
-}
-
-int V_TextScaleYAmount()
-{
-	if (hud_scaletext < 1.0f)
-		return 1;
-
-	return int(hud_scaletext);
-}
 
 void V_UnloadConsoleFont()
 {
@@ -139,7 +121,7 @@ void DCanvas::PrintStr2(int x, int y, const char *s, int count) const
 //
 // V_DrawText
 //
-// Write a string using the hu_font
+// Write a string using the hud_font
 //
 
 void DCanvas::TextWrapper(EWrapperCode drawer, int normalcolor, int x, int y, const byte *string) const
@@ -171,7 +153,7 @@ void DCanvas::TextSWrapper(EWrapperCode drawer, int normalcolor, int x, int y,
 }
 
 //
-// Find string width from hu_font chars
+// Find string width from hud_font chars
 //
 int V_StringWidth(const byte* str)
 {
@@ -181,7 +163,7 @@ int V_StringWidth(const byte* str)
 //
 // Break long lines of text into multiple lines no longer than maxwidth pixels
 //
-static void breakit (brokenlines_t *line, const byte *start, const byte *string)
+static void breakit(brokenlines_t *line, const byte *start, const byte *string, const OFont* font)
 {
 	// Leave out trailing white space
 	while (string > start && isspace (*(string - 1)))
@@ -190,10 +172,10 @@ static void breakit (brokenlines_t *line, const byte *start, const byte *string)
 	line->string = new char[string - start + 1];
 	strncpy (line->string, (char *)start, string - start);
 	line->string[string - start] = 0;
-	line->width = V_StringWidth (line->string);
+	line->width = font->getTextWidth((const char*)line->string);
 }
 
-brokenlines_t *V_BreakLines (int maxwidth, const byte *string)
+brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const byte *string)
 {
 	brokenlines_t lines[128];	// Support up to 128 lines (should be plenty)
 
@@ -203,33 +185,35 @@ brokenlines_t *V_BreakLines (int maxwidth, const byte *string)
 
 	i = w = 0;
 
-	while ( (c = *string++) ) {
-		if (c == 0x8a) {
+	while ( (c = *string++) )
+	{
+		if (c == 0x8a)
+		{
 			if (*string)
 				string++;
 			continue;
 		}
 
-		if (isspace(c)) {
-			if (!lastWasSpace) {
+		if (isspace(c))
+		{
+			if (!lastWasSpace)
+			{
 				space = string - 1;
 				lastWasSpace = true;
 			}
-		} else
+		}
+		else
 			lastWasSpace = false;
 
-		c = toupper (c & 0x7f) - HU_FONTSTART;
-
-		if (c < 0 || c >= HU_FONTSIZE)
-			nw = 4;
-		else
-			nw = hu_font[c]->width();
-
-		if (w + nw > maxwidth || c == '\n' - HU_FONTSTART) {	// Time to break the line
+		nw = hud_font->getTextWidth(c);
+		
+		// Time to break the line
+		if (w + nw > maxwidth || c == '\n' - HU_FONTSTART)
+		{	
 			if (!space)
 				space = string - 1;
 
-			breakit (&lines[i], start, space);
+			breakit(&lines[i], start, space, font);
 
 			i++;
 			w = 0;
@@ -239,22 +223,32 @@ brokenlines_t *V_BreakLines (int maxwidth, const byte *string)
 
 			while (*start && isspace (*start) && *start != '\n')
 				start++;
+
 			if (*start == '\n')
 				start++;
 			else
+			{
 				while (*start && isspace (*start))
 					start++;
+			}
+
 			string = start;
-		} else
+		}
+		else
+		{
 			w += nw;
+		}
 	}
 
-	if (string - start > 1) {
+	if (string - start > 1)
+	{
 		const byte *s = start;
 
-		while (s < string) {
-			if (!isspace (*s++)) {
-				breakit (&lines[i++], start, string);
+		while (s < string)
+		{
+			if (!isspace (*s++))
+			{
+				breakit(&lines[i++], start, string, font);
 				break;
 			}
 		}

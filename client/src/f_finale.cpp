@@ -171,9 +171,6 @@ void F_Ticker (void)
 //
 // F_TextWrite
 //
-extern patch_t *hu_font[HU_FONTSIZE];
-
-
 void F_TextWrite (void)
 {
 	int 		w;
@@ -219,17 +216,12 @@ void F_TextWrite (void)
 			continue;
 		}
 
-		c = toupper(c) - HU_FONTSTART;
-		if (c < 0 || c> HU_FONTSIZE)
-		{
-			cx += 4;
-			continue;
-		}
-
-		w = hu_font[c]->width();
+		w = hud_font->getTextWidth(c);
 		if (cx+w > screen->width)
 			break;
-		screen->DrawPatchClean (hu_font[c], cx, cy);
+		
+		char dummy_str[2] = { c, 0 };
+		screen->DrawTextClean(CR_RED, cx, cy, dummy_str);
 		cx+=w;
 	}
 
@@ -494,7 +486,7 @@ void F_CastDrawer (void)
 	screen->DrawPatchIndirect (W_CachePatch ("BOSSBACK"), 0, 0);
 
 	screen->DrawTextClean (CR_RED,
-		(screen->width - V_StringWidth (castorder[castnum].name) * CleanXfac)/2,
+		(screen->width - V_StringWidth(castorder[castnum].name))/2,
 		(screen->height * 180) / 200, castorder[castnum].name);
 
 	// draw the current frame in the middle of the screen

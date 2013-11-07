@@ -26,6 +26,7 @@
 #define __V_TEXT_H__
 
 #include "doomtype.h"
+#include "v_font.h"
 
 struct brokenlines_s {
 	int width;
@@ -96,17 +97,27 @@ enum EColorRange
 #define TEXTCOLOR_NORMAL	"\x8a-"
 #define TEXTCOLOR_BOLD		"\x8a+"
 
-int V_StringWidth (const byte *str);
-inline int V_StringWidth (const char *str) { return V_StringWidth ((const byte *)str); }
+int V_StringWidth(const byte *str);
+inline int V_StringWidth(const char *str)
+{
+	return V_StringWidth((const byte *)str);
+}
 
-brokenlines_t *V_BreakLines (int maxwidth, const byte *str);
-void V_FreeBrokenLines (brokenlines_t *lines);
-inline brokenlines_t *V_BreakLines (int maxwidth, const char *str) { return V_BreakLines (maxwidth, (const byte *)str); }
+brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const byte *str);
+inline brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const char *str)
+{
+	return V_BreakLines(font, maxwidth, (const byte *)str);
+}
+
+void V_FreeBrokenLines(brokenlines_t *lines);
 
 void V_LoadConsoleFont();
 void V_UnloadConsoleFont();
 void V_LoadHudFont();
 void V_UnloadHudFont();
+
+extern OFont* console_font;
+extern OFont* hud_font;
 
 #endif //__V_TEXT_H__
 

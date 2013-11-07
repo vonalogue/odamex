@@ -87,9 +87,6 @@ extern flagdata CTFdata[NUMFLAGS];
 
 extern NetDemo netdemo;
 
-int V_TextScaleXAmount();
-int V_TextScaleYAmount();
-
 EXTERN_CVAR (hud_scale)
 EXTERN_CVAR (hud_timer)
 EXTERN_CVAR (hud_targetcount)
@@ -437,7 +434,7 @@ void ST_voteDraw (int y) {
 	}
 
 	// Votestring - Break lines
-	brokenlines_t *votestring = V_BreakLines(320, vote_state.votestring.c_str());
+	brokenlines_t *votestring = V_BreakLines(hud_font, 320, vote_state.votestring.c_str());
 	for (byte i = 0;i < 4;i++) {
 		if (votestring[i].width == -1) {
 			break;

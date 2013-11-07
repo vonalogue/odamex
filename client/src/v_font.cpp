@@ -72,6 +72,11 @@ void OFont::printText(const DCanvas* canvas, int x, int y, int color, const char
 	}
 }
 
+int OFont::getTextWidth(char c) const
+{
+	return mCharacters[(byte)c]->getWidth();
+}
+
 int OFont::getTextWidth(const char* str) const
 {
 	int width = 0;
@@ -81,7 +86,7 @@ int OFont::getTextWidth(const char* str) const
 		if (*str == '\t')
 			width += 4 * mCharacters[' ']->getWidth();
 		else
-			width += mCharacters[*str]->getWidth();
+			width += mCharacters[(byte)*str]->getWidth();
 		str++;
 	}
 
@@ -132,6 +137,7 @@ HudFont::HudFont(fixed_t scale)
 	static const char* tplate = "STCFN%.3d";
 	char name[12];
 
+	// initialize all Texture pointers to NULL
 	memset(mCharacters, 0, sizeof(*mCharacters) * 256);
 
 	for (int charnum = '!'; charnum <= '_'; charnum++)
@@ -146,14 +152,24 @@ HudFont::HudFont(fixed_t scale)
 	for (int charnum = 'a'; charnum <= 'z'; charnum++)
 		mCharacters[charnum] = mCharacters[charnum - 32];	
 
-	// add a character for ' '
+	// add a character for ' ' (based on dimensions of the T character)
 	int spacewidth = mCharacters['T']->getWidth();
 	int spaceheight = mCharacters['T']->getHeight();
-	texhandle_t texhandle = texturemanager.createSpecialUseHandle();
-	Texture* texture = texturemanager.createTexture(texhandle, spacewidth, spaceheight);
-	Z_ChangeTag(texture, PU_STATIC);
-	mCharacters[' '] = texture;
+	texhandle_t space_texhandle = texturemanager.createSpecialUseHandle();
+	Texture* space_texture = texturemanager.createTexture(space_texhandle, spacewidth, spaceheight);
+	Z_ChangeTag(space_texture, PU_STATIC);
+	mCharacters[' '] = space_texture;
 
 	mHeight = mCharacters['T']->getHeight();
+
+	// add blank textures for the characters not present in the font
+	int blankwidth = 4;
+	int blankheight = mHeight;
+	texhandle_t blank_texhandle = texturemanager.createSpecialUseHandle();
+	Texture* blank_texture = texturemanager.createTexture(blank_texhandle, blankwidth, blankheight);
+	Z_ChangeTag(space_texture, PU_STATIC);
+	for (int charnum = 0; charnum < 256; charnum++)
+		if (mCharacters[charnum] == NULL)
+			mCharacters[charnum] = blank_texture;	
 }
 
