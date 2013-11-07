@@ -38,7 +38,7 @@ class Texture;
 class TextureManager;
 
 
-void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x, int y, int width, int height);
+void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1, int y1, int x2, int y2);
 
 
 
@@ -139,6 +139,11 @@ public:
 	fixed_t getScaleY() const
 	{	return mScaleY;	}
 
+	void setOffsetX(int value)
+	{	mOffsetX = value;	}
+
+	void setOffsetY(int value)
+	{	mOffsetY = value;	}
 	
 private:
 	friend class TextureManager;

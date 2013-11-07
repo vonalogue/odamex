@@ -115,9 +115,12 @@ void V_LoadConsoleFont();
 void V_UnloadConsoleFont();
 void V_LoadHudFont();
 void V_UnloadHudFont();
+void V_LoadMenuFont();
+void V_UnloadMenuFont();
 
 extern OFont* console_font;
 extern OFont* hud_font;
+extern OFont* menu_font;
 
 #endif //__V_TEXT_H__
 

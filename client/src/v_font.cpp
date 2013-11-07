@@ -44,18 +44,21 @@ void OFont::printCharacter(const DCanvas* canvas, int& x, int& y, char c) const
 	if (texture == NULL)
 		return;
 
+	int xoffs = texture->getOffsetX();
+	int yoffs = texture->getOffsetY();
+
 	if (c == '\t')
 	{
 		// convert tabs into 4 spaces
 		for (int i = 0; i < 4; i++)
 		{
-			canvas->DrawTranslatedTexture(texture, x, y);
+			canvas->DrawTranslatedTexture(texture, x + xoffs, y + yoffs);
 			x += texture->getWidth();
 		}
 	}
 	else
 	{
-		canvas->DrawTranslatedTexture(texture, x, y);
+		canvas->DrawTranslatedTexture(texture, x + xoffs, y + yoffs);
 		x += texture->getWidth();
 	}
 }
@@ -114,13 +117,21 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 	{
 		for (int column = 0; column < numcolumns; column++)
 		{	
+			// scaled size of characters
+			int dest_charwidth = (charwidth * scale) >> FRACBITS;
+			int dest_charheight = (charheight * scale) >> FRACBITS;
+
 			int charnum = row * numrows + column;
 			texhandle_t texhandle = texturemanager.createSpecialUseHandle();			
-			Texture* texture = texturemanager.createTexture(texhandle, charwidth, charheight);
+			Texture* texture = texturemanager.createTexture(texhandle, dest_charwidth, dest_charheight);
 			Z_ChangeTag(texture, PU_STATIC);	// don't allow texture to be purged from cache
 			mCharacters[charnum] = texture;
 
-			R_CopySubimage(texture, conchars_texture, column * charwidth, row * charheight, charwidth, charheight);
+			int x1 = column * charwidth;
+			int x2 = x1 + charwidth - 1;
+			int y1 = row * charheight;
+			int y2 = y1 + charheight - 1;
+			R_CopySubimage(texture, conchars_texture, x1, y1, x2, y2);
 		}
 	}
 }
@@ -143,33 +154,42 @@ HudFont::HudFont(fixed_t scale)
 	for (int charnum = '!'; charnum <= '_'; charnum++)
 	{
 		sprintf(name, tplate, charnum);
-		texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
-		const Texture* texture = texturemanager.getTexture(texhandle);
-		Z_ChangeTag(texture, PU_STATIC);	// don't allow texture to be purged from cache
-		mCharacters[charnum] = texture;
+		texhandle_t source_texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
+		const Texture* source_texture = texturemanager.getTexture(source_texhandle);
+
+		int dest_charwidth = (source_texture->getWidth() * scale) >> FRACBITS;
+		int dest_charheight = (source_texture->getHeight() * scale) >> FRACBITS;
+		texhandle_t dest_texhandle = texturemanager.createSpecialUseHandle();
+		Texture* dest_texture = texturemanager.createTexture(dest_texhandle, dest_charwidth, dest_charheight);
+		R_CopySubimage(dest_texture, source_texture, 0, 0, source_texture->getWidth() - 1, source_texture->getHeight() - 1);
+
+		Z_ChangeTag(dest_texture, PU_STATIC);	// don't allow texture to be purged from cache
+		mCharacters[charnum] = dest_texture;
 	}
 
 	for (int charnum = 'a'; charnum <= 'z'; charnum++)
 		mCharacters[charnum] = mCharacters[charnum - 32];	
 
 	// add a character for ' ' (based on dimensions of the T character)
-	int spacewidth = mCharacters['T']->getWidth();
+	int spacewidth = mCharacters['T']->getWidth() / 2;
 	int spaceheight = mCharacters['T']->getHeight();
 	texhandle_t space_texhandle = texturemanager.createSpecialUseHandle();
 	Texture* space_texture = texturemanager.createTexture(space_texhandle, spacewidth, spaceheight);
 	Z_ChangeTag(space_texture, PU_STATIC);
 	mCharacters[' '] = space_texture;
 
-	mHeight = mCharacters['T']->getHeight();
 
 	// add blank textures for the characters not present in the font
-	int blankwidth = 4;
-	int blankheight = mHeight;
+	int blankwidth = mCharacters['T']->getWidth() / 2;
+	int blankheight = mCharacters['T']->getHeight();
 	texhandle_t blank_texhandle = texturemanager.createSpecialUseHandle();
 	Texture* blank_texture = texturemanager.createTexture(blank_texhandle, blankwidth, blankheight);
-	Z_ChangeTag(space_texture, PU_STATIC);
+	Z_ChangeTag(blank_texture, PU_STATIC);
+
 	for (int charnum = 0; charnum < 256; charnum++)
 		if (mCharacters[charnum] == NULL)
 			mCharacters[charnum] = blank_texture;	
+
+	mHeight = mCharacters['T']->getHeight();
 }
 

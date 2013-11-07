@@ -43,6 +43,7 @@ EXTERN_CVAR(hud_scaletext)
 
 OFont* console_font;
 OFont* hud_font;
+OFont* menu_font;
 
 extern byte *Ranges;
 
@@ -52,20 +53,12 @@ void V_UnloadConsoleFont()
 	console_font = NULL;
 };
 
-//
-// V_LoadConsoleFont
-//
-// Reads the CONCHARS lump from disk and converts it into an array with a
-// separate Texture for each character in the font.
-//
 void V_LoadConsoleFont()
 {
 	if (console_font)
 		V_UnloadConsoleFont();
-
 	console_font = new ConCharsFont(FRACUNIT);
 }
-
 
 void V_UnloadHudFont()
 {
@@ -77,9 +70,22 @@ void V_LoadHudFont()
 {
 	if (hud_font)
 		V_UnloadHudFont();
-
-	hud_font = new HudFont(FRACUNIT);
+	hud_font = new HudFont(hud_scaletext * FRACUNIT);
 }
+
+void V_UnloadMenuFont()
+{
+	delete menu_font;
+	menu_font = NULL;
+}
+
+void V_LoadMenuFont()
+{
+	if (menu_font)
+		V_UnloadMenuFont();
+	menu_font = new HudFont(MIN(CleanXfac, CleanYfac) * FRACUNIT);
+}
+
 
 
 //

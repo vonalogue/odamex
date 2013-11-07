@@ -118,7 +118,7 @@ CVAR_FUNC_IMPL (hud_scaletext)
 {
 	if (var < 1.0f)
 		var.Set(1.0f);
-	if (var > 4.0f)
+	else if (var > 4.0f)
 		var.Set(4.0f);
 }
 

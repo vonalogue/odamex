@@ -665,6 +665,7 @@ void D_NewWadInit()
 	R_Init();
 	V_LoadConsoleFont();
 	V_LoadHudFont();
+	V_LoadMenuFont();
 	P_InitEffects();	// [ML] Do this here so we don't have to put particle crap in server
 	P_Init();
 
@@ -850,6 +851,7 @@ void D_DoomMain (void)
 
 	V_LoadConsoleFont();
 	V_LoadHudFont();
+	V_LoadMenuFont();
 
 	Printf (PRINT_HIGH, "P_Init: Init Playloop state.\n");
 	P_InitEffects();	// [ML] Do this here so we don't have to put particle crap in server
