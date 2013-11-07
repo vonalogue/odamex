@@ -104,6 +104,9 @@ void V_FreeBrokenLines (brokenlines_t *lines);
 inline brokenlines_t *V_BreakLines (int maxwidth, const char *str) { return V_BreakLines (maxwidth, (const byte *)str); }
 
 void V_LoadConsoleFont();
+void V_UnloadConsoleFont();
+void V_LoadHudFont();
+void V_UnloadHudFont();
 
 #endif //__V_TEXT_H__
 

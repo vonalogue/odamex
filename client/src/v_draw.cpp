@@ -588,6 +588,8 @@ void DCanvas::DrawSWrapper(EWrapperCode drawer, const Texture* texture, int x0, 
 	dcol.source = texture->getData();
 	dcol.mask = texture->getMaskData();
 	dcol.colormap = V_Palette;
+	dcol.translation = V_ColorMap;
+
 	dcol.color = 0x80;
 
 	dcol.translevel = FLOAT2FIXED(hud_transparency);
