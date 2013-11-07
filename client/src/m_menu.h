@@ -27,6 +27,7 @@
 
 #include "d_event.h"
 #include "c_cvars.h"
+#include "v_video.h"
 
 // Some defines...
 #define LINEHEIGHT	16
@@ -209,5 +210,25 @@ extern short	 itemOn;
 extern oldmenu_t *currentMenu;
 
 size_t M_FindCvarInMenu(cvar_t &cvar, menuitem_t *menu, size_t length);
+
+//
+// M_CleanX
+//
+// Calculates the real screen coordinate from given virtual 320x200 coordinate.
+// 
+inline int M_CleanX(int x)
+{
+	return (x - 160) * CleanXfac + screen->width / 2;
+}
+
+//
+// M_CleanY
+//
+// Calculates the real screen coordinate from given virtual 320x200 coordinate.
+// 
+inline int M_CleanY(int y)
+{
+	return (y - 100) * CleanYfac + screen->height / 2;
+}
 
 #endif

@@ -661,7 +661,9 @@ void M_DrawLoad (void)
 	for (i = 0; i < load_end; i++)
 	{
 		M_DrawSaveLoadBorder (LoadDef.x, LoadDef.y+LINEHEIGHT*i, 24);
-		screen->DrawTextCleanMove (CR_RED, LoadDef.x, LoadDef.y+LINEHEIGHT*i, savegamestrings[i]);
+		int x = LoadDef.x;
+		int y = LoadDef.y + LINEHEIGHT*i;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, savegamestrings[i]);
 	}
 }
 
@@ -712,13 +714,17 @@ void M_DrawSave(void)
 	for (i = 0; i < load_end; i++)
 	{
 		M_DrawSaveLoadBorder(LoadDef.x,LoadDef.y+LINEHEIGHT*i,24);
-		screen->DrawTextCleanMove (CR_RED, LoadDef.x, LoadDef.y+LINEHEIGHT*i, savegamestrings[i]);
+		int x = LoadDef.x;
+		int y = LoadDef.y + LINEHEIGHT * i;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, savegamestrings[i]);
 	}
 
 	if (genStringEnter)
 	{
-		i = V_StringWidth(savegamestrings[saveSlot]);
-		screen->DrawTextCleanMove (CR_RED, LoadDef.x + i, LoadDef.y+LINEHEIGHT*saveSlot, "_");
+		i = menu_font->getTextWidth(savegamestrings[saveSlot]) / CleanXfac;
+		int x = LoadDef.x + i;
+		int y = LoadDef.y + LINEHEIGHT * saveSlot;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, savegamestrings[i]);
 	}
 }
 
@@ -1305,9 +1311,9 @@ static void M_PlayerSetupDrawer (void)
 	}
 
 	// Draw player name box
-	screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y, "Name");
+	menu_font->printText(screen, M_CleanX(PSetupDef.x), M_CleanY(PSetupDef.y), CR_RED, "Name");
 	M_DrawSaveLoadBorder (PSetupDef.x + 56, PSetupDef.y, MAXPLAYERNAME+1);
-	screen->DrawTextCleanMove (CR_RED, PSetupDef.x + 56, PSetupDef.y, savegamestrings[0]);
+	menu_font->printText(screen, M_CleanX(PSetupDef.x + 56), M_CleanY(PSetupDef.y), CR_RED, savegamestrings[0]);
 
 	// Draw player team box
 //	screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT, "Team");	if (t = 1) // [Toke - Teams]
@@ -1316,7 +1322,11 @@ static void M_PlayerSetupDrawer (void)
 
 	// Draw cursor for either of the above
 	if (genStringEnter)
-		screen->DrawTextCleanMove (CR_RED, PSetupDef.x + V_StringWidth(savegamestrings[saveSlot]) + 56, PSetupDef.y + ((saveSlot == 0) ? 0 : LINEHEIGHT), "_");
+	{
+		int x = PSetupDef.x + menu_font->getTextWidth(savegamestrings[saveSlot]) + 56;
+		int y = PSetupDef.y + ((saveSlot == 0) ? 0 : LINEHEIGHT);
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, "_");
+	}
 
 	// Draw player character
 	{
@@ -1440,12 +1450,12 @@ static void M_PlayerSetupDrawer (void)
 	// Draw player color sliders
 	//V_DrawTextCleanMove (CR_GREY, PSetupDef.x, PSetupDef.y + LINEHEIGHT, "Color");
 
-	screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT*2, "Red");
-	screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT*3, "Green");
-	screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT*4, "Blue");
+	menu_font->printText(screen, M_CleanX(PSetupDef.x), M_CleanY(PSetupDef.y + LINEHEIGHT*2), CR_RED, "Red"); 
+	menu_font->printText(screen, M_CleanX(PSetupDef.x), M_CleanY(PSetupDef.y + LINEHEIGHT*3), CR_RED, "Green"); 
+	menu_font->printText(screen, M_CleanX(PSetupDef.x), M_CleanY(PSetupDef.y + LINEHEIGHT*4), CR_RED, "Blue"); 
 
 	{
-		int x = V_StringWidth ("Green") + 8 + PSetupDef.x;
+		int x = menu_font->getTextWidth("Green") / CleanXfac + 8 + PSetupDef.x;
 		int color = V_GetColorFromString(NULL, cl_color.cstring());
 
 		M_DrawSlider (x, PSetupDef.y + LINEHEIGHT*2, 0.0f, 255.0f, RPART(color));
@@ -1455,43 +1465,65 @@ static void M_PlayerSetupDrawer (void)
 
 	// Draw team setting
 	{
+		const char label_str[] = "Prefered Team";
 		team_t team = D_TeamByName(cl_team.cstring());
-		int x = V_StringWidth ("Prefered Team") + 8 + PSetupDef.x;
-		screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT, "Prefered Team");
-		screen->DrawTextCleanMove (CR_GREY, x, PSetupDef.y + LINEHEIGHT, team == TEAM_NONE ? "NONE" : team_names[team]);
+		const char* team_str = team == TEAM_NONE ? "NONE" : team_names[team]; 
+
+		int x = PSetupDef.x;
+		int y = PSetupDef.y + LINEHEIGHT*1;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, label_str);
+
+		x += menu_font->getTextWidth(label_str) / CleanXfac + 8;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_GREY, team_str);
 	}
 
 	// Draw gender setting
 	{
+		const char label_str[] = "Gender";
 		gender_t gender = D_GenderByName(cl_gender.cstring());
-		int x = V_StringWidth ("Gender") + 8 + PSetupDef.x;
-		screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT*5, "Gender");
-		screen->DrawTextCleanMove (CR_GREY, x, PSetupDef.y + LINEHEIGHT*5, genders[gender]);
+		const char* gender_str = genders[gender];
+
+		int x = PSetupDef.x;
+		int y = PSetupDef.y + LINEHEIGHT*5;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, label_str);
+
+		x += menu_font->getTextWidth(label_str) / CleanXfac + 8;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_GREY, gender_str);
 	}
 
 	// Draw skin setting
 	{
 		if (sv_gametype != GM_CTF) // [Toke - CTF] Dont allow skin selection if in CTF or Teamplay mode
 		{
-			int x = V_StringWidth ("Skin") + 8 + PSetupDef.x;
-			screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT*6, "Skin");
-			screen->DrawTextCleanMove (CR_GREY, x, PSetupDef.y + LINEHEIGHT*6, cl_skin.cstring());
+			const char label_str[] = "Skin";
+			const char* skin_str = cl_skin.cstring();
+
+			int x = PSetupDef.x;
+			int y = PSetupDef.y + LINEHEIGHT*6;
+			menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, label_str);
+
+			x += menu_font->getTextWidth(label_str) / CleanXfac + 8;
+			menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_GREY, skin_str);
 		}
 	}
 
 	// Draw autoaim setting
 	{
-		int x = V_StringWidth ("Autoaim") + 8 + PSetupDef.x;
-		float aim = cl_autoaim;
+		const char label_str[] = "Autoaim";
+		const char* value_str =
+			cl_autoaim == 0 ? "Never" :
+			cl_autoaim <= 0.25 ? "Very Low" :
+			cl_autoaim <= 0.5 ? "Low" :
+			cl_autoaim <= 1 ? "Medium" :
+			cl_autoaim <= 2 ? "High" :
+			cl_autoaim <= 3 ? "Very High" : "Always";
 
-		screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT*7, "Autoaim");
-		screen->DrawTextCleanMove (CR_GREY, x, PSetupDef.y + LINEHEIGHT*7,
-			aim == 0 ? "Never" :
-			aim <= 0.25 ? "Very Low" :
-			aim <= 0.5 ? "Low" :
-			aim <= 1 ? "Medium" :
-			aim <= 2 ? "High" :
-			aim <= 3 ? "Very High" : "Always");
+		int x = PSetupDef.x;
+		int y = PSetupDef.y + LINEHEIGHT*7;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, label_str);
+
+		x += menu_font->getTextWidth(label_str) / CleanXfac + 8;
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_GREY, value_str);
 	}
 }
 
@@ -2055,7 +2087,7 @@ void M_Drawer (void)
 	// Horiz. & Vertically center string and print it.
 	if (messageToPrint)
 	{
-		const int charheight = hud_font->getHeight();
+		const int charheight = hud_font->getHeight() / CleanYfac;
 		brokenlines_t *lines = V_BreakLines(hud_font, 320, messageString);
 		y = 100;
 
@@ -2064,7 +2096,7 @@ void M_Drawer (void)
 
 		for (i = 0; lines[i].width != -1; i++)
 		{
-			screen->DrawTextCleanMove (CR_RED, 160 - lines[i].width/2, y, lines[i].string);
+			menu_font->printText(screen, M_CleanX(160 - lines[i].width/2), M_CleanY(y), CR_RED, lines[i].string);
 			y += charheight;
 		}
 

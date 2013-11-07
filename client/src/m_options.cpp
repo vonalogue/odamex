@@ -1114,6 +1114,7 @@ static cvar_t *flagsvar;
 
 EXTERN_CVAR(ui_dimcolor)
 
+
 // [Russell] - Modified to send new colours
 static void M_SendUINewColor (int red, int green, int blue)
 {
@@ -1257,7 +1258,7 @@ void M_SwitchMenu (menu_t *menu)
 			item = menu->items + i;
 			if (item->type != whitetext && item->type != redtext)
 			{
-				thiswidth = V_StringWidth (item->label);
+				thiswidth = menu_font->getTextWidth(item->label) / CleanXfac;
 				if (thiswidth > widest)
 					widest = thiswidth;
 			}
@@ -1328,27 +1329,26 @@ void M_OptDrawer (void)
 {
 	int color;
 	int y, width, i, x, ytop;
-	int x1,y1,x2,y2;
 	int theight = 0;
 	menuitem_t *item;
 	patch_t *title;
-	
-	x1 = (screen->width / 2)-(160*CleanXfac);
-	y1 = (screen->height / 2)-(100*CleanYfac);
-	
-    x2 = (screen->width / 2)+(160*CleanXfac);
-	y2 = (screen->height / 2)+(100*CleanYfac);
-	
-	// Background effect
-	OdamexEffect(x1,y1,x2,y2);
 
-	title = W_CachePatch (CurrentMenu->title);
-	screen->DrawPatchClean (title, 160-title->width()/2, 10);
+	// Background effect
+	int background_x1 = (screen->width / 2) - (160 * CleanXfac);
+	int background_y1 = (screen->height / 2) - (100 * CleanYfac);
+	int background_x2 = (screen->width / 2) + (160 * CleanXfac);
+	int background_y2 = (screen->height / 2) + (100 * CleanYfac);
+	OdamexEffect(background_x1, background_y1, background_x2, background_y2);
+
+	title = W_CachePatch(CurrentMenu->title);
+	screen->DrawPatchClean(title, 160 - title->width() / 2, 10);
+
+	const int rowheight = 8;
 
 	y = 15 + title->height();
-	ytop = y + CurrentMenu->scrolltop * 8;
+	ytop = y + CurrentMenu->scrolltop * rowheight;
 
-	for (i = 0; i < CurrentMenu->numitems && y <= 192 - theight; i++, y += 8)	// TIJ
+	for (i = 0; i < CurrentMenu->numitems && y <= 192 - theight; i++, y += rowheight)	// TIJ
 	{
 		if (i == CurrentMenu->scrolltop)
 			i += CurrentMenu->scrollpos;
@@ -1380,18 +1380,21 @@ void M_OptDrawer (void)
 					else
 						color = CR_RED;
 
-					screen->DrawTextCleanMove (color, 104 * x + 20, y, str);
+					menu_font->printText(screen, M_CleanX(104 * x + 20), M_CleanY(y), color, str);
 				}
 			}
 
-			if (i == CurrentItem && ((item->a.selmode != -1 && (skullAnimCounter < 6 || WaitingForKey)) || WaitingForAxis || testingmode))
-			{
+			bool draw_cursor =
+				(i == CurrentItem) &&
+					((item->a.selmode != -1 && (skullAnimCounter < 6 || WaitingForKey)) || WaitingForAxis || testingmode);
+
+			if (draw_cursor)
 				screen->DrawPatchClean (W_CachePatch ("LITLCURS"), item->a.selmode * 104 + 8, y);
-			}
 		}
 		else
 		{
-			width = V_StringWidth(item->label);
+			width = menu_font->getTextWidth(item->label) / CleanXfac;
+
 			switch (item->type)
 			{
 			case more:
@@ -1424,67 +1427,62 @@ void M_OptDrawer (void)
 				color = CR_RED;
 				break;
 			}
-			screen->DrawTextCleanMove(color, x, y, item->label);
+
+			menu_font->printText(screen, M_CleanX(x), M_CleanY(y), color, item->label);
 
 			switch (item->type)
 			{
 			case discrete:
 			case cdiscrete:
 			{
-				int v, vals;
+				int vals = (int)item->b.leftval;
+				int v = M_FindCurVal(item->a.cvar->value(), item->e.values, vals);
 
-				vals = (int)item->b.leftval;
-				v = M_FindCurVal (item->a.cvar->value(), item->e.values, vals);
+				const char* value_name = (v == vals) ? "Unknown" : item->e.values[v].name;
 
-				if (v == vals)
-				{
-					screen->DrawTextCleanMove (CR_GREY, CurrentMenu->indent + 14, y, "Unknown");
-				}
-				else
-				{
-					if (item->type == cdiscrete)
-						screen->DrawTextCleanMove (v, CurrentMenu->indent + 14, y, item->e.values[v].name);
-					else
-						screen->DrawTextCleanMove (CR_GREY, CurrentMenu->indent + 14, y, item->e.values[v].name);
-				}
+				// color hack for Message Color Selection
+				int color = (v != vals && item->type == cdiscrete) ? v : CR_GREY;
 
+				menu_font->printText(screen, M_CleanX(CurrentMenu->indent + 14), M_CleanY(y), color, value_name);
+				break;
 			}
-			break;
 
 			case nochoice:
-				screen->DrawTextCleanMove (CR_GOLD, CurrentMenu->indent + 14, y,
+				menu_font->printText(screen, M_CleanX(CurrentMenu->indent + 14), M_CleanY(y), CR_GOLD,
 										   (item->e.values[(int)item->b.leftval]).name);
 				break;
 
 			case slider:
-				M_DrawSlider (CurrentMenu->indent + 8, y, item->b.leftval, item->c.rightval, item->a.cvar->value());
+				M_DrawSlider(CurrentMenu->indent + 8, y, item->b.leftval, item->c.rightval, item->a.cvar->value());
 				break;
 
 			case redslider:
 			{
 				int color = V_GetColorFromString(NULL, item->a.cvar->cstring());
 				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, RPART(color), color);
+				break;
 			}
-			break;
+
 			case greenslider:
 			{
 				int color = V_GetColorFromString(NULL, item->a.cvar->cstring());
 				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, GPART(color), color);
+				break;
 			}
-			break;
+
 			case blueslider:
 			{
 				int color = V_GetColorFromString(NULL, item->a.cvar->cstring());
 				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, BPART(color), color);
+				break;
 			}
-			break;
 
 			case control:
 			{
-				std::string desc = C_NameKeys (item->b.key1, item->c.key2);
-				screen->DrawTextCleanMove (CR_GREY, CurrentMenu->indent + 14, y, desc.c_str());
+				std::string desc = C_NameKeys(item->b.key1, item->c.key2);
+				menu_font->printText(screen, M_CleanX(CurrentMenu->indent + 14), M_CleanY(y), CR_GREY, desc.c_str());
+				break;
 			}
-			break;
 
 			case bitflag:
 			{
@@ -1501,9 +1499,9 @@ void M_OptDrawer (void)
 				else
 					str = value[0].name;
 
-				screen->DrawTextCleanMove (CR_GREY, CurrentMenu->indent + 14, y, str);
+				menu_font->printText(screen, M_CleanX(CurrentMenu->indent + 14), M_CleanY(y), CR_GREY, str);
+				break;
 			}
-			break;
 
 			case joyactive:
 			{
@@ -1523,24 +1521,22 @@ void M_OptDrawer (void)
 					joyname += ": " + I_GetJoystickNameFromIndex((int)item->a.cvar->value());
 				}
 
-				screen->DrawTextCleanMove (CR_GREY, CurrentMenu->indent + 14, y, joyname.c_str());
+				menu_font->printText(screen, M_CleanX(CurrentMenu->indent + 14), M_CleanY(y), CR_GREY, joyname.c_str());
+				break;
 			}
-			break;
 
 			case joyaxis:
 			{
-				screen->DrawTextCleanMove (CR_GREY, CurrentMenu->indent + 14, y, item->a.cvar->cstring());
+				menu_font->printText(screen, M_CleanX(CurrentMenu->indent + 14), M_CleanY(y), CR_GREY, item->a.cvar->cstring());
+				break;
 			}
-			break;
 
 			default:
 				break;
 			}
 
 			if (i == CurrentItem && (skullAnimCounter < 6 || WaitingForKey || WaitingForAxis))
-			{
 				screen->DrawPatchClean (W_CachePatch ("LITLCURS"), CurrentMenu->indent + 3, y);
-			}
 		}
 	}
 	

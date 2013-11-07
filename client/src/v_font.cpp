@@ -28,6 +28,8 @@
 
 #include "v_font.h"
 
+extern byte *Ranges;
+
 // ----------------------------------------------------------------------------
 //
 // OFont base class implementation
@@ -65,8 +67,7 @@ void OFont::printCharacter(const DCanvas* canvas, int& x, int& y, char c) const
 
 void OFont::printText(const DCanvas* canvas, int x, int y, int color, const char* str) const
 {
-	// TODO: change V_ColorMap to reflect color
-//	V_ColorMap = translationref_t(Ranges + CR_ORANGE * 256);
+	V_ColorMap = translationref_t(Ranges + color * 256);
 
 	while (*str)
 	{
