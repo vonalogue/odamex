@@ -73,7 +73,6 @@ int			SkipRows, ConBottom;
 unsigned int	RowAdjust;
 int			CursorTicker, ScrollState = 0;
 constate_e	ConsoleState = c_up;
-char		VersionString[8];
 
 BOOL		KeysShifted;
 BOOL		KeysCtrl;
@@ -281,12 +280,6 @@ void C_InitConsole (int width, int height, BOOL ingame)
 					}
 				}
 			}
-
-			VersionString[0] = 0x11;
-			size_t i;
-			for (i = 0; i < strlen(DOTVERSIONSTR); i++)
-				VersionString[i+1] = ((DOTVERSIONSTR[i]>='0'&&DOTVERSIONSTR[i]<='9')||DOTVERSIONSTR[i]=='.')?DOTVERSIONSTR[i]-30:DOTVERSIONSTR[i] ^ 0x80;
-			VersionString[i+1] = 0;
 
 			conback->Unlock ();
 
@@ -604,7 +597,8 @@ int STACK_ARGS Printf_Bold (const char *format, ...)
 	va_list argptr;
 	int count;
 
-	printxormask = 0x80;
+	// TODO: [SL] add text coloring back
+//	printxormask = 0x80;
 	va_start (argptr, format);
 	count = VPrintf (PRINT_HIGH, format, argptr);
 	va_end (argptr);
@@ -801,9 +795,9 @@ void C_DrawConsole (void)
 		if (ConBottom >= 12)
 		{
 			// print Odamex version number
-			int version_width = console_font->getTextWidth(VersionString);
+			int version_width = console_font->getTextWidth(DOTVERSIONSTR);
 			console_font->printText(screen, screen->width - 8 - version_width,
-											ConBottom - 12, CR_RED, VersionString);
+											ConBottom - 12, CR_GOLD, DOTVERSIONSTR);
 
             // Download progress bar hack
 			if (gamestate == GS_DOWNLOAD)
@@ -852,19 +846,22 @@ void C_DrawConsole (void)
 
 		if (ConBottom >= 20)
 		{
-			console_font->printText(screen, left, ConBottom - 20, CR_RED, "\x8c");
+			// print the text entry prompt
+			console_font->printText(screen, left, ConBottom - 20, CR_GREY, "]");
 	
+			// print the text the user has entered on the command line
 			size_t len = std::min<size_t>(CmdLine[0] - CmdLine[259], ConCols - 1);
 			strncpy(str, (char*)&CmdLine[2 + CmdLine[259]], len);
 			str[len] = 0;
 	
-			console_font->printText(screen, left + 8, ConBottom - 20, CR_RED, str);
+			console_font->printText(screen, left + 8, ConBottom - 20, CR_GREEN, str);
 
+			// print the blinking cursor
 			if (cursoron)
 			{
 				int x = left + 8 + 8 * (CmdLine[1] - CmdLine[259]);
 				int y = ConBottom - 20;
-				console_font->printText(screen, x, y, CR_RED, "\xb"); 
+				console_font->printText(screen, x, y, CR_GREY, "_"); 
 			}
 
 			// Indicate that the view has been scrolled up (char #10)
