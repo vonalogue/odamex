@@ -1691,8 +1691,7 @@ void AM_Drawer (void)
 		char line[64+10];
 		int OV_Y, i, time = level.time / TICRATE;
 
-		const int charheight = hud_font->getHeight();
-		const int rowheight = charheight + charheight / 7;
+		const int rowheight = hud_font->getHeight();
 
 		OV_Y = screen->height - ((32 * screen->height) / 200);
 

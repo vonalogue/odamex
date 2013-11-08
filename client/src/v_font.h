@@ -60,10 +60,10 @@ private:
 	static const int charheight = 8;
 }; 
 
-class HudFont : public OFont
+class SmallDoomFont : public OFont
 {
 public:
-	HudFont(fixed_t scale);
+	SmallDoomFont(fixed_t scale);
 
 	virtual int getHeight() const
 	{

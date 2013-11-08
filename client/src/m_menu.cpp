@@ -2087,17 +2087,17 @@ void M_Drawer (void)
 	// Horiz. & Vertically center string and print it.
 	if (messageToPrint)
 	{
-		const int charheight = hud_font->getHeight() / CleanYfac;
+		const int rowheight = hud_font->getHeight() / CleanYfac;
 		brokenlines_t *lines = V_BreakLines(hud_font, 320, messageString);
 		y = 100;
 
 		for (i = 0; lines[i].width != -1; i++)
-			y -= charheight / 2;
+			y -= rowheight / 2;
 
 		for (i = 0; lines[i].width != -1; i++)
 		{
 			menu_font->printText(screen, M_CleanX(160 - lines[i].width/2), M_CleanY(y), CR_RED, lines[i].string);
-			y += charheight;
+			y += rowheight;
 		}
 
 		V_FreeBrokenLines (lines);

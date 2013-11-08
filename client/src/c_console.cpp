@@ -273,7 +273,7 @@ void C_InitConsole (int width, int height, BOOL ingame)
 								v = fadetable + (x - 289) * 256;
 
 							if (v == NULL)
-                                I_FatalError("COuld not stylize the console\n");
+                                I_FatalError("Could not stylize the console\n");
 
 							*i = v[*i];
 							i++;
@@ -656,6 +656,7 @@ void C_NewModeAdjust (void)
 void C_Ticker (void)
 {
 	static int lasttic = 0;
+	const int rowheight = console_font->getHeight();
 
 	if (lasttic == 0)
 		lasttic = gametic - 1;
@@ -664,7 +665,7 @@ void C_Ticker (void)
 	{
 		if (ScrollState == SCROLLUP)
 		{
-			if (RowAdjust < ConRows - SkipRows - ConBottom/8)
+			if (RowAdjust < ConRows - SkipRows - ConBottom / rowheight)
 				RowAdjust++;
 		}
 		else if (ScrollState == SCROLLDN)
@@ -710,7 +711,7 @@ void C_Ticker (void)
 			}
 		}
 
-		if (SkipRows + RowAdjust + (ConBottom/8) + 1 > CONSOLEBUFFER)
+		if (SkipRows + RowAdjust + (ConBottom / rowheight) + 1 > CONSOLEBUFFER)
 		{
 			RowAdjust = CONSOLEBUFFER - SkipRows - ConBottom;
 		}
@@ -730,8 +731,7 @@ static void C_DrawNotifyText (void)
 	if ((gamestate != GS_LEVEL && gamestate != GS_INTERMISSION) || menuactive)
 		return;
 
-	const int charheight = hud_font->getHeight();
-	const int rowheight = charheight + charheight / 7;
+	const int rowheight = hud_font->getHeight();
 	int line = 0;
 
 	for (int i = 0; i < NUMNOTIFIES; i++)
@@ -747,7 +747,7 @@ static void C_DrawNotifyText (void)
 			else
 				color = PrintColors[NotifyStrings[i].printlevel];
 
-			screen->DrawText(color, 0, line, NotifyStrings[i].text);
+			hud_font->printText(screen, 0, line, color, (char*)NotifyStrings[i].text);
 			line += rowheight;
 		}
 	}
@@ -767,51 +767,47 @@ void C_SetTicker (unsigned int at)
 
 void C_DrawConsole (void)
 {
-	unsigned char *zap;
-	int lines, left, offset;
+	static const size_t str_size = 1024;
+	static char str[str_size];
 
-	left = 8;
-	lines = (ConBottom-12)/8;
-	if (-12 + lines*8 > ConBottom - 28)
+	const int rowheight = console_font->getHeight();
+
+	int left = 8;
+	int lines = (ConBottom - 12) / rowheight;
+
+	int offset = -12;
+	if (-12 + lines * rowheight > ConBottom - 28)
 		offset = -16;
-	else
-		offset = -12;
-	zap = Last - (SkipRows + RowAdjust) * (ConCols + 2);
+
+	byte* zap = Last - (SkipRows + RowAdjust) * (ConCols + 2);
+
+	if (menuactive)
+		return;
 
 	if (ConsoleState == c_up)
 	{
-		C_DrawNotifyText ();
+		C_DrawNotifyText();
 		return;
 	}
-	else if (ConBottom)
+
+	if (ConBottom > 0)
 	{
-		int visheight;//, realheight;
-
-		visheight = ConBottom;
-
-		if(gamestate == GS_LEVEL || gamestate == GS_DEMOSCREEN || gamestate == GS_INTERMISSION)
-		{
-			screen->Dim(0, 0, screen->width, visheight);
-		}
+		// draw the console background
+		if (gamestate == GS_LEVEL || gamestate == GS_DEMOSCREEN || gamestate == GS_INTERMISSION)
+			screen->Dim(0, 0, screen->width, ConBottom);
 		else
-		{
-			conback->Blit (0, 0, conback->width, conback->height,
-						screen, 0, 0, screen->width, screen->height);
-		}
+			conback->Blit(0, 0, conback->width, conback->height, screen, 0, 0, screen->width, screen->height);
 
 		if (ConBottom >= 12)
 		{
-			screen->PrintStr (screen->width - 8 - strlen(VersionString) * 8,
-						ConBottom - 12,
-						VersionString, strlen (VersionString));
+			// print Odamex version number
+			int version_width = console_font->getTextWidth(VersionString);
+			console_font->printText(screen, screen->width - 8 - version_width,
+											ConBottom - 12, CR_RED, VersionString);
 
             // Download progress bar hack
-            if (gamestate == GS_DOWNLOAD)
-            {
-                screen->PrintStr (left + 2,
-						ConBottom - 10,
-						DownloadStr.c_str(), DownloadStr.length());
-            }
+			if (gamestate == GS_DOWNLOAD)
+				console_font->printText(screen, left + 2, ConBottom - 10, CR_GREY, DownloadStr.c_str());
 
 			if (TickerMax)
 			{
@@ -836,45 +832,48 @@ void C_DrawConsole (void)
 					i = tickend;
 				tickstr[i] = -125;
 				sprintf (tickstr + tickend + 3, "%u%%", (TickerAt * 100) / TickerMax);
-				screen->PrintStr (8, ConBottom - 12, tickstr, strlen (tickstr));
+				console_font->printText(screen, 8, ConBottom - 12, CR_GREY, tickstr);
 			}
 		}
 	}
 
-	if (menuactive)
-		return;
-
 	if (lines > 0)
 	{
+		// print the console text
 		for (; lines > 1; lines--)
 		{
-			screen->PrintStr (left, offset + lines * 8, (char*)&zap[2], zap[1]);
+			size_t len = std::min<size_t>(zap[1], str_size - 1);
+			strncpy(str, (char*)&zap[2], len);
+			str[len] = 0;
+
+			console_font->printText(screen, left, offset + lines * rowheight, CR_GREY, str);
 			zap -= ConCols + 2;
 		}
+
 		if (ConBottom >= 20)
 		{
-//			if (gamestate == GS_STARTUP)
-//				screen->PrintStr (8, ConBottom - 20, DoomStartupTitle, strlen (DoomStartupTitle));
-//			else
-			screen->PrintStr (left, ConBottom - 20, "\x8c", 1);
-#define MIN(a,b) (((a)<(b))?(a):(b))
-			screen->PrintStr (left + 8, ConBottom - 20,
-						(char *)&CmdLine[2+CmdLine[259]],
-						MIN(CmdLine[0] - CmdLine[259], ConCols - 1));
-#undef MIN
+			console_font->printText(screen, left, ConBottom - 20, CR_RED, "\x8c");
+	
+			size_t len = std::min<size_t>(CmdLine[0] - CmdLine[259], ConCols - 1);
+			strncpy(str, (char*)&CmdLine[2 + CmdLine[259]], len);
+			str[len] = 0;
+	
+			console_font->printText(screen, left + 8, ConBottom - 20, CR_RED, str);
+
 			if (cursoron)
 			{
-				screen->PrintStr (left + 8 + (CmdLine[1] - CmdLine[259])* 8,
-							ConBottom - 20, "\xb", 1);
+				int x = left + 8 + 8 * (CmdLine[1] - CmdLine[259]);
+				int y = ConBottom - 20;
+				console_font->printText(screen, x, y, CR_RED, "\xb"); 
 			}
+
+			// Indicate that the view has been scrolled up (char #10)
+			// and if we can scroll no further (char #12)
 			if (RowAdjust && ConBottom >= 28)
 			{
-				char c;
-
-				// Indicate that the view has been scrolled up (10)
-				// and if we can scroll no further (12)
-				c = (SkipRows + RowAdjust + ConBottom/8 < ConRows) ? 10 : 12;
-				screen->PrintStr (0, ConBottom - 28, &c, 1);
+				str[0] = (SkipRows + RowAdjust + ConBottom / rowheight < ConRows) ? 10 : 12;
+				str[1] = 0;
+				console_font->printText(screen, 0, ConBottom - 28, CR_GREY, str);
 			}
 		}
 	}
@@ -986,6 +985,7 @@ static void makestartposgood (void)
 
 BOOL C_HandleKey (event_t *ev, byte *buffer, int len)
 {
+	const int rowheight = console_font->getHeight();
 	const char *cmd = C_GetBinding (ev->data1);
 
 	switch (ev->data1)
@@ -998,11 +998,11 @@ BOOL C_HandleKey (event_t *ev, byte *buffer, int len)
 	case KEY_JOY7: // Left Trigger
 #endif
 	case KEY_PGUP:
-		if ((int)(ConRows) > (int)(ConBottom/8))
+		if ((int)(ConRows) > (int)(ConBottom / rowheight))
 		{
 			if (KeysShifted)
 				// Move to top of console buffer
-				RowAdjust = ConRows - SkipRows - ConBottom/8;
+				RowAdjust = ConRows - SkipRows - ConBottom / rowheight;
 			else
 				// Start scrolling console buffer up
 				ScrollState = SCROLLUP;
@@ -1489,15 +1489,18 @@ void C_DrawMid (void)
 {
 	if (MidMsg)
 	{
-		const int charheight = hud_font->getHeight();
-		const int rowheight = charheight + charheight / 7;
+		const int rowheight = hud_font->getHeight(); 
 
 		int screen_mid = screen->width / 2;
 
 		int row = (ST_Y * 3) / rowheight - MidLines * rowheight / 2;
 
 		for (int i = 0; i < MidLines; i++, row += rowheight)
-			screen->DrawText(PrintColors[PRINTLEVELS], screen_mid - MidMsg[i].width / 2, row, (byte *)MidMsg[i].string);
+		{
+			int x = screen_mid - MidMsg[i].width / 2;
+			int y = row;
+			hud_font->printText(screen, x, y, PrintColors[PRINTLEVELS], MidMsg[i].string);
+		}
 
 		if (gametic >= MidTicker)
 		{
@@ -1562,15 +1565,18 @@ void C_DrawGMid()
 {
 	if (GameMsg)
 	{
-		const int charheight = hud_font->getHeight();
-		const int rowheight = charheight + charheight / 7;
+		const int rowheight = hud_font->getHeight(); 
 
 		int screen_mid = screen->width / 2;
 
 		int row = (ST_Y * 2) / rowheight - GameLines * rowheight / 2;
 
 		for (int i = 0; i < GameLines; i++, row += rowheight)
-			screen->DrawText(GameColor, screen_mid - GameMsg[i].width / 2, row, (byte *)GameMsg[i].string);
+		{
+			int x = screen_mid - GameMsg[i].width / 2;
+			int y = row;
+			hud_font->printText(screen, x, y, GameColor, GameMsg[i].string);
+		}
 
 		if (gametic >= GameTicker)
 		{

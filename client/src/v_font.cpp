@@ -148,11 +148,11 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 
 // ----------------------------------------------------------------------------
 //
-// HudFont implementation
+// SmallDoomFont implementation
 //
 // ----------------------------------------------------------------------------
 
-HudFont::HudFont(fixed_t scale)
+SmallDoomFont::SmallDoomFont(fixed_t scale)
 {
 	static const char* tplate = "STCFN%.3d";
 	char name[12];
@@ -187,7 +187,6 @@ HudFont::HudFont(fixed_t scale)
 	Z_ChangeTag(space_texture, PU_STATIC);
 	mCharacters[' '] = space_texture;
 
-
 	// add blank textures for the characters not present in the font
 	int blankwidth = mCharacters['T']->getWidth() / 2;
 	int blankheight = mCharacters['T']->getHeight();
@@ -199,7 +198,7 @@ HudFont::HudFont(fixed_t scale)
 		if (mCharacters[charnum] == NULL)
 			mCharacters[charnum] = blank_texture;	
 
-	mHeight = mCharacters['T']->getHeight();
+	mHeight = mCharacters['T']->getHeight() + (scale >> FRACBITS);
 }
 
 // ----------------------------------------------------------------------------
