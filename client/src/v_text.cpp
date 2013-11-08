@@ -70,7 +70,8 @@ void V_LoadHudFont()
 {
 	if (hud_font)
 		V_UnloadHudFont();
-	hud_font = new HudFont(hud_scaletext * FRACUNIT);
+//	hud_font = new HudFont(hud_scaletext * FRACUNIT);
+	hud_font = new TrueTypeFont("FONT_SM", hud_scaletext * 8);
 }
 
 void V_UnloadMenuFont()
@@ -138,7 +139,7 @@ void DCanvas::TextWrapper(EWrapperCode drawer, int normalcolor, int x, int y, co
 
 	V_ColorMap = translationref_t(Ranges + normalcolor * 256);
 
-	hud_font->printText(this, x, y, 0, (const char*)string);
+	hud_font->printText(this, x, y, normalcolor, (const char*)string);
 }
 
 void DCanvas::TextSWrapper (EWrapperCode drawer, int normalcolor, int x, int y, const byte *string) const
@@ -155,7 +156,7 @@ void DCanvas::TextSWrapper(EWrapperCode drawer, int normalcolor, int x, int y,
 
 	V_ColorMap = translationref_t(Ranges + normalcolor * 256);
 
-	hud_font->printText(this, x, y, 0, (const char*)string);
+	hud_font->printText(this, x, y, normalcolor, (const char*)string);
 }
 
 //

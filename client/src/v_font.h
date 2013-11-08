@@ -74,5 +74,20 @@ private:
 	int				mHeight;
 };
 
+
+class TrueTypeFont : public OFont
+{
+public:
+	TrueTypeFont(const char* filename, int size);
+
+	virtual int getHeight() const
+	{
+		return mHeight;
+	}
+
+private:
+	int				mHeight;
+};
+
 #endif	// __V_FONT_H__
 

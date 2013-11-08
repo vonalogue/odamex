@@ -58,6 +58,14 @@ else()
   message(WARNING "SDL_mixer not found, client target not generated.")
 endif()
 
+# SDL_ttf configuration
+find_package(SDL_ttf)
+if(SDLTTF_FOUND)
+  include_directories(${SDLTTF_INCLUDE_DIR})
+else()
+  message(WARNING "SDL_ttf not found, client target not generated.")
+endif()
+
 # PortMidi configuration
 if(USE_INTREE_PORTMIDI)
   include_directories(../portmidi/pm_common/ ../portmidi/porttime/)
@@ -87,7 +95,7 @@ if(NOT APPLE AND NOT WIN32)
 endif()
 
 # Client target
-if(SDL_FOUND AND SDLMIXER_FOUND)
+if(SDL_FOUND AND SDLMIXER_FOUND AND SDLTTF_FOUND)
   add_executable(odamex MACOSX_BUNDLE WIN32
     ${COMMON_SOURCES} ${COMMON_HEADERS}
     ${CLIENT_SOURCES} ${CLIENT_HEADERS} ${CLIENT_WIN32_RESOURCES}
@@ -95,6 +103,7 @@ if(SDL_FOUND AND SDLMIXER_FOUND)
   target_link_libraries(odamex ${TEXTSCREEN_LIBRARY})
   target_link_libraries(odamex ${SDL_LIBRARY})
   target_link_libraries(odamex ${SDLMIXER_LIBRARY})
+  target_link_libraries(odamex ${SDLTTF_LIBRARY})
 
   if(USE_INTREE_PORTMIDI)
     target_link_libraries(odamex portmidi-static)
@@ -145,6 +154,7 @@ if(SDL_FOUND AND SDLMIXER_FOUND)
 
     string(REPLACE "-framework Cocoa" "" SDL_DIR ${SDL_LIBRARY})
     string(REPLACE "-framework Cocoa" "" SDLMIXER_DIR ${SDLMIXER_LIBRARY})
+    string(REPLACE "-framework Cocoa" "" SDLTTF_DIR ${SDLTTF_LIBRARY})
 
     # Install the SDL framework into the bundle
     if(IS_DIRECTORY ${SDL_DIR})
@@ -159,6 +169,11 @@ if(SDL_FOUND AND SDLMIXER_FOUND)
     # Install the SDL_mixer framework into the bundle
     if(IS_DIRECTORY ${SDLMIXER_DIR})
       install(DIRECTORY ${SDLMIXER_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/odamex.app/Contents/Frameworks)
+    endif()
+
+    # Install the SDL_ttf framework into the bundle
+    if(IS_DIRECTORY ${SDLTTF_DIR})
+      install(DIRECTORY ${SDLTTF_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/odamex.app/Contents/Frameworks)
     endif()
 
     # If PortMidi was built in install the PortMidi library into the bundle

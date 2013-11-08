@@ -25,8 +25,11 @@
 #include "v_video.h"
 #include "r_texture.h"
 #include "z_zone.h"
+#include "w_wad.h"
 
 #include "v_font.h"
+
+#include "SDL/SDL_ttf.h"
 
 extern byte *Ranges;
 
@@ -41,6 +44,8 @@ void OFont::printCharacter(const DCanvas* canvas, int& x, int& y, char c) const
 	byte charnum = (byte)c;
 	if (charnum == '\t')
 		charnum = ' ';
+	else if (charnum == '\n')
+		return;
 
 	const Texture* texture = mCharacters[charnum];
 	if (texture == NULL)
@@ -78,7 +83,10 @@ void OFont::printText(const DCanvas* canvas, int x, int y, int color, const char
 
 int OFont::getTextWidth(char c) const
 {
-	return mCharacters[(byte)c]->getWidth();
+	if (mCharacters[(byte)c])
+		return mCharacters[(byte)c]->getWidth();
+	else
+		return 0;
 }
 
 int OFont::getTextWidth(const char* str) const
@@ -88,9 +96,9 @@ int OFont::getTextWidth(const char* str) const
 	while (*str)
 	{
 		if (*str == '\t')
-			width += 4 * mCharacters[' ']->getWidth();
+			width += 4 * getTextWidth(' ');
 		else
-			width += mCharacters[(byte)*str]->getWidth();
+			width += getTextWidth(*str);
 		str++;
 	}
 
@@ -191,6 +199,100 @@ HudFont::HudFont(fixed_t scale)
 		if (mCharacters[charnum] == NULL)
 			mCharacters[charnum] = blank_texture;	
 
+	mHeight = mCharacters['T']->getHeight();
+}
+
+// ----------------------------------------------------------------------------
+//
+// TrueTypeFont implementation
+//
+// ----------------------------------------------------------------------------
+
+TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
+{
+	memset(mCharacters, 0, sizeof(*mCharacters) * 256);
+
+	if (TTF_Init() == -1)
+		return;
+
+	// read the TTF from the odamex.wad and store it in rawlumpdata
+	int lumpnum = W_GetNumForName(lumpname);
+	if (lumpnum == -1)
+		return;
+	
+	size_t lumplen = W_LumpLength(lumpnum);
+	byte* rawlumpdata = new byte[lumplen];
+	W_ReadLump(lumpnum, rawlumpdata);
+
+	// open the TTF for usage 
+	SDL_RWops* rw = SDL_RWFromMem(rawlumpdata, lumplen);
+	TTF_Font* font = TTF_OpenFontRW(rw, 0, size);
+	SDL_Color font_color = { 255, 0, 0 };	// Red for easy color translation
+
+	for (int charnum = ' '; charnum < '~'; charnum++)
+	{
+		const char str[2] = { charnum, 0 };
+		SDL_Surface* surface = TTF_RenderText_Solid(font, str, font_color);
+
+		if (surface == NULL)
+			continue;
+
+		int width = surface->w;
+		int height = surface->h;
+
+		texhandle_t texhandle = texturemanager.createSpecialUseHandle();
+		Texture* texture = texturemanager.createTexture(texhandle, width, height);
+
+		// set the whole texture red so that it may be easily translated
+		memset(texture->getData(), 0xB0, sizeof(byte) * width * height);
+
+		SDL_PixelFormat* format = surface->format;
+		if (format->BytesPerPixel == 1)
+		{
+			int pitch = surface->pitch;
+			byte* source = (byte*)surface->pixels;
+			byte* dest_mask = texture->getMaskData();
+
+			for (int x = 0; x < width; x++)
+			{
+				for (int y = 0; y < height; y++)
+				{
+					byte pixel = source[pitch * y + x];
+					*dest_mask = (pixel != 0);
+					dest_mask++;
+				}
+			}
+		}
+		else if (format->BytesPerPixel == 4)
+		{
+			int pitch = surface->pitch;
+			argb_t* source = (argb_t*)surface->pixels;
+			byte* dest_mask = texture->getMaskData();
+
+			for (int x = 0; x < width; x++)
+			{
+				for (int y = 0; y < height; y++)
+				{
+					argb_t pixel = source[pitch * y + x];
+					byte alpha = (byte)(((pixel & format->Amask) >> format->Ashift) << format->Aloss);
+					*dest_mask = (alpha != 0);
+					dest_mask++;
+				}
+			}
+		}
+
+		mCharacters[charnum] = texture;
+		Z_ChangeTag(texture, PU_STATIC);
+
+		SDL_FreeSurface(surface);
+	}
+
+	TTF_CloseFont(font);
+	SDL_RWclose(rw);
+	delete [] rawlumpdata;
+	TTF_Quit();
+
+	// base the font height on the letter T
 	mHeight = mCharacters['T']->getHeight();
 }
 
