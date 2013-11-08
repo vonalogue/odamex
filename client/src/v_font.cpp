@@ -141,6 +141,15 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 			int y1 = row * charheight;
 			int y2 = y1 + charheight - 1;
 			R_CopySubimage(texture, conchars_texture, x1, y1, x2, y2);
+
+			// translate the characters to red so that they can be
+			// easily translated later
+			byte* data = texture->getData();
+			for (int i = 0; i < dest_charwidth * dest_charheight; i++)
+			{
+				if (data[i] >= 0x50 && data[i] <= 0x5A)
+					data[i] += (0xB0 - 0x50);
+			}
 		}
 	}
 }
