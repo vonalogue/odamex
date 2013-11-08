@@ -766,12 +766,14 @@ void C_DrawConsole (void)
 
 	const int rowheight = console_font->getHeight();
 
-	int left = 8;
-	int lines = (ConBottom - 12) / rowheight;
+	const int left = 8;
+	const int bottom_row = ConBottom - 3 * rowheight / 2;
+	const int input_row = ConBottom - 5 * rowheight / 2;
+	int lines = bottom_row / rowheight;
 
-	int offset = -12;
-	if (-12 + lines * rowheight > ConBottom - 28)
-		offset = -16;
+	int offset = -3 * rowheight / 2;
+	if (offset + lines * rowheight > input_row - rowheight)
+		offset = -4 * rowheight / 2;;
 
 	byte* zap = Last - (SkipRows + RowAdjust) * (ConCols + 2);
 
@@ -792,16 +794,12 @@ void C_DrawConsole (void)
 		else
 			conback->Blit(0, 0, conback->width, conback->height, screen, 0, 0, screen->width, screen->height);
 
-		if (ConBottom >= 12)
+		if (bottom_row >= 0)
 		{
 			// print Odamex version number
 			int version_width = console_font->getTextWidth(DOTVERSIONSTR);
 			console_font->printText(screen, screen->width - 8 - version_width,
-											ConBottom - 12, CR_GOLD, DOTVERSIONSTR);
-
-            // Download progress bar hack
-			if (gamestate == GS_DOWNLOAD)
-				console_font->printText(screen, left + 2, ConBottom - 10, CR_GREY, DownloadStr.c_str());
+											bottom_row, CR_GOLD, DOTVERSIONSTR);
 
 			if (TickerMax)
 			{
@@ -826,8 +824,16 @@ void C_DrawConsole (void)
 					i = tickend;
 				tickstr[i] = -125;
 				sprintf (tickstr + tickend + 3, "%u%%", (TickerAt * 100) / TickerMax);
-				console_font->printText(screen, 8, ConBottom - 12, CR_GREY, tickstr);
+				console_font->printText(screen, left, bottom_row, CR_GREY, tickstr);
 			}
+		}
+
+		const int download_row = bottom_row + 2;
+		if (download_row >= 0)
+		{
+            // Download progress bar hack
+			if (gamestate == GS_DOWNLOAD)
+				console_font->printText(screen, left + 2, download_row, CR_GREY, DownloadStr.c_str());
 		}
 	}
 
@@ -844,23 +850,23 @@ void C_DrawConsole (void)
 			zap -= ConCols + 2;
 		}
 
-		if (ConBottom >= 20)
+		if (input_row >= 0)
 		{
 			// print the text entry prompt
-			console_font->printText(screen, left, ConBottom - 20, CR_GREY, "]");
+			console_font->printText(screen, left, input_row, CR_GREY, "]");
 	
 			// print the text the user has entered on the command line
 			size_t len = std::min<size_t>(CmdLine[0] - CmdLine[259], ConCols - 1);
 			strncpy(str, (char*)&CmdLine[2 + CmdLine[259]], len);
 			str[len] = 0;
 	
-			console_font->printText(screen, left + 8, ConBottom - 20, CR_GREEN, str);
+			console_font->printText(screen, left + 8, input_row, CR_GREEN, str);
 
 			// print the blinking cursor
 			if (cursoron)
 			{
-				int x = left + 8 + 8 * (CmdLine[1] - CmdLine[259]);
-				int y = ConBottom - 20;
+				int x = left + 8 + console_font->getTextWidth(str);
+				int y = input_row;
 				console_font->printText(screen, x, y, CR_GREY, "_"); 
 			}
 
@@ -870,7 +876,7 @@ void C_DrawConsole (void)
 			{
 				str[0] = (SkipRows + RowAdjust + ConBottom / rowheight < ConRows) ? 10 : 12;
 				str[1] = 0;
-				console_font->printText(screen, 0, ConBottom - 28, CR_GREY, str);
+				console_font->printText(screen, 0, input_row - rowheight, CR_GREY, str);
 			}
 		}
 	}
