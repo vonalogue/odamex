@@ -485,9 +485,11 @@ void F_CastDrawer (void)
 	// erase the entire screen to a background
 	screen->DrawPatchIndirect (W_CachePatch ("BOSSBACK"), 0, 0);
 
-	screen->DrawTextClean (CR_RED,
-		(screen->width - V_StringWidth(castorder[castnum].name))/2,
-		(screen->height * 180) / 200, castorder[castnum].name);
+	int textwidth = menu_font->getTextWidth(castorder[castnum].name);
+	int x = (screen->width - textwidth) / 2;
+	int y = (screen->height * 180) / 200;
+
+	menu_font->printText(screen, x, y, CR_RED, castorder[castnum].name);
 
 	// draw the current frame in the middle of the screen
 	sprdef = &sprites[castsprite];

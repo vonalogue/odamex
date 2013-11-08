@@ -91,47 +91,8 @@ void V_LoadMenuFont()
 
 
 
-//
-// V_PrintStr
-// Print a line of text using the console font
-//
-
 extern "C" void STACK_ARGS PrintChar1P (DWORD *charimg, byte *dest, int screenpitch);
 extern "C" void STACK_ARGS PrintChar2P_MMX (DWORD *charimg, byte *dest, int screenpitch);
-
-void DCanvas::PrintStr(int x, int y, const char *s, int count) const
-{
-	if (!buffer)
-		return;
-
-	char str[1024];
-	int len = MIN(count, 1023);
-	strncpy(str, s, len); 
-	str[len] = 0;
-	console_font->printText(this, x, y, 0, str);
-}
-
-//
-// V_PrintStr2
-// Same as V_PrintStr but doubles the size of every character.
-//
-void DCanvas::PrintStr2(int x, int y, const char *s, int count) const
-{
-	if (!buffer)
-		return;
-
-	char str[1024];
-	int len = MIN(count, 1023);
-	strncpy(str, s, len); 
-	str[len] = 0;
-	console_font->printText(this, x, y, 0, str);
-}
-
-//
-// V_DrawText
-//
-// Write a string using the hud_font
-//
 
 void DCanvas::TextWrapper(EWrapperCode drawer, int normalcolor, int x, int y, const byte *string) const
 {
@@ -159,14 +120,6 @@ void DCanvas::TextSWrapper(EWrapperCode drawer, int normalcolor, int x, int y,
 	V_ColorMap = translationref_t(Ranges + normalcolor * 256);
 
 	hud_font->printText(this, x, y, normalcolor, (const char*)string);
-}
-
-//
-// Find string width from hud_font chars
-//
-int V_StringWidth(const byte* str)
-{
-	return hud_font->getTextWidth((const char*)str);
 }
 
 //

@@ -97,12 +97,6 @@ enum EColorRange
 #define TEXTCOLOR_NORMAL	"\x8a-"
 #define TEXTCOLOR_BOLD		"\x8a+"
 
-int V_StringWidth(const byte *str);
-inline int V_StringWidth(const char *str)
-{
-	return V_StringWidth((const byte *)str);
-}
-
 brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const byte *str);
 inline brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const char *str)
 {

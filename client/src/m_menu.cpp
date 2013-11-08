@@ -1868,8 +1868,7 @@ bool M_Responder (event_t* ev)
 			ch = ev->data3;	// [RH] Use user keymap
 			if (ch >= 32 && ch <= 127 &&
 				saveCharIndex < genStringLen &&
-				V_StringWidth(savegamestrings[saveSlot]) <
-				(genStringLen-1)*8)
+				menu_font->getTextWidth(savegamestrings[saveSlot]) / CleanXfac < (genStringLen-1) * 8)
 			{
 				savegamestrings[saveSlot][saveCharIndex++] = ch;
 				savegamestrings[saveSlot][saveCharIndex] = 0;

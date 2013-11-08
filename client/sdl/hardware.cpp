@@ -46,6 +46,8 @@
 #include "g_game.h"
 #include "i_input.h"
 
+#include "v_text.h"
+
 bool M_FindFreeName(std::string &filename, const std::string &extension);
 
 extern constate_e ConsoleState;
@@ -139,11 +141,15 @@ void I_DrawFPS()
 	if (delta_time > 0)
 	{
 		static double last_fps = 0.0;
-		static char fpsbuff[40];
+		static char str[40];
 
-		int chars = sprintf(fpsbuff, "%3u ms (%.2f fps)", delta_time, last_fps);
-		screen->Clear(0, screen->height - 8, chars * 8, screen->height, 0);
-		screen->PrintStr(0, screen->height - 8, fpsbuff, chars);
+		sprintf(str, "%3u ms (%.2f fps)", delta_time, last_fps);
+		int text_width = console_font->getTextWidth(str);
+		int text_height = console_font->getHeight();
+		int x1 = 0, x2 = text_width - 1;
+		int y1 = screen->height - text_height - 1, y2 = screen->height - 1;
+		screen->Clear(x1, y1, x2, y2, 0);
+		console_font->printText(screen, x1, y1, CR_GREY, str);
 
 		time_accum += delta_time;
 

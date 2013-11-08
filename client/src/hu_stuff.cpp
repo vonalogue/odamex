@@ -89,7 +89,6 @@ void HU_TeamScores1 (player_t *player);
 void HU_TeamScores2 (player_t *player);
 
 extern bool HasBehavior;
-extern inline int V_StringWidth (const char *str);
 size_t P_NumPlayersInGame();
 static void ShoveChatStr (std::string str, byte who);
 void C_ReleaseKeys();
@@ -465,7 +464,7 @@ void drawHeader(player_t *player, int y) {
 	              hud::X_CENTER, hud::Y_MIDDLE,
 	              hud::X_LEFT, hud::Y_TOP,
 	              "CLIENTS: ", CR_GREY, true);
-	hud::DrawText(-236 + V_StringWidth("CLIENTS: "), y, hud_scalescoreboard,
+	hud::DrawText(-236 + hud_font->getTextWidth("CLIENTS: "), y, hud_scalescoreboard,
 	              hud::X_CENTER, hud::Y_MIDDLE,
 	              hud::X_LEFT, hud::Y_TOP,
 	              hud::ClientsSplit().c_str(), CR_GREEN, true);
@@ -474,7 +473,7 @@ void drawHeader(player_t *player, int y) {
 		              hud::X_CENTER, hud::Y_MIDDLE,
 		              hud::X_LEFT, hud::Y_TOP,
 		              "BLUE PLAYERS: ", CR_GREY, true);
-		hud::DrawText(-236 + V_StringWidth("BLUE PLAYERS: "), y + 8, hud_scalescoreboard,
+		hud::DrawText(-236 + hud_font->getTextWidth("BLUE PLAYERS: "), y + 8, hud_scalescoreboard,
 		              hud::X_CENTER, hud::Y_MIDDLE,
 		              hud::X_LEFT, hud::Y_TOP,
 		              TeamPlayers(color, TEAM_BLUE).c_str(), CR_GREEN, true);
@@ -482,7 +481,7 @@ void drawHeader(player_t *player, int y) {
 		              hud::X_CENTER, hud::Y_MIDDLE,
 		              hud::X_LEFT, hud::Y_TOP,
 		              "RED PLAYERS: ", CR_GREY, true);
-		hud::DrawText(-236 + V_StringWidth("RED PLAYERS: "), y + 16, hud_scalescoreboard,
+		hud::DrawText(-236 + hud_font->getTextWidth("RED PLAYERS: "), y + 16, hud_scalescoreboard,
 		              hud::X_CENTER, hud::Y_MIDDLE,
 		              hud::X_LEFT, hud::Y_TOP,
 		              TeamPlayers(color, TEAM_RED).c_str(), CR_GREEN, true);
@@ -491,7 +490,7 @@ void drawHeader(player_t *player, int y) {
 		              hud::X_CENTER, hud::Y_MIDDLE,
 		              hud::X_LEFT, hud::Y_TOP,
 		              "PLAYERS: ", CR_GREY, true);
-		hud::DrawText(-236 + V_StringWidth("PLAYERS: "), y + 8, hud_scalescoreboard,
+		hud::DrawText(-236 + hud_font->getTextWidth("PLAYERS: "), y + 8, hud_scalescoreboard,
 		              hud::X_CENTER, hud::Y_MIDDLE,
 		              hud::X_LEFT, hud::Y_TOP,
 		              hud::PlayersSplit().c_str(), CR_GREEN, true);
@@ -524,17 +523,17 @@ void drawHeader(player_t *player, int y) {
 	}
 	scorelimit = buffer.str();
 
-	int rw = V_StringWidth("00:00");
+	int rw = hud_font->getTextWidth("00:00");
 	if (sv_timelimit.asInt() == 0 && gamestate != GS_INTERMISSION) {
-		rw = V_StringWidth("N/A");
+		rw = hud_font->getTextWidth("N/A");
 	} else if (timer.size() > 5) {
-		rw = V_StringWidth("00:00:00");
+		rw = hud_font->getTextWidth("00:00:00");
 	}
-	if (V_StringWidth(fraglimit.c_str()) > rw) {
-		rw = V_StringWidth(fraglimit.c_str());
+	if (hud_font->getTextWidth(fraglimit.c_str()) > rw) {
+		rw = hud_font->getTextWidth(fraglimit.c_str());
 	}
-	if (V_StringWidth(scorelimit.c_str()) > rw) {
-		rw = V_StringWidth(scorelimit.c_str());
+	if (hud_font->getTextWidth(scorelimit.c_str()) > rw) {
+		rw = hud_font->getTextWidth(scorelimit.c_str());
 	}
 
 	hud::DrawText(236 - rw, y, hud_scalescoreboard,

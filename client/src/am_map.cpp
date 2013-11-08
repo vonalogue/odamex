@@ -1650,6 +1650,8 @@ void AM_Drawer (void)
 {
 	if (!automapactive)
 		return;
+	
+	OFont* am_font = menu_font;
 
 	fb = screen->buffer;
 	if (!viewactive)
@@ -1689,7 +1691,7 @@ void AM_Drawer (void)
 	if (!(viewactive && am_overlay < 2)) {
 
 		char line[64+10];
-		int OV_Y, i, time = level.time / TICRATE;
+		int OV_Y, time = level.time / TICRATE;
 
 		const int rowheight = hud_font->getHeight();
 
@@ -1699,28 +1701,62 @@ void AM_Drawer (void)
 		{
 			if (am_showmonsters)
 			{
-				sprintf (line, TEXTCOLOR_RED "MONSTERS:"
-							   TEXTCOLOR_NORMAL " %d / %d",
-							   level.killed_monsters, level.total_monsters);
+				const char monster_str[] = "MONSTERS:";
+				sprintf(line, " %d / %d", level.killed_monsters, level.total_monsters);
+
+				int monster_width = am_font->getTextWidth(monster_str);
+				int line_width = am_font->getTextWidth(line);
+
+				int x, y;
+
                 if (viewactive && screenblocks == 11)
-                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), OV_Y - (rowheight * 4) + 1, line);
+				{
+					x = screen->width - monster_width - line_width;
+					y = OV_Y - (rowheight * 4) + 1;
+				}
                 else if (viewactive && screenblocks == 12)
-                    FB->DrawTextClean (CR_GREY, 0, screen->height - (rowheight * 2) + 1, line);
+				{
+					x = 0;
+					y = screen->height - (rowheight * 2) + 1;
+				}
                 else
-                    FB->DrawTextClean (CR_GREY, 0, ST_Y - (rowheight * 2) + 1, line);
+				{
+					x = 0;
+					y = ST_Y - (rowheight * 2) + 1;
+				}
+
+				am_font->printText(FB, x, y, CR_RED, monster_str);
+				am_font->printText(FB, x + monster_width, y, CR_GREY, line);
 			}
 
 			if (am_showsecrets)
 			{
-				sprintf (line, TEXTCOLOR_RED "SECRETS:"
-							   TEXTCOLOR_NORMAL " %d / %d",
-							   level.found_secrets, level.total_secrets);
+				const char secret_str[] = "SECRETS:";
+				sprintf(line, " %d / %d", level.found_secrets, level.total_secrets);
+
+				int secret_width = am_font->getTextWidth(secret_str);
+				int line_width = am_font->getTextWidth(line);
+
+				int x, y;
+
                 if (viewactive && screenblocks == 11)
-                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), OV_Y - (rowheight * 3) + 1, line);
+				{
+					x = screen->width - secret_width - line_width;
+					y = OV_Y - (rowheight * 3) + 1;
+				}
                 else if (viewactive && screenblocks == 12)
-                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), screen->height - (rowheight * 2) + 1, line);
+				{
+					x = screen->width - secret_width - line_width;
+					y = screen->height - (rowheight * 2);
+				}
                 else
-                    FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), ST_Y - (rowheight * 2) + 1, line);
+				{
+					x = screen->width - secret_width - line_width;
+					y = ST_Y - (rowheight * 2);
+				}
+
+				am_font->printText(FB, x, y, CR_RED, secret_str);
+				am_font->printText(FB, x + secret_width, y, CR_GREY, line);
 			}
 		}
 
@@ -1746,46 +1782,83 @@ void AM_Drawer (void)
 			}
 			strcpy(line, GStrings(firstmap + level.levelnum - mapoffset));
 
+			int line_width = am_font->getTextWidth(line);
+			int x, y;
+
 			if (viewactive && screenblocks == 11)
-				FB->DrawTextClean(CR_RED, screen->width - V_StringWidth(line), OV_Y - (rowheight * 1) + 1, line);
+			{
+				x = screen->width - line_width;
+				y = OV_Y - (rowheight * 1) + 1;
+			}
 			else if (viewactive && screenblocks == 12)
-				FB->DrawTextClean (CR_RED, 0, screen->height - (rowheight * 1) + 1, line);
+			{
+				x = 0;
+				y = screen->height - (rowheight * 1) + 1;
+			}
 			else
-				FB->DrawTextClean (CR_RED, 0, ST_Y - (rowheight * 1) + 1, line);
+			{
+				x = 0;
+				y = ST_Y - (rowheight * 1) + 1;
+			}
+
+			am_font->printText(FB, x, y, CR_GREY, line);
 		}
 		else
 		{
-            line[0] = '\x8a';
-            line[1] = CR_RED + 'A';
-            i = 0;
-            while (i < 8 && level.mapname[i]) {
-                line[2 + i] = level.mapname[i];
-                i++;
-            }
-            i += 2;
-            line[i++] = ':';
-            line[i++] = ' ';
-            line[i++] = '\x8a';
-            line[i++] = '-';
-            strcpy (&line[i], level.level_name);
-            if (viewactive && screenblocks == 11)
-                FB->DrawTextClean (CR_GREY, screen->width - V_StringWidth(line), OV_Y - (rowheight * 1) + 1, line);
+			char mapname_str[256];
+			sprintf(mapname_str, "%s:", level.mapname);
+			char levelname_str[256];
+			sprintf(levelname_str, " %s", level.level_name);
+
+			int mapname_width = am_font->getTextWidth(mapname_str);
+			int levelname_width = am_font->getTextWidth(levelname_str);
+
+			int x, y;
+
+			if (viewactive && screenblocks == 11)
+			{
+				x = screen->width - mapname_width - levelname_width;
+				y = OV_Y - (rowheight * 1) + 1;
+			}
             else if (viewactive && screenblocks == 12)
-                FB->DrawTextClean (CR_GREY, 0, screen->height - (rowheight * 1) + 1, line);
+			{
+				x = 0;
+				y = screen->height - (rowheight * 1) + 1;
+			}
             else
-                FB->DrawTextClean (CR_GREY, 0, ST_Y - (rowheight * 1) + 1, line);
+			{
+				x = 0;
+				y = ST_Y - (rowheight * 1) + 1;
+			}
+
+			am_font->printText(FB, x, y, CR_RED, mapname_str);
+			am_font->printText(FB, x + mapname_width, y, CR_GREY, levelname_str);
 		}
 
-		if (am_showtime) {
-			sprintf (line, " %02d:%02d:%02d", time/3600, (time%3600)/60, time%60);	// Time
-            if (viewactive && screenblocks == 11)
-                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth(line), OV_Y - (rowheight * 2) + 1, line);
-            else if (viewactive && screenblocks == 12)
-                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth(line), screen->height - (rowheight * 1) + 1, line);
-            else
-                FB->DrawTextClean (CR_RED, screen->width - V_StringWidth(line), ST_Y - (rowheight * 1) + 1, line);
-		}
+		if (am_showtime)
+		{
+			sprintf(line, " %02d:%02d:%02d", time/3600, (time%3600)/60, time%60);	// Time
+			int line_width = am_font->getTextWidth(line);
+			int x, y;
 
+            if (viewactive && screenblocks == 11)
+			{
+				x = screen->width - line_width;
+				y = OV_Y - (rowheight * 2) + 1;
+			}
+            else if (viewactive && screenblocks == 12)
+			{
+				x = screen->width - line_width;
+				y = screen->height - (rowheight * 1) + 1;
+			}
+            else
+			{
+				x = screen->width - line_width;
+				y = ST_Y - (rowheight * 1) + 1;	
+			}
+
+			am_font->printText(FB, x, y, CR_RED, line);
+		}
 	}
 }
 

@@ -426,12 +426,13 @@ void ST_voteDraw (int y) {
 	}
 
 	size_t x1, x2;
-	x1 = (screen->width - V_StringWidth(result_string.c_str()) * xscale) >> 1;
-	if (hud_scale) {
+	int result_width = hud_font->getTextWidth(result_string.c_str());
+
+	x1 = (screen->width - result_width * xscale) >> 1;
+	if (hud_scale)
 		screen->DrawTextClean(result_color, x1, y, result_string.c_str());
-	} else {
+	else
 		screen->DrawText(result_color, x1, y, result_string.c_str());
-	}
 
 	// Votestring - Break lines
 	brokenlines_t *votestring = V_BreakLines(hud_font, 320, vote_state.votestring.c_str());
