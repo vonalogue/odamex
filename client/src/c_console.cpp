@@ -870,13 +870,14 @@ void C_DrawConsole (void)
 				console_font->printText(screen, x, y, CR_GREY, "_"); 
 			}
 
-			// Indicate that the view has been scrolled up (char #10)
-			// and if we can scroll no further (char #12)
-			if (RowAdjust && ConBottom >= 28)
+			// Indicate that the view has been scrolled up ( ^ )
+			// and if we can scroll no further ( * )
+			int scrollindicator_row = input_row - rowheight;
+			if (RowAdjust && scrollindicator_row >= 0)
 			{
-				str[0] = (SkipRows + RowAdjust + ConBottom / rowheight < ConRows) ? 10 : 12;
-				str[1] = 0;
-				console_font->printText(screen, 0, input_row - rowheight, CR_GREY, str);
+				bool at_top = !(SkipRows + RowAdjust + ConBottom / rowheight < ConRows);
+				sprintf(str, "%c", at_top ? '*' : '^');
+				console_font->printText(screen, 0, scrollindicator_row, CR_GREY, str);
 			}
 		}
 	}
