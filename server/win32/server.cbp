@@ -422,6 +422,8 @@
 		<Unit filename="../../common/r_segs.h" />
 		<Unit filename="../../common/r_sky.h" />
 		<Unit filename="../../common/r_state.h" />
+		<Unit filename="../../common/r_texture.cpp" />
+		<Unit filename="../../common/r_texture.h" />
 		<Unit filename="../../common/r_things.h" />
 		<Unit filename="../../common/s_sndseq.cpp" />
 		<Unit filename="../../common/s_sndseq.h" />

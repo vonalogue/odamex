@@ -459,6 +459,8 @@
 		<Unit filename="../../common/r_segs.h" />
 		<Unit filename="../../common/r_sky.h" />
 		<Unit filename="../../common/r_state.h" />
+		<Unit filename="../../common/r_texture.cpp" />
+		<Unit filename="../../common/r_texture.h" />
 		<Unit filename="../../common/r_things.h" />
 		<Unit filename="../../common/s_sndseq.cpp" />
 		<Unit filename="../../common/s_sndseq.h" />
@@ -535,7 +537,6 @@
 		<Unit filename="../src/m_options.cpp" />
 		<Unit filename="../src/r_bsp.cpp" />
 		<Unit filename="../src/r_draw.cpp" />
-		<Unit filename="../src/r_drawt.cpp" />
 		<Unit filename="../src/r_drawt_altivec.cpp" />
 		<Unit filename="../src/r_drawt_mmx.cpp" />
 		<Unit filename="../src/r_drawt_sse2.cpp" />
@@ -551,6 +552,9 @@
 		<Unit filename="../src/st_new.cpp" />
 		<Unit filename="../src/st_stuff.cpp" />
 		<Unit filename="../src/v_draw.cpp" />
+		<Unit filename="../src/v_font.cpp" />
+		<Unit filename="../src/v_font.h" />
+		<Unit filename="../src/v_gamma.h" />
 		<Unit filename="../src/v_palette.cpp" />
 		<Unit filename="../src/v_text.cpp" />
 		<Unit filename="../src/v_text.h" />
