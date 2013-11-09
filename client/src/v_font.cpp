@@ -225,9 +225,12 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 		return;
 
 	// read the TTF from the odamex.wad and store it in rawlumpdata
-	int lumpnum = W_GetNumForName(lumpname);
+	int lumpnum = W_CheckNumForName(lumpname);
 	if (lumpnum == -1)
+	{
+		Printf(PRINT_HIGH, "Unable to locate TrueType font %s!\n", lumpname);
 		return;
+	}
 	
 	size_t lumplen = W_LumpLength(lumpnum);
 	byte* rawlumpdata = new byte[lumplen];
