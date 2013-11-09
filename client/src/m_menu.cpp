@@ -624,17 +624,13 @@ void M_LoadGame (int choice)
 //
 void M_ReadSaveStrings(void)
 {
-	FILE *handle;
-	int count;
-	int i;
-
-	for (i = 0; i < load_end; i++)
+	for (int i = 0; i < load_end; i++)
 	{
 		std::string name;
 
 		G_BuildSaveName (name, i);
 
-		handle = fopen (name.c_str(), "rb");
+		FILE* handle = fopen (name.c_str(), "rb");
 		if (handle == NULL)
 		{
 			strcpy (&savegamestrings[i][0], GStrings(EMPTYSTRING));
@@ -642,7 +638,7 @@ void M_ReadSaveStrings(void)
 		}
 		else
 		{
-			count = fread (&savegamestrings[i], SAVESTRINGSIZE, 1, handle);
+			fread(&savegamestrings[i], SAVESTRINGSIZE, 1, handle);
 			fclose (handle);
 			LoadMenu[i].status = 1;
 		}
@@ -708,23 +704,22 @@ void M_LoadGame (int choice)
 //
 void M_DrawSave(void)
 {
-	int i;
-
 	screen->DrawPatchClean ((patch_t *)W_CachePatch("M_SAVEG"), 72, 28);
-	for (i = 0; i < load_end; i++)
+
+	for (int i = 0; i < load_end; i++)
 	{
-		M_DrawSaveLoadBorder(LoadDef.x,LoadDef.y+LINEHEIGHT*i,24);
 		int x = LoadDef.x;
 		int y = LoadDef.y + LINEHEIGHT * i;
+		M_DrawSaveLoadBorder(x, y, 24);
 		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, savegamestrings[i]);
 	}
 
 	if (genStringEnter)
 	{
-		i = menu_font->getTextWidth(savegamestrings[saveSlot]) / CleanXfac;
-		int x = LoadDef.x + i;
+		const char* str = savegamestrings[saveSlot];
+		int x = LoadDef.x + menu_font->getTextWidth(str) / CleanXfac;
 		int y = LoadDef.y + LINEHEIGHT * saveSlot;
-		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, savegamestrings[i]);
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, "_");
 	}
 }
 
@@ -1310,22 +1305,23 @@ static void M_PlayerSetupDrawer (void)
 			PSetupDef.y - (patch->height() * 3));*/
 	}
 
-	// Draw player name box
-	menu_font->printText(screen, M_CleanX(PSetupDef.x), M_CleanY(PSetupDef.y), CR_RED, "Name");
-	M_DrawSaveLoadBorder (PSetupDef.x + 56, PSetupDef.y, MAXPLAYERNAME+1);
-	menu_font->printText(screen, M_CleanX(PSetupDef.x + 56), M_CleanY(PSetupDef.y), CR_RED, savegamestrings[0]);
-
-	// Draw player team box
-//	screen->DrawTextCleanMove (CR_RED, PSetupDef.x, PSetupDef.y + LINEHEIGHT, "Team");	if (t = 1) // [Toke - Teams]
-//	screen->DrawTextCleanMove (CR_RED, PSetupDef.x + 56, PSetupDef.y + LINEHEIGHT, savegamestrings[1]);
-
-
-	// Draw cursor for either of the above
-	if (genStringEnter)
 	{
-		int x = PSetupDef.x + menu_font->getTextWidth(savegamestrings[saveSlot]) + 56;
-		int y = PSetupDef.y + ((saveSlot == 0) ? 0 : LINEHEIGHT);
-		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, "_");
+		// Draw player name box
+		int x = PSetupDef.x;
+		int y = PSetupDef.y;
+
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, "Name");
+
+		x += 56;
+		M_DrawSaveLoadBorder(x, y, MAXPLAYERNAME+1);
+
+		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, savegamestrings[0]);
+
+		if (genStringEnter)
+		{
+			x += menu_font->getTextWidth(savegamestrings[saveSlot]) / CleanXfac;
+			menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, "_");
+		}
 	}
 
 	// Draw player character
