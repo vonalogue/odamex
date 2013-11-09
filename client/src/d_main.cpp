@@ -662,6 +662,10 @@ void D_NewWadInit()
 	S_ParseSndInfo();
 
 	M_Init();
+
+	texturemanager.shutdown();
+	texturemanager.startup();
+
 	R_Init();
 	V_LoadConsoleFont();
 	V_LoadHudFont();
@@ -845,6 +849,9 @@ void D_DoomMain (void)
 
 	Printf (PRINT_HIGH, "M_Init: Init miscellaneous info.\n");
 	M_Init ();
+
+	Printf (PRINT_HIGH, "TextureManager startup\n");
+	texturemanager.startup();
 
 	Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
 	R_Init ();

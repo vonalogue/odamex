@@ -204,7 +204,11 @@ void Texture::init(int width, int height)
 // define GARBAGE_TEXTURE_HANDLE to be the first wall texture (AASTINKY)
 const texhandle_t TextureManager::GARBAGE_TEXTURE_HANDLE = TextureManager::WALLTEXTURE_HANDLE_MASK;
 
-TextureManager::TextureManager()
+TextureManager::TextureManager() :
+	mPNameLookup(NULL),
+	mTextureDefinitionCount(0),
+	mTextureDefinitions(NULL),
+	mNextSpecialUseHandle(0)
 {
 }
 
@@ -228,6 +232,7 @@ void TextureManager::clear()
 		delete [] mTextureDefinitions[i];
 	delete [] mTextureDefinitions;
 	mTextureDefinitions = NULL;
+	mTextureDefinitionCount = 0;
 
 	mTextureNameTranslationMap.clear();
 

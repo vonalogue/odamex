@@ -309,6 +309,9 @@ void D_NewWadInit()
 		G_ParseMusInfo ();
 		S_ParseSndInfo();
 
+		texturemanager.shutdown();
+		texturemanager.startup();
+
 		R_Init();
 		P_Init();
 	} else {					// let DoomMain know it doesn't have to do everything
@@ -436,6 +439,9 @@ void D_DoomMain (void)
 	// Check for -file in shareware
 	if (modifiedgame && (gameinfo.flags & GI_SHAREWARE))
 		I_Error ("You cannot -file with the shareware version. Register!");
+
+	Printf (PRINT_HIGH, "TextureManager startup.\n");
+	texturemanager.startup();
 
 	Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
 	R_Init ();
