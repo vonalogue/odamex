@@ -41,47 +41,6 @@
 #define SAFESHORT(s)	LESHORT(s)
 #endif
 
-
-// A single patch from a texture definition,
-//	basically a rectangular area within
-//	the texture rectangle.
-typedef struct
-{
-	// Block origin (always UL),
-	// which has already accounted
-	// for the internal origin of the patch.
-	int 		originx;
-	int 		originy;
-	int 		patch;
-} texpatch_t;
-
-
-// A maptexturedef_t describes a rectangular texture,
-//	which is composed of one or more mappatch_t structures
-//	that arrange graphic patches.
-typedef struct
-{
-	// Keep name for switch changing, etc.
-	char		name[9];
-	short		width;
-	short		height;
-
-	// [RH] Use a hash table similar to the one now used
-	//		in w_wad.c, thus speeding up level loads.
-	//		(possibly quite considerably for larger levels)
-	int			index;
-	int			next;
-
-	// All the patches[patchcount]
-	//	are drawn back to front into the cached texture.
-	short		patchcount;
-	texpatch_t	patches[1];
-
-} texture_t;
-
-
-extern texture_t **textures;
-
 // Retrieve column data for span blitting.
 tallpost_t* R_GetPatchColumn(int lumpnum, int colnum);
 byte* R_GetPatchColumnData(int lumpnum, int colnum);

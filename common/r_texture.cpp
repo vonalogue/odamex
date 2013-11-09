@@ -269,19 +269,6 @@ void TextureManager::startup()
 	addTextureDirectory("TEXTURE1");
 	addTextureDirectory("TEXTURE2");
 
-	// initialize mHandleMap for all possible handles
-	for (unsigned int texnum = 0; texnum < mTextureDefinitionCount; texnum++)
-	{
-		texhandle_t handle = getWallTextureHandle(texnum);
-		mHandleMap[handle] = NULL;
-	}
-
-	for (unsigned int flatnum = mFirstFlatLumpNum; flatnum <= mLastFlatLumpNum; flatnum++)
-	{
-		texhandle_t handle = getFlatHandle(flatnum);
-		mHandleMap[handle] = NULL;
-	}
-
 	generateNotFoundTexture();
 
 	if (clientside)
@@ -702,6 +689,41 @@ void TextureManager::generateNotFoundTexture()
 //
 void TextureManager::addTextureDirectory(const char* lumpname)
 {
+	//
+	// Texture definition.
+	// Each texture is composed of one or more patches,
+	// with patches being lumps stored in the WAD.
+	// The lumps are referenced by number, and patched
+	// into the rectangular texture space using origin
+	// and possibly other attributes.
+	//
+	typedef struct
+	{
+		short	originx;
+		short	originy;
+		short	patch;
+		short	stepdir;
+		short	colormap;
+	} mappatch_t;
+
+	//
+	// Texture definition.
+	// A DOOM wall texture is a list of patches
+	// which are to be combined in a predefined order.
+	//
+	typedef struct
+	{
+		char		name[8];
+		WORD		masked;				// [RH] Unused
+		BYTE		scalex;				// [RH] Scaling (8 is normal)
+		BYTE		scaley;				// [RH] Same as above
+		short		width;
+		short		height;
+		byte		columndirectory[4];	// OBSOLETE
+		short		patchcount;
+		mappatch_t	patches[1];
+	} maptexture_t;
+
 	int lumpnum = W_CheckNumForName(lumpname);
 	if (lumpnum == -1)
 	{
@@ -754,7 +776,7 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 			patch->patch = mPNameLookup[LESHORT(mpatch->patch)];
 			if (patch->patch == -1)
 			{
-				Printf(PRINT_HIGH, "R_InitTextures: Missing patch in texture %s\n", texdef->name);
+				Printf(PRINT_HIGH, "R_InitTextures: Missing patch in texture %s\n", uname);
 				errors++;
 			}
 		}
@@ -996,7 +1018,12 @@ texhandle_t TextureManager::getWallTextureHandle(unsigned int texdef_handle)
 
 texhandle_t TextureManager::getWallTextureHandle(const char* name)
 {
-	TextureNameTranslationMap::const_iterator it = mTextureNameTranslationMap.find(name);
+	char uname[9];
+	for (int i = 0; i < 8; i++)
+		uname[i] = toupper(name[i]);
+	uname[8] = 0;
+
+	TextureNameTranslationMap::const_iterator it = mTextureNameTranslationMap.find(uname);
 	if (it != mTextureNameTranslationMap.end())
 		return getWallTextureHandle(it->second);
 	return NOT_FOUND_TEXTURE_HANDLE;

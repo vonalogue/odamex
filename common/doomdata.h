@@ -257,44 +257,6 @@ typedef struct MapThing
 #define BTF_NOTDEATHMATCH	0x0020	// (TF_SINGLE|TF_COOPERATIVE)
 #define BTF_NOTCOOPERATIVE	0x0040	// (TF_SINGLE|TF_DEATHMATCH)
 
-//
-// Texture definition.
-// Each texture is composed of one or more patches,
-// with patches being lumps stored in the WAD.
-// The lumps are referenced by number, and patched
-// into the rectangular texture space using origin
-// and possibly other attributes.
-//
-typedef struct
-{
-	short	originx;
-	short	originy;
-	short	patch;
-	short	stepdir;
-	short	colormap;
-} mappatch_t;
-
-//
-// Texture definition.
-// A DOOM wall texture is a list of patches
-// which are to be combined in a predefined order.
-//
-typedef struct
-{
-	char		name[8];
-	WORD		masked;				// [RH] Unused
-	BYTE		scalex;				// [RH] Scaling (8 is normal)
-	BYTE		scaley;				// [RH] Same as above
-	short		width;
-	short		height;
-	byte		columndirectory[4];	// OBSOLETE
-	short		patchcount;
-	mappatch_t	patches[1];
-} maptexture_t;
-
-
-
-
 #endif					// __DOOMDATA__
 
 

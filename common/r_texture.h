@@ -244,8 +244,6 @@ private:
 
 	typedef struct
 	{
-		// Keep name for switch changing, etc.
-		char			name[9];
 		short			width;
 		short			height;
 		byte			scalex;
