@@ -59,14 +59,14 @@ void OFont::printCharacter(const DCanvas* canvas, int& x, int& y, char c) const
 		// convert tabs into 4 spaces
 		for (int i = 0; i < 4; i++)
 		{
-			canvas->DrawTranslatedTexture(texture, x + xoffs, y + yoffs);
+			canvas->DrawTranslatedTexture(texture, x - xoffs, y - yoffs);
 			x += texture->getWidth();
 		}
 	}
 	else
 	{
-		canvas->DrawTranslatedTexture(texture, x + xoffs, y + yoffs);
-		x += texture->getWidth();
+		canvas->DrawTranslatedTexture(texture, x - xoffs, y - yoffs);
+		x += getTextWidth(c);
 	}
 }
 
@@ -83,8 +83,9 @@ void OFont::printText(const DCanvas* canvas, int x, int y, int color, const char
 
 int OFont::getTextWidth(char c) const
 {
-	if (mCharacters[(byte)c])
-		return mCharacters[(byte)c]->getWidth();
+	const Texture* texture = mCharacters[(byte)c];
+	if (texture)
+		return texture->getWidth() - texture->getOffsetX();
 	else
 		return 0;
 }
@@ -152,6 +153,9 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 			}
 		}
 	}
+
+	// base font height on the letter T
+	mHeight = mCharacters['T']->getHeight();
 }
 
 

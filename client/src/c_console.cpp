@@ -113,12 +113,33 @@ static int HistSize;
 #define NUMNOTIFIES 4
 
 EXTERN_CVAR (con_notifytime)
+
+CVAR_FUNC_IMPL (con_scaletext)
+{
+	// ensure only integer values are used
+	float valid_value = static_cast<int>(clamp<float>(var, 1.0f, 4.0f));
+	if (var != valid_value)
+		var.Set(valid_value);
+
+	if (console_font)
+	{
+		V_UnloadConsoleFont();
+		V_LoadConsoleFont();
+	}
+}
+
 CVAR_FUNC_IMPL (hud_scaletext)
 {
-	if (var < 1.0f)
-		var.Set(1.0f);
-	else if (var > 4.0f)
-		var.Set(4.0f);
+	// ensure only integer values are used
+	float valid_value = static_cast<int>(clamp<float>(var, 1.0f, 4.0f));
+	if (var != valid_value)
+		var.Set(valid_value);
+
+	if (hud_font)
+	{
+		V_UnloadHudFont();
+		V_LoadHudFont();
+	}
 }
 
 static struct NotifyText
@@ -766,7 +787,7 @@ void C_DrawConsole (void)
 
 	const int rowheight = console_font->getHeight();
 
-	const int left = 8;
+	const int left = console_font->getTextWidth('_');
 	const int bottom_row = ConBottom - 3 * rowheight / 2;
 	const int input_row = ConBottom - 5 * rowheight / 2;
 	int lines = bottom_row / rowheight;
@@ -853,19 +874,21 @@ void C_DrawConsole (void)
 		if (input_row >= 0)
 		{
 			// print the text entry prompt
-			console_font->printText(screen, left, input_row, CR_GREY, "]");
+			const char prompt[] = "]";
+			const int prompt_width = console_font->getTextWidth(prompt);
+			console_font->printText(screen, left, input_row, CR_GREY, prompt);
 	
 			// print the text the user has entered on the command line
 			size_t len = std::min<size_t>(CmdLine[0] - CmdLine[259], ConCols - 1);
 			strncpy(str, (char*)&CmdLine[2 + CmdLine[259]], len);
 			str[len] = 0;
 	
-			console_font->printText(screen, left + 8, input_row, CR_GREEN, str);
+			console_font->printText(screen, left + prompt_width, input_row, CR_GREEN, str);
 
 			// print the blinking cursor
 			if (cursoron)
 			{
-				int x = left + 8 + console_font->getTextWidth(str);
+				int x = left + prompt_width + console_font->getTextWidth(str);
 				int y = input_row;
 				console_font->printText(screen, x, y, CR_GREY, "_"); 
 			}

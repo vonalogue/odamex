@@ -52,12 +52,14 @@ public:
 
 	virtual int getHeight() const
 	{
-		return charheight;
+		return mHeight;
 	}
 
 private:
 	static const int charwidth = 8;
 	static const int charheight = 8;
+
+	int				mHeight;
 }; 
 
 class SmallDoomFont : public OFont

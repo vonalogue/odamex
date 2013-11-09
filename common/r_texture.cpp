@@ -109,8 +109,8 @@ void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1
 	const int sourcewidth = x2 - x1 + 1;
 	const int sourceheight = y2 - y1 + 1;
 
-	const fixed_t xstep = FixedDiv(sourcewidth << FRACBITS, destwidth << FRACBITS);
-	const fixed_t ystep = FixedDiv(sourceheight << FRACBITS, destheight << FRACBITS);
+	const fixed_t xstep = FixedDiv(sourcewidth << FRACBITS, destwidth << FRACBITS) + 1;
+	const fixed_t ystep = FixedDiv(sourceheight << FRACBITS, destheight << FRACBITS) + 1;
 
 	byte* dest = dest_texture->getData();
 	byte* dest_mask = dest_texture->getMaskData();
@@ -135,13 +135,11 @@ void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1
 		xfrac += xstep;
 	}
 
-	// copy the source texture's offset info if we're copying the entire texture
-	if (source_texture->getWidth() == sourcewidth &&
-		source_texture->getHeight() == sourceheight)
-	{
-		dest_texture->setOffsetX(source_texture->getOffsetX());
-		dest_texture->setOffsetY(source_texture->getOffsetY());
-	}
+	// copy the source texture's offset info
+	int xoffs = FixedDiv(source_texture->getOffsetX() << FRACBITS, xstep) >> FRACBITS;
+	int yoffs = FixedDiv(source_texture->getOffsetY() << FRACBITS, ystep) >> FRACBITS;
+	dest_texture->setOffsetX(xoffs);
+	dest_texture->setOffsetY(yoffs);
 }
 
 // ============================================================================

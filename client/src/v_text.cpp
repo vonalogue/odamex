@@ -40,6 +40,7 @@
 #include "doomstat.h"
 
 EXTERN_CVAR(hud_scaletext)
+EXTERN_CVAR(con_scaletext)
 
 OFont* console_font;
 OFont* hud_font;
@@ -57,7 +58,7 @@ void V_LoadConsoleFont()
 {
 	if (console_font)
 		V_UnloadConsoleFont();
-	console_font = new ConCharsFont(FRACUNIT);
+	console_font = new ConCharsFont(con_scaletext * FRACUNIT);
 //	console_font = new TrueTypeFont("FONT_SM", hud_scaletext * 8);
 }
 
