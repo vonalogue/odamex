@@ -112,26 +112,22 @@ private:
 	static size_t calculateSize(int width, int height);
 	void init(int width, int height);
 
-	int					mWidth;
-	int					mHeight;
-	
-	int					mWidthBits;
-	int					mHeightBits;
-
-	int					mWidthMask;
-	int					mHeightMask;
-
-	int					mOffsetX;
-	int					mOffsetY;
+	byte*				mMask;
+	byte*				mData;
 
 	fixed_t				mScaleX;
 	fixed_t				mScaleY;
 
+	unsigned short		mWidth;
+	unsigned short		mHeight;
+	
+	short				mOffsetX;
+	short				mOffsetY;
+
+	byte				mWidthBits;
+	byte				mHeightBits;
+
 	bool				mHasMask;
-
-	byte*				mMask;
-
-	byte*				mData;
 };
 
 
@@ -199,6 +195,9 @@ private:
 	static const unsigned int PATCH_HANDLE_MASK			= 0x00020000ul;
 	static const unsigned int SPRITE_HANDLE_MASK		= 0x00040000ul;
 	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x00080000ul;
+
+	static const unsigned int MAX_TEXTURE_WIDTH			= 2048;
+	static const unsigned int MAX_TEXTURE_HEIGHT		= 2048;
 
 	// initialization routines
 	void generateNotFoundTexture();

@@ -171,8 +171,6 @@ void Texture::init(int width, int height)
 	mHeight = height;
 	mWidthBits = Log2(width);
 	mHeightBits = Log2(height);
-	mWidthMask = (1 << mWidthBits) - 1;
-	mHeightMask = (1 << mHeightBits) - 1;
 	mOffsetX = 0;
 	mOffsetY = 0;
 	mScaleX = FRACUNIT;
@@ -347,7 +345,8 @@ void TextureManager::readPNamesDirectory()
 
 	for (int i = 0; i < num_pname_mappings; i++)
 	{
-		mPNameLookup[i] = W_CheckNumForName((char*)(lumpdata + 4 + 8 * i));
+		const char* lumpname = (const char*)(lumpdata + 4 + 8 * i);
+		mPNameLookup[i] = W_CheckNumForName(lumpname);
 
 		// killough 4/17/98:
 		// Some wads use sprites as wall patches, so repeat check and
@@ -358,7 +357,7 @@ void TextureManager::readPNamesDirectory()
 		// lump namespace problem.
 
 		if (mPNameLookup[i] == -1)
-			mPNameLookup[i] = W_CheckNumForName((char*)(lumpdata + 4 + 8 * i), ns_sprites);
+			mPNameLookup[i] = W_CheckNumForName(lumpname, ns_sprites);
 	}
 
 	delete [] lumpdata;
@@ -631,7 +630,7 @@ void TextureManager::updateAnimatedTextures()
 		int height = (1 << heightbits);
 		int heightmask = height - 1;
 
-		byte temp_buffer[2048];
+		byte temp_buffer[TextureManager::MAX_TEXTURE_HEIGHT];
 
 		int step = level.time * 32;
 		for (int y = height - 1; y >= 0; y--)
@@ -789,6 +788,9 @@ texhandle_t TextureManager::createSpecialUseHandle()
 //
 Texture* TextureManager::createTexture(texhandle_t handle, int width, int height)
 {
+	width = std::min<int>(width, TextureManager::MAX_TEXTURE_WIDTH);
+	height = std::min<int>(height, TextureManager::MAX_TEXTURE_HEIGHT);
+
 	Texture** owner = &mHandleMap[handle];
 	// server shouldn't allocate memory for texture data, only the header	
 	size_t texture_size = clientside ?
@@ -880,10 +882,10 @@ texhandle_t TextureManager::getSpriteHandle(unsigned int lumpnum)
 
 texhandle_t TextureManager::getSpriteHandle(const char* name)
 {
-	int lumpnum = W_CheckNumForName(name);
+	int lumpnum = W_CheckNumForName(name, ns_sprites);
 	if (lumpnum >= 0)
 		return getSpriteHandle(lumpnum);
-	lumpnum = W_CheckNumForName(name, ns_sprites);
+	lumpnum = W_CheckNumForName(name);
 	if (lumpnum >= 0)
 		return getSpriteHandle(lumpnum);
 	return NOT_FOUND_TEXTURE_HANDLE;
