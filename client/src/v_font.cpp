@@ -51,22 +51,19 @@ void OFont::printCharacter(const DCanvas* canvas, int& x, int& y, char c) const
 	if (texture == NULL)
 		return;
 
-	int xoffs = texture->getOffsetX();
-	int yoffs = texture->getOffsetY();
-
 	if (c == '\t')
 	{
 		// convert tabs into 4 spaces
 		for (int i = 0; i < 4; i++)
 		{
-			canvas->DrawTranslatedTexture(texture, x - xoffs, y - yoffs);
-			x += texture->getWidth();
+			canvas->DrawTranslatedTexture(texture, x, y);
+			x += getTextWidth((char)charnum);
 		}
 	}
 	else
 	{
-		canvas->DrawTranslatedTexture(texture, x - xoffs, y - yoffs);
-		x += getTextWidth(c);
+		canvas->DrawTranslatedTexture(texture, x, y);
+		x += getTextWidth((char)charnum);
 	}
 }
 
