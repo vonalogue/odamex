@@ -138,8 +138,8 @@ inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 	if (width <= 0)
 		return;
 
-	fixed_t texiscale[width];
-	const byte* texdata[width];
+	fixed_t texiscale[MAXWIDTH];
+	const byte* texdata[MAXWIDTH];
 
 	for (int x = 0; x < width; x++)
 	{
