@@ -30,6 +30,7 @@
 					<Add library="libportmidi" />
 					<Add library="winmm" />
 					<Add library="shlwapi" />
+					<Add library="SDL_ttf" />
 					<Add directory="../../lib" />
 				</Linker>
 			</Target>
