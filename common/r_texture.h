@@ -42,45 +42,6 @@ void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1
 
 
 
-// A single patch from a texture definition,
-//	basically a rectangular area within
-//	the texture rectangle.
-typedef struct
-{
-	// Block origin (always UL),
-	// which has already accounted
-	// for the internal origin of the patch.
-	int 		originx;
-	int 		originy;
-	int 		patch;
-} texdefpatch_t;
-
-
-// A maptexturedef_t describes a rectangular texture,
-//	which is composed of one or more mappatch_t structures
-//	that arrange graphic patches.
-typedef struct
-{
-	// Keep name for switch changing, etc.
-	char			name[9];
-	short			width;
-	short			height;
-	byte			scalex;
-	byte			scaley;
-
-	// [RH] Use a hash table similar to the one now used
-	//		in w_wad.c, thus speeding up level loads.
-	//		(possibly quite considerably for larger levels)
-	int				index;
-	int				next;
-
-	// All the patches[patchcount]
-	//	are drawn back to front into the cached texture.
-	short			patchcount;
-	texdefpatch_t	patches[1];
-
-} texdef_t;
-
 
 // ============================================================================
 //
@@ -274,10 +235,32 @@ private:
 	unsigned int				mFirstFlatLumpNum;
 	unsigned int				mLastFlatLumpNum;
 
+	// definitions for texture composition
+	typedef struct
+	{
+		int 		originx;
+		int 		originy;
+		int 		patch;
+	} texdefpatch_t;
+
+	typedef struct
+	{
+		// Keep name for switch changing, etc.
+		char			name[9];
+		short			width;
+		short			height;
+		byte			scalex;
+		byte			scaley;
+
+		short			patchcount;
+		texdefpatch_t	patches[1];
+	} texdef_t;
+
 	int*						mPNameLookup;
 	unsigned int				mTextureDefinitionCount;
 	texdef_t**					mTextureDefinitions;
 
+	// lookup table to translate texdef_t name to indices in mTextureDefinitions
 	typedef HashTable<OString, unsigned int> TextureNameTranslationMap;
 	TextureNameTranslationMap	mTextureNameTranslationMap;
 
