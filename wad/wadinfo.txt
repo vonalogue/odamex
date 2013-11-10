@@ -188,6 +188,7 @@ ODABARCF	0	0
 ODABARRE	0	0
 ODABARRF	0	0
 SBLINE	0	0
+FONTBACK	0	0
 
 # List of Sprites
 [sprites]

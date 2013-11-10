@@ -241,6 +241,9 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 	TTF_Font* font = TTF_OpenFontRW(rw, 0, size);
 	SDL_Color font_color = { 255, 0, 0 };	// Red for easy color translation
 
+	texhandle_t background_texhandle = texturemanager.getHandle("FONTBACK", Texture::TEX_PATCH);
+	const Texture* background_texture = texturemanager.getTexture(background_texhandle);
+
 	for (int charnum = ' '; charnum < '~'; charnum++)
 	{
 		const char str[2] = { charnum, 0 };
@@ -255,8 +258,8 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 		texhandle_t texhandle = texturemanager.createSpecialUseHandle();
 		Texture* texture = texturemanager.createTexture(texhandle, width, height);
 
-		// set the whole texture red so that it may be easily translated
-		memset(texture->getData(), 0xB0, sizeof(byte) * width * height);
+		// load a texture to use for the background of the text
+		R_CopySubimage(texture, background_texture, 0, 0, width - 1, height - 1);
 
 		SDL_PixelFormat* format = surface->format;
 		if (format->BytesPerPixel == 1)

@@ -72,8 +72,8 @@ void V_LoadHudFont()
 {
 	if (hud_font)
 		V_UnloadHudFont();
-	hud_font = new SmallDoomFont(hud_scaletext * FRACUNIT);
-//	hud_font = new TrueTypeFont("FONT_SM", hud_scaletext * 8);
+//	hud_font = new SmallDoomFont(hud_scaletext * FRACUNIT);
+	hud_font = new TrueTypeFont("FONT_SM", hud_scaletext * 8);
 }
 
 void V_UnloadMenuFont()
@@ -86,7 +86,7 @@ void V_LoadMenuFont()
 {
 	if (menu_font)
 		V_UnloadMenuFont();
-//	menu_font = new HudFont(MIN(CleanXfac, CleanYfac) * FRACUNIT);
+//	menu_font = new SmallDoomFont(MIN(CleanXfac, CleanYfac) * FRACUNIT);
 	menu_font = new TrueTypeFont("FONT_SM", MIN(CleanXfac, CleanYfac) * 8);
 }
 
