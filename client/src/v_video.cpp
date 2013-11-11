@@ -462,10 +462,11 @@ void DCanvas::Lock ()
 
 		if (this == screen)
 		{
-			if (dcol.pitch != pitch << detailyshift)
+			int bytesperpixel = bits >> 3;
+			if (dcol.pitch != (pitch << detailyshift) / bytesperpixel)
 			{
-				dcol.pitch = pitch << detailyshift;
-				dcol.bytesperpixel = is8bit() ? 1 : 4;
+				dcol.pitch = (pitch << detailyshift) / bytesperpixel;
+				dcol.bytesperpixel = bytesperpixel;
 				R_InitFuzzTable ();
 			}
 

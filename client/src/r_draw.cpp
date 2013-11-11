@@ -58,8 +58,8 @@ extern	int		ST_Y;
 //
 
 extern "C" {
-drawcolumn_t dcol;
-drawspan_t dspan;
+drawcolumn_t dcol = { 0 };
+drawspan_t dspan = { 0 };
 }
 
 
@@ -457,7 +457,7 @@ static forceinline void R_FillColumnGeneric(drawcolumn_t& drawcolumn)
 		return;
 
 	int color = drawcolumn.color;
-	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	int pitch = drawcolumn.pitch;
 	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
 
 	COLORFUNC colorfunc(drawcolumn);
@@ -492,7 +492,7 @@ static forceinline void R_FillMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 
 	const byte* mask = drawcolumn.mask;
 	int color = drawcolumn.color;
-	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	int pitch = drawcolumn.pitch;
 	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
 
 	const fixed_t fracstep = drawcolumn.iscale; 
@@ -545,7 +545,7 @@ static forceinline void R_DrawColumnGeneric(drawcolumn_t& drawcolumn)
 
 	const palindex_t* source = drawcolumn.source;
 	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
-	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	int pitch = drawcolumn.pitch;
 
 	const fixed_t fracstep = drawcolumn.iscale; 
 	fixed_t frac = drawcolumn.texturefrac;
@@ -611,7 +611,7 @@ static forceinline void R_DrawMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 	const byte* mask = drawcolumn.mask;
 	const palindex_t* source = drawcolumn.source;
 	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
-	int pitch = drawcolumn.pitch / sizeof(PIXEL_T);
+	int pitch = drawcolumn.pitch;
 
 	const fixed_t fracstep = drawcolumn.iscale; 
 	fixed_t frac = drawcolumn.texturefrac;
