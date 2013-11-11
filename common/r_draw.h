@@ -38,7 +38,10 @@ typedef struct
 	int					x;
 	int					yl;
 	int					yh;
+
+	int					bytesperpixel;
 	int					pitch;
+
 	
 	fixed_t				iscale;
 	fixed_t				texturemid;
@@ -126,7 +129,7 @@ inline int R_ColumnRangeMaximumHeight(int start, int stop, int* bottom)
 //
 // R_DrawColumnRange
 //
-// Draws a texture to the screen using a cache-friendly 64x64 pixel block
+// Draws a texture to the screen using a cache-friendly 64x64 byte block
 // scheme.
 //
 template <typename TextureMapper>
@@ -148,24 +151,31 @@ inline void R_DrawColumnRange(int start, int stop, int* top, int* bottom,
 		mapper.next();
 	}
 
-	const int BLOCKBITS = 6;
-	const int BLOCKSIZE = (1 << BLOCKBITS);
-	const int BLOCKMASK = (BLOCKSIZE - 1);
+	// Block will be 64 rows of 64 bytes.
+	// Most current CPUs have 64 byte wide cache lines
+	const int BLOCK_WIDTH_BITS = 6 - (dcol.bytesperpixel >> 1);
+	const int BLOCK_HEIGHT_BITS = 6;
+
+	const int BLOCK_WIDTH = (1 << BLOCK_WIDTH_BITS);
+	const int BLOCK_HEIGHT = (1 << BLOCK_HEIGHT_BITS);
+
+	const int BLOCK_WIDTH_MASK = BLOCK_WIDTH - 1;
+	const int BLOCK_HEIGHT_MASK = BLOCK_HEIGHT - 1;
 
 	// [SL] Render the range of columns in 64x64 pixel blocks, aligned to a grid
 	// on the screen. This is to make better use of spatial locality in the cache.
-	for (int bx = start; bx <= stop; bx = (bx & ~BLOCKMASK) + BLOCKSIZE)
+	for (int bx = start; bx <= stop; bx = (bx & ~BLOCK_WIDTH_MASK) + BLOCK_WIDTH)
 	{
 		int blockstartx = bx;
-		int blockstopx = MIN((bx & ~BLOCKMASK) + BLOCKSIZE - 1, stop);
+		int blockstopx = MIN((bx & ~BLOCK_WIDTH_MASK) + BLOCK_WIDTH - 1, stop);
 
 		int miny = R_ColumnRangeMinimumHeight(blockstartx, blockstopx, top);
 		int maxy = R_ColumnRangeMaximumHeight(blockstartx, blockstopx, bottom);
 
-		for (int by = miny; by <= maxy; by = (by & ~BLOCKMASK) + BLOCKSIZE)
+		for (int by = miny; by <= maxy; by = (by & ~BLOCK_HEIGHT_MASK) + BLOCK_HEIGHT)
 		{
 			int blockstarty = by;
-			int blockstopy = (by & ~BLOCKMASK) + BLOCKSIZE - 1;
+			int blockstopy = (by & ~BLOCK_HEIGHT_MASK) + BLOCK_HEIGHT - 1;
 
 			for (int x = blockstartx; x <= blockstopx; x++)
 			{

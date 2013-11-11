@@ -465,6 +465,7 @@ void DCanvas::Lock ()
 			if (dcol.pitch != pitch << detailyshift)
 			{
 				dcol.pitch = pitch << detailyshift;
+				dcol.bytesperpixel = is8bit() ? 1 : 4;
 				R_InitFuzzTable ();
 			}
 
