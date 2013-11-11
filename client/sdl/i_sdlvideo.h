@@ -111,6 +111,8 @@ class SDLVideo : public IVideo
    SDL_Color newPalette[256];
    SDL_Color palette[256];
    bool palettechanged;
+
+   byte* framebuffer;
 };
 #endif
 

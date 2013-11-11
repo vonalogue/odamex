@@ -54,7 +54,8 @@ CVAR_FUNC_IMPL(vid_vsync)
 	setmodeneeded = true;
 }
 
-SDLVideo::SDLVideo(int parm)
+SDLVideo::SDLVideo(int parm) :
+	framebuffer(NULL)
 {
 	const SDL_version *SDLVersion = SDL_Linked_Version();
 
@@ -365,6 +366,8 @@ bool SDLVideo::NextMode (int *width, int *height)
 
 DCanvas *SDLVideo::AllocateSurface(int width, int height, int bits, bool primary)
 {
+	const int alignment = 64;	// align framebuffer rows to 64-byte boundaries
+
 	DCanvas *scrn = new DCanvas;
 
 	scrn->width = width;
@@ -377,7 +380,12 @@ DCanvas *SDLVideo::AllocateSurface(int width, int height, int bits, bool primary
 	SDL_Surface* new_surface;
 	Uint32 flags = SDL_SWSURFACE;
 
-	new_surface = SDL_CreateRGBSurface(flags, width, height, bits, 0, 0, 0, 0);
+	int bytesperpixel = bits / 8;
+	int alignedwidth = (width * bytesperpixel + alignment - 1) & ~(alignment - 1);
+	framebuffer = new byte[height * alignedwidth];
+	byte* aligned_framebuffer = (byte*)(((size_t)framebuffer + alignment - 1) & ~(alignment - 1));
+
+	new_surface = SDL_CreateRGBSurfaceFrom(aligned_framebuffer, width, height, bits, alignedwidth, 0, 0, 0, 0);
 
 	if (!new_surface)
 		I_FatalError("SDLVideo::AllocateSurface failed to allocate an SDL surface.");
@@ -428,6 +436,9 @@ void SDLVideo::ReleaseSurface(DCanvas *scrn)
 	scrn->DetachPalette ();
 
 	delete scrn;
+
+	delete [] framebuffer;
+	framebuffer = NULL;
 }
 
 
