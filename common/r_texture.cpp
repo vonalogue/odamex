@@ -203,9 +203,11 @@ void Texture::init(int width, int height)
 const texhandle_t TextureManager::GARBAGE_TEXTURE_HANDLE = TextureManager::WALLTEXTURE_HANDLE_MASK;
 
 TextureManager::TextureManager() :
+	mHandleMap(2049),
 	mPNameLookup(NULL),
 	mTextureDefinitionCount(0),
 	mTextureDefinitions(NULL),
+	mTextureNameTranslationMap(513),
 	mNextSpecialUseHandle(0)
 {
 }
