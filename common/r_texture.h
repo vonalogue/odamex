@@ -70,6 +70,9 @@ public:
 		TEX_WALLTEXTURE
 	} TextureSourceType;
 
+	static const unsigned int MAX_TEXTURE_WIDTH			= 2048;
+	static const unsigned int MAX_TEXTURE_HEIGHT		= 2048;
+
 	byte* getData() const
 	{	return mData;	}
 
@@ -197,9 +200,6 @@ private:
 	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x00080000ul;
 	static const unsigned int CUSTOM_HANDLE_MASK		= 0x000A0000ul;
 
-	static const unsigned int MAX_TEXTURE_WIDTH			= 2048;
-	static const unsigned int MAX_TEXTURE_HEIGHT		= 2048;
-
 	// initialization routines
 	void clear();
 	void generateNotFoundTexture();
@@ -237,14 +237,14 @@ private:
 	unsigned int				mLastFlatLumpNum;
 
 	// definitions for texture composition
-	typedef struct
+	struct texdefpatch_t
 	{
 		int 		originx;
 		int 		originy;
 		int 		patch;
-	} texdefpatch_t;
+	};
 
-	typedef struct
+	struct texdef_t
 	{
 		short			width;
 		short			height;
@@ -253,7 +253,7 @@ private:
 
 		short			patchcount;
 		texdefpatch_t	patches[1];
-	} texdef_t;
+	};
 
 	int*						mPNameLookup;
 	unsigned int				mTextureDefinitionCount;
@@ -270,7 +270,7 @@ private:
 	texhandle_t					mFreeCustomHandles[MAX_CUSTOM_HANDLES];
 
 	// animated textures
-	typedef struct
+	struct anim_t
 	{
 		static const unsigned int MAX_ANIM_FRAMES = 32;
 		texhandle_t		basepic;
@@ -280,16 +280,16 @@ private:
 		byte 			speedmin[MAX_ANIM_FRAMES];
 		byte			speedmax[MAX_ANIM_FRAMES];
 		texhandle_t		framepic[MAX_ANIM_FRAMES];
-	} anim_t;
+	};
 
 	std::vector<anim_t>			mAnimDefs;
 
 	// warped textures
-	typedef struct
+	struct warp_t
 	{
 		const Texture*	original_texture;
 		Texture*		warped_texture;
-	} warp_t;
+	};
 
 	std::vector<warp_t>			mWarpDefs;
 };

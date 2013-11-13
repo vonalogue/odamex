@@ -1079,10 +1079,6 @@ bool D_DoomWadReboot(
     UndoDehPatch();
     patchfiles.clear();
 
-	// [RH] Initialize localizable strings.
-	GStrings.ResetStrings ();
-	GStrings.Compact ();
-
 	D_DoDefDehackedPatch(newpatchfiles);
 
 	D_Init();

@@ -720,6 +720,7 @@ void D_Shutdown()
 	V_UnloadHudFont();
 
 	GStrings.ResetStrings();
+	GStrings.Compact();
 
 	R_ShutdownTextureManager();
 

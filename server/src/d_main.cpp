@@ -358,6 +358,7 @@ void D_Shutdown()
 	W_Close();
 
 	GStrings.ResetStrings();
+	GStrings.Compact();
 
 	R_ShutdownTextureManager();
 

@@ -150,6 +150,58 @@ void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1
 	dest_texture->setOffsetY(yoffs);
 }
 
+
+//
+// R_WarpTexture
+//
+// Alters the image in source_texture with a warping effect and saves the
+// result in dest_texture.
+//
+static void R_WarpTexture(Texture* dest_texture, const Texture* source_texture)
+{
+	const byte* source_buffer = source_texture->getData();
+	byte* warped_buffer = dest_texture->getData();
+
+	int widthbits = source_texture->getWidthBits();
+	int width = (1 << widthbits);
+	int widthmask = width - 1; 
+	int heightbits = source_texture->getHeightBits();
+	int height = (1 << heightbits);
+	int heightmask = height - 1;
+
+	byte temp_buffer[Texture::MAX_TEXTURE_HEIGHT];
+
+	int step = level.time * 32;
+	for (int y = height - 1; y >= 0; y--)
+	{
+		const byte* source = source_buffer + y;
+		byte* dest = warped_buffer + y;
+
+		int xf = (finesine[(step + y * 128) & FINEMASK] >> 13) & widthmask;
+		for (int x = 0; x < width; x++)
+		{
+			*dest = source[xf << heightbits];
+			dest += height;
+			xf = (xf + 1) & widthmask;
+		}
+	}
+
+	step = level.time * 23;
+	for (int x = width - 1; x >= 0; x--)
+	{
+		const byte *source = warped_buffer + (x << heightbits);
+		byte *dest = temp_buffer;
+
+		int yf = (finesine[(step + 128 * (x + 17)) & FINEMASK] >> 13) & heightmask;
+		for (int y = 0; y < height; y++)
+		{
+			*dest++ = source[yf];
+			yf = (yf + 1) & heightmask;
+		}
+		memcpy(warped_buffer + (x << heightbits), temp_buffer, height);
+	}
+}
+
 // ============================================================================
 //
 // Texture
@@ -244,7 +296,7 @@ void TextureManager::clear()
 	// free all custom texture handles
 	mFreeCustomHandlesHead = 0;
 	mFreeCustomHandlesTail = TextureManager::MAX_CUSTOM_HANDLES - 1;
-	for (unsigned int i = 0; i < TextureManager::MAX_CUSTOM_HANDLES; i++)
+	for (unsigned int i = mFreeCustomHandlesHead; i <= mFreeCustomHandlesTail; i++)
 		mFreeCustomHandles[i] = CUSTOM_HANDLE_MASK | i;
 
 	delete [] mPNameLookup;
@@ -319,15 +371,18 @@ void TextureManager::freeTexture(texhandle_t texhandle)
 		texhandle == TextureManager::NO_TEXTURE_HANDLE)
 		return;
 
-	Texture* texture = mHandleMap[texhandle];
-	if (texture)
+	HandleMap::iterator it = mHandleMap.find(texhandle);
+	if (it != mHandleMap.end())
 	{
-		Z_Free((void*)texture);
-		if (texhandle & CUSTOM_HANDLE_MASK)
-			freeCustomHandle(texhandle);
-	}
+		if (it->second)
+		{
+			Z_Free((void*)it->second);
+			if (texhandle & CUSTOM_HANDLE_MASK)
+				freeCustomHandle(texhandle);
+		}
 
-	mHandleMap.erase(texhandle);
+		mHandleMap.erase(it);
+	}
 }
 
 //
@@ -648,48 +703,7 @@ void TextureManager::updateAnimatedTextures()
 	{
 		const Texture* original_texture = mWarpDefs[i].original_texture;
 		Texture* warped_texture = mWarpDefs[i].warped_texture;
-
-		const byte* original_buffer = original_texture->getData();
-		byte* warped_buffer = warped_texture->getData();
-
-		int widthbits = original_texture->getWidthBits();
-		int width = (1 << widthbits);
-		int widthmask = width - 1; 
-		int heightbits = original_texture->getHeightBits();
-		int height = (1 << heightbits);
-		int heightmask = height - 1;
-
-		byte temp_buffer[TextureManager::MAX_TEXTURE_HEIGHT];
-
-		int step = level.time * 32;
-		for (int y = height - 1; y >= 0; y--)
-		{
-			const byte* source = original_buffer + y;
-			byte* dest = warped_buffer + y;
-
-			int xf = (finesine[(step + y * 128) & FINEMASK] >> 13) & widthmask;
-			for (int x = 0; x < width; x++)
-			{
-				*dest = source[xf << heightbits];
-				dest += height;
-				xf = (xf + 1) & widthmask;
-			}
-		}
-
-		step = level.time * 23;
-		for (int x = width - 1; x >= 0; x--)
-		{
-			const byte *source = warped_buffer + (x << heightbits);
-			byte *dest = temp_buffer;
-
-			int yf = (finesine[(step + 128 * (x + 17)) & FINEMASK] >> 13) & heightmask;
-			for (int y = 0; y < height; y++)
-			{
-				*dest++ = source[yf];
-				yf = (yf + 1) & heightmask;
-			}
-			memcpy(warped_buffer + (x << heightbits), temp_buffer, height);
-		}
+		R_WarpTexture(warped_texture, original_texture);
 	}
 }
 
@@ -740,21 +754,21 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 	// into the rectangular texture space using origin
 	// and possibly other attributes.
 	//
-	typedef struct
+	struct mappatch_t
 	{
 		short	originx;
 		short	originy;
 		short	patch;
 		short	stepdir;
 		short	colormap;
-	} mappatch_t;
+	};
 
 	//
 	// Texture definition.
 	// A DOOM wall texture is a list of patches
 	// which are to be combined in a predefined order.
 	//
-	typedef struct
+	struct maptexture_t
 	{
 		char		name[8];
 		WORD		masked;				// [RH] Unused
@@ -765,7 +779,7 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 		byte		columndirectory[4];	// OBSOLETE
 		short		patchcount;
 		mappatch_t	patches[1];
-	} maptexture_t;
+	};
 
 	int lumpnum = W_CheckNumForName(lumpname);
 	if (lumpnum == -1)
@@ -860,8 +874,8 @@ void TextureManager::freeCustomHandle(texhandle_t texhandle)
 //
 Texture* TextureManager::createTexture(texhandle_t handle, int width, int height)
 {
-	width = std::min<int>(width, TextureManager::MAX_TEXTURE_WIDTH);
-	height = std::min<int>(height, TextureManager::MAX_TEXTURE_HEIGHT);
+	width = std::min<int>(width, Texture::MAX_TEXTURE_WIDTH);
+	height = std::min<int>(height, Texture::MAX_TEXTURE_HEIGHT);
 
 	Texture** owner = &mHandleMap[handle];
 	// server shouldn't allocate memory for texture data, only the header	
