@@ -183,18 +183,21 @@ public:
 
 	Texture* createTexture(texhandle_t handle, int width, int height);
 
-	texhandle_t createSpecialUseHandle();
+	void freeTexture(texhandle_t handle);
+
+	texhandle_t createCustomHandle();
+	void freeCustomHandle(texhandle_t texhandle);
 
 	static const texhandle_t NO_TEXTURE_HANDLE			= 0x0;
 	static const texhandle_t NOT_FOUND_TEXTURE_HANDLE	= 0x1;
 	static const texhandle_t GARBAGE_TEXTURE_HANDLE;
 
 private:
-	static const unsigned int SPECIAL_USE_HANDLE_MASK	= 0x00008000ul;
 	static const unsigned int FLAT_HANDLE_MASK			= 0x00010000ul;
 	static const unsigned int PATCH_HANDLE_MASK			= 0x00020000ul;
 	static const unsigned int SPRITE_HANDLE_MASK		= 0x00040000ul;
 	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x00080000ul;
+	static const unsigned int CUSTOM_HANDLE_MASK		= 0x000A0000ul;
 
 	static const unsigned int MAX_TEXTURE_WIDTH			= 2048;
 	static const unsigned int MAX_TEXTURE_HEIGHT		= 2048;
@@ -261,8 +264,11 @@ private:
 	typedef HashTable<OString, unsigned int> TextureNameTranslationMap;
 	TextureNameTranslationMap	mTextureNameTranslationMap;
 
-	static const unsigned int MAX_SPECIAL_USE_HANDLES = 4096;
-	texhandle_t					mNextSpecialUseHandle;
+	// handle management for the creation of new handles
+	static const unsigned int MAX_CUSTOM_HANDLES = 1024;
+	unsigned int				mFreeCustomHandlesHead;
+	unsigned int				mFreeCustomHandlesTail;
+	texhandle_t					mFreeCustomHandles[MAX_CUSTOM_HANDLES];
 
 	// animated textures
 	typedef struct

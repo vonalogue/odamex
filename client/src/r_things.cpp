@@ -612,7 +612,7 @@ void R_InitSprites (const char **namelist)
 	// set up the crosshair
 	R_InitCrosshair();
 
-	particle_texhandle = texturemanager.createSpecialUseHandle();
+	particle_texhandle = texturemanager.createCustomHandle();
 }
 
 

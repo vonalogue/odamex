@@ -117,6 +117,13 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 		I_Error("Unable to load %s lump.", lumpname);
 	const Texture* conchars_texture = texturemanager.getTexture(conchars_handle);
 
+	// initialize lookups
+	for (int i = 0; i < 256; i++)
+	{
+		mCharacters[i] = NULL;
+		mCharacterHandles[i] = TextureManager::NO_TEXTURE_HANDLE;
+	}
+
 	const int numcolumns = conchars_texture->getWidth() / charwidth;
 	const int numrows = conchars_texture->getHeight() / charheight;
 
@@ -129,10 +136,12 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 			int dest_charheight = (charheight * scale) >> FRACBITS;
 
 			int charnum = row * numrows + column;
-			texhandle_t texhandle = texturemanager.createSpecialUseHandle();			
-			Texture* texture = texturemanager.createTexture(texhandle, dest_charwidth, dest_charheight);
-			Z_ChangeTag(texture, PU_STATIC);	// don't allow texture to be purged from cache
+
+			mCharacterHandles[charnum] = texturemanager.createCustomHandle();
+
+			Texture* texture = texturemanager.createTexture(mCharacterHandles[charnum], dest_charwidth, dest_charheight);
 			mCharacters[charnum] = texture;
+			Z_ChangeTag(texture, PU_STATIC);	// don't allow texture to be purged from cache
 
 			int x1 = column * charwidth;
 			int x2 = x1 + charwidth - 1;
@@ -155,6 +164,14 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 	mHeight = mCharacters['T']->getHeight();
 }
 
+ConCharsFont::~ConCharsFont()
+{
+	for (int i = 0; i < 256; i++)
+	{
+		if (mCharacterHandles[i] != TextureManager::NO_TEXTURE_HANDLE)
+			texturemanager.freeTexture(mCharacterHandles[i]);
+	}
+}
 
 // ----------------------------------------------------------------------------
 //
@@ -167,8 +184,12 @@ SmallDoomFont::SmallDoomFont(fixed_t scale)
 	static const char* tplate = "STCFN%.3d";
 	char name[12];
 
-	// initialize all Texture pointers to NULL
-	memset(mCharacters, 0, sizeof(*mCharacters) * 256);
+	// initialize lookups
+	for (int i = 0; i < 256; i++)
+	{
+		mCharacters[i] = NULL;
+		mCharacterHandles[i] = TextureManager::NO_TEXTURE_HANDLE;
+	}
 
 	for (int charnum = '!'; charnum <= '_'; charnum++)
 	{
@@ -178,12 +199,13 @@ SmallDoomFont::SmallDoomFont(fixed_t scale)
 
 		int dest_charwidth = (source_texture->getWidth() * scale) >> FRACBITS;
 		int dest_charheight = (source_texture->getHeight() * scale) >> FRACBITS;
-		texhandle_t dest_texhandle = texturemanager.createSpecialUseHandle();
-		Texture* dest_texture = texturemanager.createTexture(dest_texhandle, dest_charwidth, dest_charheight);
+
+		mCharacterHandles[charnum] = texturemanager.createCustomHandle();
+		Texture* dest_texture = texturemanager.createTexture(mCharacterHandles[charnum], dest_charwidth, dest_charheight);
 		R_CopySubimage(dest_texture, source_texture, 0, 0, source_texture->getWidth() - 1, source_texture->getHeight() - 1);
 
-		Z_ChangeTag(dest_texture, PU_STATIC);	// don't allow texture to be purged from cache
 		mCharacters[charnum] = dest_texture;
+		Z_ChangeTag(dest_texture, PU_STATIC);	// don't allow texture to be purged from cache
 	}
 
 	for (int charnum = 'a'; charnum <= 'z'; charnum++)
@@ -192,7 +214,7 @@ SmallDoomFont::SmallDoomFont(fixed_t scale)
 	// add a character for ' ' (based on dimensions of the T character)
 	int spacewidth = mCharacters['T']->getWidth() / 2;
 	int spaceheight = mCharacters['T']->getHeight();
-	texhandle_t space_texhandle = texturemanager.createSpecialUseHandle();
+	texhandle_t space_texhandle = texturemanager.createCustomHandle();
 	Texture* space_texture = texturemanager.createTexture(space_texhandle, spacewidth, spaceheight);
 	Z_ChangeTag(space_texture, PU_STATIC);
 	mCharacters[' '] = space_texture;
@@ -200,7 +222,7 @@ SmallDoomFont::SmallDoomFont(fixed_t scale)
 	// add blank textures for the characters not present in the font
 	int blankwidth = mCharacters['T']->getWidth() / 2;
 	int blankheight = mCharacters['T']->getHeight();
-	texhandle_t blank_texhandle = texturemanager.createSpecialUseHandle();
+	texhandle_t blank_texhandle = texturemanager.createCustomHandle();
 	Texture* blank_texture = texturemanager.createTexture(blank_texhandle, blankwidth, blankheight);
 	Z_ChangeTag(blank_texture, PU_STATIC);
 
@@ -210,6 +232,16 @@ SmallDoomFont::SmallDoomFont(fixed_t scale)
 
 	mHeight = mCharacters['T']->getHeight() + (scale >> FRACBITS);
 }
+
+SmallDoomFont::~SmallDoomFont()
+{
+	for (int i = 0; i < 256; i++)
+	{
+		if (mCharacterHandles[i] != TextureManager::NO_TEXTURE_HANDLE)
+			texturemanager.freeTexture(mCharacterHandles[i]);
+	}
+}
+
 
 // ----------------------------------------------------------------------------
 //
@@ -232,6 +264,13 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 		return;
 	}
 	
+	// initialize lookups
+	for (int i = 0; i < 256; i++)
+	{
+		mCharacters[i] = NULL;
+		mCharacterHandles[i] = TextureManager::NO_TEXTURE_HANDLE;
+	}
+
 	size_t lumplen = W_LumpLength(lumpnum);
 	byte* rawlumpdata = new byte[lumplen];
 	W_ReadLump(lumpnum, rawlumpdata);
@@ -255,8 +294,8 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 		int width = surface->w;
 		int height = surface->h;
 
-		texhandle_t texhandle = texturemanager.createSpecialUseHandle();
-		Texture* texture = texturemanager.createTexture(texhandle, width, height);
+		mCharacterHandles[charnum] = texturemanager.createCustomHandle();
+		Texture* texture = texturemanager.createTexture(mCharacterHandles[charnum], width, height);
 
 		// load a texture to use for the background of the text
 		R_CopySubimage(texture, background_texture, 0, 0, width - 1, height - 1);
@@ -309,5 +348,14 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 
 	// base the font height on the letter T
 	mHeight = mCharacters['T']->getHeight();
+}
+
+TrueTypeFont::~TrueTypeFont()
+{
+	for (int i = 0; i < 256; i++)
+	{
+		if (mCharacterHandles[i] != TextureManager::NO_TEXTURE_HANDLE)
+			texturemanager.freeTexture(mCharacterHandles[i]);
+	}
 }
 

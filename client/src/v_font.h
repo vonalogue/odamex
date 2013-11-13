@@ -38,6 +38,7 @@ public:
 	void printText(const DCanvas* canvas, int x, int y, int color, const char* str) const;
 
 protected:
+	texhandle_t		mCharacterHandles[256];
 	const Texture*	mCharacters[256];
 
 private:
@@ -49,6 +50,7 @@ class ConCharsFont : public OFont
 {
 public:
 	ConCharsFont(fixed_t scale);
+	~ConCharsFont();
 
 	virtual int getHeight() const
 	{
@@ -66,6 +68,7 @@ class SmallDoomFont : public OFont
 {
 public:
 	SmallDoomFont(fixed_t scale);
+	~SmallDoomFont();
 
 	virtual int getHeight() const
 	{
@@ -81,6 +84,7 @@ class TrueTypeFont : public OFont
 {
 public:
 	TrueTypeFont(const char* filename, int size);
+	~TrueTypeFont();
 
 	virtual int getHeight() const
 	{

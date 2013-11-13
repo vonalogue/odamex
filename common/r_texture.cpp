@@ -208,7 +208,8 @@ TextureManager::TextureManager() :
 	mTextureDefinitionCount(0),
 	mTextureDefinitions(NULL),
 	mTextureNameTranslationMap(513),
-	mNextSpecialUseHandle(0)
+	mFreeCustomHandlesHead(0),
+	mFreeCustomHandlesTail(TextureManager::MAX_CUSTOM_HANDLES)
 {
 }
 
@@ -245,7 +246,10 @@ void TextureManager::clear()
 
 	mHandleMap.clear();
 
-	mNextSpecialUseHandle = 0;
+	mFreeCustomHandlesHead = 0;
+	mFreeCustomHandlesTail = TextureManager::MAX_CUSTOM_HANDLES;
+	for (unsigned int i = 0; i < TextureManager::MAX_CUSTOM_HANDLES; i++)
+		mFreeCustomHandles[i] = CUSTOM_HANDLE_MASK | i;
 }
 
 
@@ -289,6 +293,18 @@ void TextureManager::shutdown()
 	clear();
 }
 
+
+//
+// TextureManager::freeTexture
+//
+void TextureManager::freeTexture(texhandle_t texhandle)
+{
+	Texture* texture = mHandleMap[texhandle];
+	Z_Free((void*)texture);
+	mHandleMap.erase(texhandle);
+	if (texhandle & CUSTOM_HANDLE_MASK)
+		freeCustomHandle(texhandle);
+}
 
 //
 // TextureManager::precache
@@ -791,19 +807,23 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 
 
 //
-// TextureManager::createSpecialUseHandle
+// TextureManager::createCustomHandle
 //
 // Generates a valid handle that can be used by the engine to denote certain
 // properties for a wall or ceiling or floor. For instance, a special use
 // handle can be used to denote that a ceiling should be rendered with SKY2.
 //
-texhandle_t TextureManager::createSpecialUseHandle()
+texhandle_t TextureManager::createCustomHandle()
 {
-	if (mNextSpecialUseHandle < MAX_SPECIAL_USE_HANDLES)
-		return SPECIAL_USE_HANDLE_MASK | mNextSpecialUseHandle++;
-	return NOT_FOUND_TEXTURE_HANDLE;
+	if (mFreeCustomHandlesTail <= mFreeCustomHandlesHead)
+		return TextureManager::NOT_FOUND_TEXTURE_HANDLE;
+	return mFreeCustomHandles[mFreeCustomHandlesHead++ % MAX_CUSTOM_HANDLES];
 }
 
+void TextureManager::freeCustomHandle(texhandle_t texhandle)
+{
+	mFreeCustomHandles[mFreeCustomHandlesTail++ % MAX_CUSTOM_HANDLES] = texhandle;
+}
 
 //
 // TextureManager::createTexture
@@ -1088,28 +1108,23 @@ texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceTy
 	if (name[0] == '-' && type == Texture::TEX_WALLTEXTURE)
 		return NO_TEXTURE_HANDLE;
 
-	char uname[9];
-	for (int i = 0; i < 8; i++)
-		uname[i] = toupper(name[i]);
-	uname[8] = 0;
-
 	texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
 
 	// check for the texture in the default location specified by type
 	if (type == Texture::TEX_FLAT)
-		handle = getFlatHandle(uname);
+		handle = getFlatHandle(name);
 	else if (type == Texture::TEX_WALLTEXTURE)
-		handle = getWallTextureHandle(uname);
+		handle = getWallTextureHandle(name);
 	else if (type == Texture::TEX_PATCH)
-		handle = getPatchHandle(uname);
+		handle = getPatchHandle(name);
 	else if (type == Texture::TEX_SPRITE)
-		handle = getSpriteHandle(uname);
+		handle = getSpriteHandle(name);
 
 	// not found? check elsewhere
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
-		handle = getFlatHandle(uname);
+		handle = getFlatHandle(name);
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_WALLTEXTURE)
-		handle = getWallTextureHandle(uname);
+		handle = getWallTextureHandle(name);
 
 	return handle;
 }
