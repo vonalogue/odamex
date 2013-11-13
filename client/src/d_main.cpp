@@ -641,41 +641,92 @@ bool HashOk(std::string &required, std::string &available)
 #endif
 }*/
 
-//
-// D_NewWadInit
-//
-// Client code that should be reset every time a new set of WADs are loaded
-//
-void D_NewWadInit()
-{
-	AM_Stop();
 
-	HU_Init ();
+//
+// D_Init
+//
+// Called to initialize subsystems when loading a new set of WAD resource
+// files.
+//
+void D_Init()
+{
+	M_ClearRandom();
+
+	// start the Zone memory manager
+	Z_Init();
+
+	R_InitTextureManager();
+
+	SetLanguageIDs();
+
+	// [RH] Initialize localizable strings.
+	GStrings.LoadStrings(W_GetNumForName("LANGUAGE"), STRING_TABLE_SIZE, false);
+	GStrings.Compact();
+
+	// fonts
+	V_LoadHudFont();
+	V_LoadMenuFont();
+	V_LoadConsoleFont();
+
+	// init the renderer
+	R_Init();
+
+	HU_Init();
 
 	if (!(InitPalettes("PLAYPAL")))
 		I_Error("Could not reinitialize palette");
 	V_InitPalette();
 
-	G_SetLevelStrings ();
-	G_ParseMapInfo ();
-	G_ParseMusInfo ();
+	G_SetLevelStrings();
+	G_ParseMapInfo();
+	G_ParseMusInfo();
 	S_ParseSndInfo();
 
+	// init the menu subsystem
 	M_Init();
 
-	texturemanager.shutdown();
-	texturemanager.startup();
-
-	R_Init();
-	V_LoadConsoleFont();
-	V_LoadHudFont();
-	V_LoadMenuFont();
-	P_InitEffects();	// [ML] Do this here so we don't have to put particle crap in server
+	P_InitEffects();
 	P_Init();
 
-	S_Init (snd_sfxvolume, snd_musicvolume);
+	// init sound and music
+	S_Init(snd_sfxvolume, snd_musicvolume);
+
+	// init the status bar
 	ST_Init();
 }
+
+//
+// D_Shutdown
+//
+// Called to shutdown subsystems when unloading a set of WAD resource files.
+// Should be called prior to D_Init when loading a new set of WADs.
+//
+void D_Shutdown()
+{
+	// stop sound effects and music
+	S_Stop();
+	
+	// shutdown automap
+	AM_Stop();
+
+	DThinker::DestroyAllThinkers();
+
+	// close all open WAD files
+	W_Close();
+
+	// fonts
+	V_UnloadConsoleFont();
+	V_UnloadMenuFont();
+	V_UnloadHudFont();
+
+	GStrings.ResetStrings();
+
+	R_ShutdownTextureManager();
+
+	// reset the Zone memory manager
+	Z_Init();
+}
+
 
 void CL_NetDemoRecord(const std::string &filename);
 void CL_NetDemoPlay(const std::string &filename);
@@ -850,8 +901,8 @@ void D_DoomMain (void)
 	Printf (PRINT_HIGH, "M_Init: Init miscellaneous info.\n");
 	M_Init ();
 
-	Printf (PRINT_HIGH, "TextureManager startup\n");
-	texturemanager.startup();
+	Printf (PRINT_HIGH, "R_InitTextureManager: Init image resource management.\n");
+	R_InitTextureManager();
 
 	Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
 	R_Init ();

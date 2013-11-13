@@ -37,9 +37,17 @@
 
 #include "r_texture.h"
 
-
 TextureManager texturemanager;
 
+void R_InitTextureManager()
+{
+	texturemanager.startup();
+}
+
+void R_ShutdownTextureManager()
+{
+	texturemanager.shutdown();
+}
 
 //
 // R_DrawPatchIntoTexture
@@ -226,6 +234,19 @@ TextureManager::~TextureManager()
 //
 void TextureManager::clear()
 {
+	// free normal textures
+	for (HandleMap::iterator it = mHandleMap.begin(); it != mHandleMap.end(); ++it)
+		if (it->second)
+			Z_Free((void*)it->second);
+
+	mHandleMap.clear();
+
+	// free all custom texture handles
+	mFreeCustomHandlesHead = 0;
+	mFreeCustomHandlesTail = TextureManager::MAX_CUSTOM_HANDLES - 1;
+	for (unsigned int i = 0; i < TextureManager::MAX_CUSTOM_HANDLES; i++)
+		mFreeCustomHandles[i] = CUSTOM_HANDLE_MASK | i;
+
 	delete [] mPNameLookup;
 	mPNameLookup = NULL;
 
@@ -239,17 +260,12 @@ void TextureManager::clear()
 
 	mAnimDefs.clear();
 
+	// free warping original texture (not stored in mHandleMap)
+	for (size_t i = 0; i < mWarpDefs.size(); i++)
+		if (mWarpDefs[i].original_texture)
+			Z_Free((void*)mWarpDefs[i].original_texture);
+
 	mWarpDefs.clear();
-
-	// [SL] the zone memory manager takes care of freeing all allocated
-	// memory for Textures.
-
-	mHandleMap.clear();
-
-	mFreeCustomHandlesHead = 0;
-	mFreeCustomHandlesTail = TextureManager::MAX_CUSTOM_HANDLES;
-	for (unsigned int i = 0; i < TextureManager::MAX_CUSTOM_HANDLES; i++)
-		mFreeCustomHandles[i] = CUSTOM_HANDLE_MASK | i;
 }
 
 
@@ -299,11 +315,19 @@ void TextureManager::shutdown()
 //
 void TextureManager::freeTexture(texhandle_t texhandle)
 {
+	if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
+		texhandle == TextureManager::NO_TEXTURE_HANDLE)
+		return;
+
 	Texture* texture = mHandleMap[texhandle];
-	Z_Free((void*)texture);
+	if (texture)
+	{
+		Z_Free((void*)texture);
+		if (texhandle & CUSTOM_HANDLE_MASK)
+			freeCustomHandle(texhandle);
+	}
+
 	mHandleMap.erase(texhandle);
-	if (texhandle & CUSTOM_HANDLE_MASK)
-		freeCustomHandle(texhandle);
 }
 
 //
@@ -681,6 +705,7 @@ void TextureManager::generateNotFoundTexture()
 
 	const texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
 	Texture* texture = createTexture(handle, width, height);
+	Z_ChangeTag(texture, PU_STATIC);
 
 	if (clientside)
 	{
@@ -820,6 +845,9 @@ texhandle_t TextureManager::createCustomHandle()
 	return mFreeCustomHandles[mFreeCustomHandlesHead++ % MAX_CUSTOM_HANDLES];
 }
 
+//
+// TextureManager::freeCustomHandle
+//
 void TextureManager::freeCustomHandle(texhandle_t texhandle)
 {
 	mFreeCustomHandles[mFreeCustomHandlesTail++ % MAX_CUSTOM_HANDLES] = texhandle;

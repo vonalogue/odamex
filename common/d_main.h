@@ -39,6 +39,9 @@
 //
 void D_DoomMain(void);
 
+void D_Init();
+void D_Shutdown();
+
 bool D_DoomWadReboot(
 	const std::vector<std::string> &newwadfiles,
 	const std::vector<std::string> &newpatchfiles,

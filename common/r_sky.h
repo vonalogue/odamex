@@ -27,9 +27,6 @@
 
 #include "c_cvars.h"
 
-// SKY, store the number for name.
-extern char SKYFLATNAME[8];
-
 extern texhandle_t		sky1flathandle;
 extern texhandle_t		sky2flathandle;
 

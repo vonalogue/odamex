@@ -715,23 +715,7 @@ void G_DoLoadLevel (int position)
 //	if (demoplayback || oldgs == GS_STARTUP)
 //		C_HideConsole ();
 
-	// Set the sky map.
-	// First thing, we have a dummy sky texture name,
-	//	a flat. The data is in the WAD only because
-	//	we look for an actual index, instead of simply
-	//	setting one.
-	sky1flathandle = texturemanager.getHandle(SKYFLATNAME, Texture::TEX_FLAT);
-
-	// DOOM determines the sky texture to be used
-	// depending on the current episode, and the game version.
-	// [RH] Fetch sky parameters from level_locals_t.
-	// [ML] 5/11/06 - remove sky2 remenants
-	// [SL] 2012-03-19 - Add sky2 back
-	sky1texhandle = texturemanager.getHandle(level.skypic, Texture::TEX_WALLTEXTURE);
-	if (strlen(level.skypic2))
-		sky2texhandle = texturemanager.getHandle(level.skypic2, Texture::TEX_WALLTEXTURE);
-	else
-		sky2texhandle = 0;
+	G_InitSkyTextures(level.skypic, level.skypic2);
 
 	for (Players::iterator it = players.begin();it != players.end();++it)
 	{

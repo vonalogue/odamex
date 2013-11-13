@@ -37,10 +37,10 @@ typedef unsigned int texhandle_t;
 class Texture;
 class TextureManager;
 
+void R_InitTextureManager();
+void R_ShutdownTextureManager();
 
 void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1, int y1, int x2, int y2);
-
-
 
 
 // ============================================================================
@@ -172,7 +172,6 @@ public:
 	void startup();
 	void shutdown();
 
-	void clear();
 	void precache();
 
 	void updateAnimatedTextures();
@@ -182,7 +181,6 @@ public:
 	const Texture* getTexture(texhandle_t handle);
 
 	Texture* createTexture(texhandle_t handle, int width, int height);
-
 	void freeTexture(texhandle_t handle);
 
 	texhandle_t createCustomHandle();
@@ -203,6 +201,7 @@ private:
 	static const unsigned int MAX_TEXTURE_HEIGHT		= 2048;
 
 	// initialization routines
+	void clear();
 	void generateNotFoundTexture();
 	void readPNamesDirectory();
 	void addTextureDirectory(const char* lumpname); 

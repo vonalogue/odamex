@@ -283,7 +283,6 @@ void G_ParseMapInfo (void)
 				{	// MAPNAME is a number, assume a Hexen wad
 					int map = atoi (sc_String);
 					sprintf (sc_String, "MAP%02d", map);
-					SKYFLATNAME[5] = 0;
 					HexenHack = true;
 					// Hexen levels are automatically nointermission
 					// and even lighting and no auto sound sequences
@@ -488,6 +487,41 @@ void P_RemoveDefereds (void)
 void G_ParseMusInfo(void)
 {
 	// Nothing yet...
+}
+
+//
+// G_InitSkyTextures
+//
+// Initializes sky1flathandle and sky2flathandle and sets
+// sky1texhandle and sky2texhandle to the appropriate textures based
+// on the given names.
+//
+// Set the sky map.
+// First thing, we have a dummy sky texture name,
+//	a flat. The data is in the WAD only because
+//	we look for an actual index, instead of simply
+//	setting one.
+//
+// DOOM determines the sky texture to be used
+// depending on the current episode, and the game version.
+// [RH] Fetch sky parameters from level_locals_t.
+// [ML] 5/11/06 - remove sky2 remenants
+// [SL] 2012-03-19 - Add sky2 back
+//
+void G_InitSkyTextures(const char* texture_name1, const char* texture_name2)
+{
+	char SKYFLATNAME[8] = "F_SKY1";
+	if (HexenHack)
+		SKYFLATNAME[5] = 0;
+
+	sky1flathandle = texturemanager.getHandle(SKYFLATNAME, Texture::TEX_FLAT);
+	sky2flathandle = texturemanager.createCustomHandle();
+
+	sky1texhandle = texturemanager.getHandle(texture_name1, Texture::TEX_WALLTEXTURE);
+	if (strlen(texture_name2) > 0)
+		sky2texhandle = texturemanager.getHandle(texture_name2, Texture::TEX_WALLTEXTURE);
+	else
+		sky2texhandle = TextureManager::NO_TEXTURE_HANDLE;
 }
 
 //

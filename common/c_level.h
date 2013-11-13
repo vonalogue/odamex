@@ -45,4 +45,6 @@ bool G_LoadWad(	const std::vector<std::string> &newwadfiles,
 
 bool G_LoadWad(const std::string &str, const std::string &mapname = "");
 
+void G_InitSkyTextures(const char* texture_name1, const char* texture_name2);
+
 #endif // __C_LEVEL_H__

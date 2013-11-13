@@ -70,8 +70,6 @@ CVAR_FUNC_IMPL(r_stretchsky)
 	R_InitSkyMap ();
 }
 
-char SKYFLATNAME[8] = "F_SKY1";
-
 extern "C" int detailxshift, detailyshift;
 extern fixed_t freelookviewheight;
 
@@ -134,7 +132,7 @@ private:
 // [ML] 5/11/06 - Remove sky2 stuffs
 // [ML] 3/16/10 - Bring it back!
 
-void R_InitSkyMap ()
+void R_InitSkyMap()
 {
 	// [SL] 2011-11-30 - Don't run if we don't know what sky texture to use
 	if (gamestate != GS_LEVEL)
@@ -180,7 +178,7 @@ void R_InitSkyMap ()
 	sky2shift = 22+skystretch-16;	
 	if (sky1texture->getWidth() >= 128)
 		sky1shift -= skystretch;
-	if (sky2texture->getWidth() >= 128)
+	if (sky2texture && sky2texture->getWidth() >= 128)
 		sky2shift -= skystretch;
 }
 

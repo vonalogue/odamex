@@ -1000,13 +1000,6 @@ bool D_DoomWadReboot(
 	if (gamestate == GS_LEVEL)
 		G_ExitLevel(0, 0);
 
-	S_Stop();
-
-	DThinker::DestroyAllThinkers();
-
-	// Close all open WAD files
-	W_Close();
-
 	// [ML] 9/11/10: Reset custom wad level information from MAPINFO et al.
 	for (i = 0; i < wadlevelinfos.size(); i++)
 	{
@@ -1020,8 +1013,7 @@ bool D_DoomWadReboot(
 	wadlevelinfos.clear();
 	wadclusterinfos.clear();
 
-	// Restart the memory manager
-	Z_Init();
+	D_Shutdown();
 
 	SetLanguageIDs ();
 
@@ -1093,7 +1085,7 @@ bool D_DoomWadReboot(
 
 	D_DoDefDehackedPatch(newpatchfiles);
 
-	D_NewWadInit();
+	D_Init();
 
 	// preserve state
 	lastWadRebootSuccess = missingfiles.empty();

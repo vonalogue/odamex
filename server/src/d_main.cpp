@@ -301,23 +301,70 @@ void D_StartTitle (void)
 #endif
 }*/
 
-void D_NewWadInit()
+//
+// D_Init
+//
+// Called to initialize subsystems when loading a new set of WAD resource
+// files.
+//
+void D_Init()
 {
-	if (DefaultsLoaded)	{		// [ML] This is being called while loading defaults,
-		G_SetLevelStrings ();
-		G_ParseMapInfo ();
-		G_ParseMusInfo ();
-		S_ParseSndInfo();
+	M_ClearRandom();
 
-		texturemanager.shutdown();
-		texturemanager.startup();
+	// start the Zone memory manager
+	Z_Init();
+
+	SetLanguageIDs();
+
+	// [RH] Initialize localizable strings.
+	GStrings.LoadStrings(W_GetNumForName("LANGUAGE"), STRING_TABLE_SIZE, false);
+	GStrings.Compact();
+
+	R_InitTextureManager();
+
+	if (DefaultsLoaded)
+	{
+		// [ML] This is being called while loading defaults,
+		G_SetLevelStrings();
+		G_ParseMapInfo();
+		G_ParseMusInfo();
+		S_ParseSndInfo();
 
 		R_Init();
 		P_Init();
-	} else {					// let DoomMain know it doesn't have to do everything
+	}
+	else
+	{
+		// let DoomMain know it doesn't have to do everything
 		RebootInit = true;
 	}
 }
+
+
+//
+// D_Shutdown
+//
+// Called to shutdown subsystems when unloading a set of WAD resource files.
+// Should be called prior to D_Init when loading a new set of WADs.
+//
+void D_Shutdown()
+{
+	// stop sound effects and music
+	S_Stop();
+	
+	DThinker::DestroyAllThinkers();
+
+	// close all open WAD files
+	W_Close();
+
+	GStrings.ResetStrings();
+
+	R_ShutdownTextureManager();
+
+	// reset the Zone memory manager
+	Z_Init();
+}
+
 
 //
 // D_DoomMain
@@ -440,8 +487,8 @@ void D_DoomMain (void)
 	if (modifiedgame && (gameinfo.flags & GI_SHAREWARE))
 		I_Error ("You cannot -file with the shareware version. Register!");
 
-	Printf (PRINT_HIGH, "TextureManager startup.\n");
-	texturemanager.startup();
+	Printf (PRINT_HIGH, "R_InitTextureManager: Init image resource management.\n");
+	R_InitTextureManager();
 
 	Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
 	R_Init ();
