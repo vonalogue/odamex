@@ -229,7 +229,7 @@ private:
 	void cacheWallTexture(texhandle_t handle);
 
 	// maps texture handles to Texture*
-	typedef HashTable<texhandle_t, Texture*> HandleMap;
+	typedef OHashTable<texhandle_t, Texture*> HandleMap;
 	HandleMap					mHandleMap;
 
 	// lookup table to translate flatnum to mTextures index
@@ -260,7 +260,7 @@ private:
 	texdef_t**					mTextureDefinitions;
 
 	// lookup table to translate texdef_t name to indices in mTextureDefinitions
-	typedef HashTable<OString, unsigned int> TextureNameTranslationMap;
+	typedef OHashTable<OString, unsigned int> TextureNameTranslationMap;
 	TextureNameTranslationMap	mTextureNameTranslationMap;
 
 	// handle management for the creation of new handles
