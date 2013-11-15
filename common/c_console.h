@@ -43,8 +43,12 @@ typedef enum cstate_t {
 
 extern constate_e	ConsoleState;
 
+void C_InitConsoleBackground();
+void C_ShutdownConsoleBackground();
+
 // Initialize the console
 void C_InitConsole (int width, int height, BOOL ingame);
+void C_ShutdownConsole();
 
 // SoM
 void C_ServerDisconnectEffect(void);

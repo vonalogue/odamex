@@ -58,7 +58,7 @@ typedef struct
 static memzone_t *mainzone;
 static size_t zonesize;
 
-static void STACK_ARGS Z_Close (void)
+void STACK_ARGS Z_Close (void)
 {
 	M_Free(mainzone);
 }

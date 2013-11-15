@@ -374,13 +374,14 @@ void TextureManager::freeTexture(texhandle_t texhandle)
 	HandleMap::iterator it = mHandleMap.find(texhandle);
 	if (it != mHandleMap.end())
 	{
-		if (it->second)
+		const Texture* texture = it->second;
+		if (texture != NULL)
 		{
-			Z_Free((void*)it->second);
+			Z_Free((void*)texture);
 			if (texhandle & CUSTOM_HANDLE_MASK)
 				freeCustomHandle(texhandle);
 		}
-
+		
 		mHandleMap.erase(it);
 	}
 }

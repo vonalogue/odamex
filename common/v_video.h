@@ -39,8 +39,6 @@
 
 extern int CleanXfac, CleanYfac;
 
-extern BOOL    gotconback;
-
 extern int DisplayWidth, DisplayHeight, DisplayBits;
 extern int SquareWidth;
 
@@ -729,6 +727,8 @@ extern palindex_t RGB32k[32][32][32];
 
 // Allocates buffer screens, call before R_Init.
 void V_Init (void);
+
+void V_Close (void);
 
 // The color to fill with for #4 and #5 above
 extern int V_ColorFill;

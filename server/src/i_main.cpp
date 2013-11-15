@@ -142,10 +142,9 @@ int __cdecl main(int argc, char *argv[])
         // Don't call this on windows!
 		//atexit (call_terms);
 
-		Z_Init();
-
-		atterm (I_Quit);
-		atterm (DObject::StaticShutdown);
+		atterm(C_ShutdownConsole);
+		atterm(I_Quit);
+		atterm(DObject::StaticShutdown);
 
 		progdir = I_GetBinaryDir();
 		startdir = I_GetCWD();

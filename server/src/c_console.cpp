@@ -36,7 +36,6 @@
 #include "v_palette.h"
 #include "v_video.h"
 #include "w_wad.h"
-#include "z_zone.h"
 #include "r_main.h"
 #include "s_sound.h"
 #include "sv_main.h"
@@ -54,7 +53,7 @@ extern int KeyRepeatDelay;
 extern int		gametic;
 
 int			ConRows, ConCols, PhysRows;
-char		*Lines, *Last = NULL;
+byte		*Lines, *Last = NULL;
 BOOL		vidactive = false, gotconback = false;
 BOOL		cursoron = false;
 int			SkipRows, ConBottom, ConScroll, RowAdjust;
@@ -115,19 +114,17 @@ static void maybedrawnow (void)
 void C_InitConsole (int width, int height, BOOL ingame)
 {
 	int row;
-	char *zap;
-	char *old;
-	int cols, rows;
+	byte *zap;
 
-	cols = ConCols;
-	rows = ConRows;
+	int cols = ConCols;
+	int rows = ConRows;
 
 	ConCols = width / 8 - 2;
 	PhysRows = height / 8;
 	ConRows = PhysRows * 10;
 
-	old = Lines;
-	Lines = (char *)Malloc (ConRows * (ConCols + 2) + 1);
+	byte* oldLines = Lines;
+	Lines = new byte[ConRows * (ConCols + 2) + 1];
 
 	for (row = 0, zap = Lines; row < ConRows; row++, zap += ConCols + 2)
 	{
@@ -137,14 +134,14 @@ void C_InitConsole (int width, int height, BOOL ingame)
 
 	Last = Lines + (ConRows - 1) * (ConCols + 2);
 
-	if (old)
+	if (oldLines)
 	{
 		char string[256];
 		gamestate_t oldstate = gamestate;	// Don't print during reformatting
 
 		gamestate = GS_FORCEWIPE;
 
-		for (row = 0, zap = old; row < rows; row++, zap += cols + 2)
+		for (row = 0, zap = oldLines; row < rows; row++, zap += cols + 2)
 		{
 			memcpy (string, &zap[2], zap[1]);
 			if (!zap[0])
@@ -158,11 +155,18 @@ void C_InitConsole (int width, int height, BOOL ingame)
 			}
 			Printf (PRINT_HIGH, "%s", string);
 		}
-		M_Free (old);
-		C_FlushDisplay ();
+
+		delete [] oldLines;
+		C_FlushDisplay();
 
 		gamestate = oldstate;
 	}
+}
+
+void C_ShutdownConsole()
+{
+	delete [] Lines;
+	Lines = NULL;
 }
 
 EXTERN_CVAR (log_fulltimestamps)
@@ -389,7 +393,7 @@ END_COMMAND (history)
 BEGIN_COMMAND (clear)
 {
 	int i;
-	char *row = Lines;
+	byte *row = Lines;
 
 	RowAdjust = 0;
 	C_FlushDisplay ();

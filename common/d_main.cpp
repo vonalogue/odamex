@@ -978,7 +978,7 @@ void D_LoadResourceFiles(
 
 	modifiedgame = (wadfiles.size() > 2) || !newpatchfiles.empty();	// more than odamex.wad and IWAD?
 	if (modifiedgame && (gameinfo.flags & GI_SHAREWARE))
-		I_Error("\nYou cannot load additional WADs with the shareware version. Register!");
+		I_Error("You cannot load additional WADs with the shareware version. Register!");
 
 	wadhashes = W_InitMultipleFiles(wadfiles);
 
@@ -1036,9 +1036,6 @@ bool D_DoomWadReboot(
 	wadclusterinfos.clear();
 
 	UndoDehPatch();
-
-	// Restart the memory manager
-	Z_Init();
 
 	SetLanguageIDs();
 

@@ -160,6 +160,8 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 		}
 	}
 
+	texturemanager.freeTexture(conchars_handle);
+
 	// base font height on the letter T
 	mHeight = mCharacters['T']->getHeight();
 }
@@ -206,6 +208,8 @@ SmallDoomFont::SmallDoomFont(fixed_t scale)
 
 		mCharacters[charnum] = dest_texture;
 		Z_ChangeTag(dest_texture, PU_STATIC);	// don't allow texture to be purged from cache
+
+		texturemanager.freeTexture(source_texhandle);
 	}
 
 	for (int charnum = 'a'; charnum <= 'z'; charnum++)
@@ -340,6 +344,8 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 
 		SDL_FreeSurface(surface);
 	}
+	
+	texturemanager.freeTexture(background_texhandle);
 
 	TTF_CloseFont(font);
 	SDL_RWclose(rw);

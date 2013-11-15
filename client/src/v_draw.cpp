@@ -602,8 +602,9 @@ void DCanvas::DrawSWrapper(EWrapperCode drawer, const Texture* texture, int x0, 
 
 	for (fixed_t colnum = 0; colnum < destwidth * xinc; colnum += xinc)
 	{
-		dcol.source = texture->getData() + texheight * (colnum >> FRACBITS);
-		dcol.mask = texture->getMaskData() + texheight * (colnum >> FRACBITS);
+		int pixel_offset = texheight * (colnum >> FRACBITS);
+		dcol.source = texture->getData() + pixel_offset;
+		dcol.mask = texture->getMaskData() + pixel_offset;
 		drawfunc(dcol);
 
 		dcol.dest += colstep;

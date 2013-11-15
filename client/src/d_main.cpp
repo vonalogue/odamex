@@ -650,32 +650,41 @@ bool HashOk(std::string &required, std::string &available)
 //
 void D_Init()
 {
+	// only print init messages during startup, not when changing WADs
+	static bool first_time = true;
+
+	SetLanguageIDs();
+
 	M_ClearRandom();
 
 	// start the Zone memory manager
 	Z_Init();
 
-	R_InitTextureManager();
+	if (!(InitPalettes("PLAYPAL")))
+		I_Error("Could not reinitialize palette");
+	V_InitPalette();
 
-	SetLanguageIDs();
+	if (first_time)
+		Printf(PRINT_HIGH, "R_InitTextureManager: Init image resource management.\n");
+	R_InitTextureManager();
 
 	// [RH] Initialize localizable strings.
 	GStrings.LoadStrings(W_GetNumForName("LANGUAGE"), STRING_TABLE_SIZE, false);
 	GStrings.Compact();
+
+	// init the renderer
+	if (first_time)
+		Printf(PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
+	R_Init();
 
 	// fonts
 	V_LoadHudFont();
 	V_LoadMenuFont();
 	V_LoadConsoleFont();
 
-	// init the renderer
-	R_Init();
+	C_InitConsoleBackground();
 
 	HU_Init();
-
-	if (!(InitPalettes("PLAYPAL")))
-		I_Error("Could not reinitialize palette");
-	V_InitPalette();
 
 	G_SetLevelStrings();
 	G_ParseMapInfo();
@@ -683,16 +692,30 @@ void D_Init()
 	S_ParseSndInfo();
 
 	// init the menu subsystem
+	if (first_time)
+		Printf(PRINT_HIGH, "M_Init: Init miscellaneous info.\n");
 	M_Init();
 
+	if (first_time)
+		Printf(PRINT_HIGH, "P_Init: Init Playloop state.\n");
 	P_InitEffects();
 	P_Init();
 
 	// init sound and music
+	if (first_time)
+	{
+		Printf (PRINT_HIGH, "S_Init: Setting up sound.\n");
+		Printf (PRINT_HIGH, "S_Init: default sfx volume is %g\n", (float)snd_sfxvolume);
+		Printf (PRINT_HIGH, "S_Init: default music volume is %g\n", (float)snd_musicvolume);
+	}
 	S_Init(snd_sfxvolume, snd_musicvolume);
 
 	// init the status bar
+	if (first_time)
+		Printf(PRINT_HIGH, "ST_Init: Init status bar.\n");
 	ST_Init();
+
+	first_time = false;
 }
 
 //
@@ -719,13 +742,17 @@ void D_Shutdown()
 	V_UnloadMenuFont();
 	V_UnloadHudFont();
 
+	R_Shutdown();
+
 	GStrings.ResetStrings();
 	GStrings.Compact();
+
+	C_ShutdownConsoleBackground();
 
 	R_ShutdownTextureManager();
 
 	// reset the Zone memory manager
-	Z_Init();
+	Z_Close();
 }
 
 
@@ -740,10 +767,7 @@ void D_DoomMain (void)
 	unsigned p;
 	extern std::string defdemoname;
 
-	M_ClearRandom();
-
 	gamestate = GS_STARTUP;
-	SetLanguageIDs ();
 	M_FindResponseFile();		// [ML] 23/1/07 - Add Response file support back in
 
 	if (lzo_init () != LZO_E_OK)	// [RH] Initialize the minilzo package.
@@ -767,25 +791,26 @@ void D_DoomMain (void)
 
 	D_LoadResourceFiles(newwadfiles, newpatchfiles);
 
-	// [RH] Initialize localizable strings.
-	GStrings.LoadStrings (W_GetNumForName ("LANGUAGE"), STRING_TABLE_SIZE, false);
-	GStrings.Compact ();
+	I_Init();
 
-	// [RH] Initialize configurable strings.
-	//D_InitStrings ();
+	V_Init();
+	atterm(V_Close);
 
-	// [RH] Moved these up here so that we can do most of our
-	//		startup output in a fullscreen console.
+	#ifdef _WIN32
+	const char *sdlv = getenv("SDL_VIDEODRIVER");
+	Printf (PRINT_HIGH, "Using %s video driver.\n",sdlv);
+	#endif
 
-	HU_Init ();
-	I_Init ();
-	V_Init ();
+	C_InitConsole(screen->width, screen->height, true);
 
     // SDL needs video mode set up first before input code can be used
     I_InitInput();
 
+	D_Init();
+	atterm(D_Shutdown);
+
 	// Base systems have been inited; enable cvar callbacks
-	cvar_t::EnableCallbacks ();
+	cvar_t::EnableCallbacks();
 
 	// [RH] User-configurable startup strings. Because BOOM does.
 	if (GStrings(STARTUP1)[0])	Printf (PRINT_HIGH, "%s\n", GStrings(STARTUP1));
@@ -879,59 +904,25 @@ void D_DoomMain (void)
 
 	// [RH] Now that all text strings are set up,
 	// insert them into the level and cluster data.
-	G_SetLevelStrings ();
+	G_SetLevelStrings();
 
 	// [RH] Parse through all loaded mapinfo lumps
-	G_ParseMapInfo ();
+	G_ParseMapInfo();
 
 	// [ML] Parse musinfo lump
-	G_ParseMusInfo ();
+	G_ParseMusInfo();
 
 	// [RH] Parse any SNDINFO lumps
 	S_ParseSndInfo();
-
-	// Check for -file in shareware
-	if (modifiedgame && (gameinfo.flags & GI_SHAREWARE))
-		I_Error ("You cannot -file with the shareware version. Register!");
-
-#ifdef _WIN32
-	const char *sdlv = getenv("SDL_VIDEODRIVER");
-	Printf (PRINT_HIGH, "Using %s video driver.\n",sdlv);
-#endif
-
-	Printf (PRINT_HIGH, "M_Init: Init miscellaneous info.\n");
-	M_Init ();
-
-	Printf (PRINT_HIGH, "R_InitTextureManager: Init image resource management.\n");
-	R_InitTextureManager();
-
-	Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
-	R_Init ();
-
-	V_LoadConsoleFont();
-	V_LoadHudFont();
-	V_LoadMenuFont();
-
-	Printf (PRINT_HIGH, "P_Init: Init Playloop state.\n");
-	P_InitEffects();	// [ML] Do this here so we don't have to put particle crap in server
-	P_Init ();
 
 	// NOTE(jsd): Set up local player color
 	EXTERN_CVAR(cl_color);
 	R_BuildPlayerTranslation (0, V_GetColorFromString (NULL, cl_color.cstring()));
 
-	Printf (PRINT_HIGH, "S_Init: Setting up sound.\n");
-	Printf (PRINT_HIGH, "S_Init: default sfx volume is %g\n", (float)snd_sfxvolume);
-	Printf (PRINT_HIGH, "S_Init: default music volume is %g\n", (float)snd_musicvolume);
-	S_Init (snd_sfxvolume, snd_musicvolume);
-
 	I_FinishClockCalibration ();
 
 	Printf (PRINT_HIGH, "D_CheckNetGame: Checking network game status.\n");
 	D_CheckNetGame ();
-
-	Printf (PRINT_HIGH, "ST_Init: Init status bar.\n");
-	ST_Init ();
 
 	// [RH] Initialize items. Still only used for the give command. :-(
 	InitItems ();

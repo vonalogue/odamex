@@ -59,15 +59,15 @@ std::string DownloadStr;
 static void C_TabComplete (void);
 static BOOL TabbedLast;		// Last key pressed was tab
 
-static DCanvas *conback;
+static texhandle_t conback_texhandle = TextureManager::NOT_FOUND_TEXTURE_HANDLE;
 
 extern int		gametic;
 extern BOOL		automapactive;	// in AM_map.c
 extern BOOL		advancedemo;
 
 unsigned int	ConRows, ConCols, PhysRows;
-unsigned char	*Lines, *Last = NULL;
-BOOL		vidactive = false, gotconback = false;
+byte			*Lines, *Last = NULL;
+BOOL		vidactive = false;
 BOOL		cursoron = false;
 int			SkipRows, ConBottom;
 unsigned int	RowAdjust;
@@ -198,124 +198,41 @@ CVAR_FUNC_IMPL (msgmidcolor)
 // con_scrlock 2 = Nothing brings scroll to the bottom.
 EXTERN_CVAR (con_scrlock)
 
+
+
 //
-// C_Close
+// C_InitConsoleBackground
 //
-void STACK_ARGS C_Close()
+//
+void C_InitConsoleBackground()
 {
-	if(conback)
-	{
-		I_FreeScreen(conback);
-		conback = NULL;
-	}
+	texhandle_t texhandle = texturemanager.getHandle("CONBACK", Texture::TEX_PATCH);
+}
+
+//
+// C_ShutdownConsoleBackground
+//
+void C_ShutdownConsoleBackground()
+{
+	texturemanager.freeTexture(conback_texhandle);
 }
 
 //
 // C_InitConsole
 //
-void C_InitConsole (int width, int height, BOOL ingame)
+void C_InitConsole(int width, int height, BOOL ingame)
 {
 	int row;
-	unsigned char *zap;
-	unsigned char *old;
-	int cols, rows;
+	byte *zap;
 
-	bool firstTime = true;
-	if(firstTime)
-		atterm (C_Close);
-
-	if ( (vidactive = ingame) )
-	{
-		if (!gotconback)
-		{
-			BOOL stylize = false;
-			BOOL isRaw = false;
-			patch_t *bg;
-			int num;
-
-			num = W_CheckNumForName ("CONBACK");
-			//num2 = W_CheckNumForName ("M_DOOM");
-			if (num == -1)
-			{
-				stylize = true;
-				num = W_GetNumForName ("CONBACK");
-				isRaw = gameinfo.flags & GI_PAGESARERAW;
-			}
-
-			bg = W_CachePatch (num);
-			//gg = W_CachePatch (num2);
-
-			delete conback;
-			if (isRaw)
-				conback = I_AllocateScreen (320, 200, 8);
-			else
-				conback = I_AllocateScreen (screen->width, screen->height, 8);
-
-			conback->Lock ();
-
-			if (isRaw)
-				conback->DrawBlock (0, 0, 320, 200, (byte *)bg);
-			else
-				conback->DrawPatch (bg, (screen->width/2)-(bg->width()/2), (screen->height/2)-(bg->height()/2));
-				//conback->DrawPatch (gg, ((screen->width/2)-(gg->width()/2))+3*CleanXfac, ((screen->height/2)-(gg->height()/2)) + 15*CleanYfac);
-
-			if (stylize)
-			{
-				int x, y;
-				byte f = 0, *v = NULL, *i = NULL;
-				byte *fadetable;
-
-				fadetable = (byte *)W_CacheLumpName ("COLORMAP", PU_CACHE);
-
-				for (y = 0; y < conback->height; y++)
-				{
-					i = conback->buffer + conback->pitch * y;
-					if (y < 8 || y > 191)
-					{
-						if (y < 8)
-							f = y;
-						else
-							f = 199 - y;
-						v = fadetable + (30 - f) * 256;
-						for (x = 0; x < conback->width; x++)
-						{
-							*i = v[*i];
-							i++;
-						}
-					}
-					else
-					{
-						for (x = 0; x < conback->width; x++)
-						{
-							if (x <= 8)
-								v = fadetable + (30 - x) * 256;
-							else if (x > 312)
-								v = fadetable + (x - 289) * 256;
-
-							if (v == NULL)
-                                I_FatalError("Could not stylize the console\n");
-
-							*i = v[*i];
-							i++;
-						}
-					}
-				}
-			}
-
-			conback->Unlock ();
-
-			gotconback = true;
-		}
-	}
-
-	cols = ConCols;
-	rows = CONSOLEBUFFER;
+	int cols = ConCols;
+	int rows = CONSOLEBUFFER;
 
 	ConCols = width / 8 - 2;
 	PhysRows = height / 8;
 
-	old = Lines;
-	Lines = (unsigned char *)Malloc (CONSOLEBUFFER * (ConCols + 2) + 1);
+	byte* oldLines = Lines;
+	Lines = new byte[CONSOLEBUFFER * (ConCols + 2) + 1];
 
 	for (row = 0, zap = Lines; row < CONSOLEBUFFER; row++, zap += ConCols + 2)
 	{
@@ -325,14 +242,14 @@ void C_InitConsole (int width, int height, BOOL ingame)
 
 	Last = Lines + (CONSOLEBUFFER - 1) * (ConCols + 2);
 
-	if (old)
+	if (oldLines)
 	{
 		char string[256];
 		gamestate_t oldstate = gamestate;	// Don't print during reformatting
 
 		gamestate = GS_FORCEWIPE;
 
-		for (row = 0, zap = old; row < rows - 1; row++, zap += cols + 2)
+		for (row = 0, zap = oldLines; row < rows - 1; row++, zap += cols + 2)
 		{
 			memcpy (string, &zap[2], zap[1]);
 			if (!zap[0])
@@ -347,15 +264,25 @@ void C_InitConsole (int width, int height, BOOL ingame)
 			Printf (PRINT_HIGH, "%s", string);
 		}
 
-		M_Free(old);
-		C_FlushDisplay ();
+		delete [] oldLines;
+		C_FlushDisplay();
 
 		gamestate = oldstate;
 	}
 
 	if (ingame && gamestate == GS_STARTUP)
-		C_FullConsole ();
+		C_FullConsole();
 }
+
+//
+// C_ShutdownConsole
+//
+void C_ShutdownConsole()
+{
+	delete [] Lines;
+	Lines = NULL;		
+}
+
 
 static void setmsgcolor (int index, const char *color)
 {
@@ -813,7 +740,16 @@ void C_DrawConsole (void)
 		if (gamestate == GS_LEVEL || gamestate == GS_DEMOSCREEN || gamestate == GS_INTERMISSION)
 			screen->Dim(0, 0, screen->width, ConBottom);
 		else
-			conback->Blit(0, 0, conback->width, conback->height, screen, 0, 0, screen->width, screen->height);
+		{
+			screen->Clear(0, 0, screen->width, screen->height, 0);
+			if (conback_texhandle != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+			{
+				const Texture* texture = texturemanager.getTexture(conback_texhandle);
+				int x = (screen->width - texture->getWidth()) / 2;
+				int y = (screen->height - texture->getHeight()) / 2;
+				screen->DrawTexture(texture, x, y);
+			}
+		}
 
 		if (bottom_row >= 0)
 		{

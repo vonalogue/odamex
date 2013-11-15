@@ -309,6 +309,8 @@ void D_StartTitle (void)
 //
 void D_Init()
 {
+	static bool first_time = true;
+
 	M_ClearRandom();
 
 	// start the Zone memory manager
@@ -320,6 +322,8 @@ void D_Init()
 	GStrings.LoadStrings(W_GetNumForName("LANGUAGE"), STRING_TABLE_SIZE, false);
 	GStrings.Compact();
 
+	if (first_time)
+		Printf(PRINT_HIGH, "R_InitTextureManager: Init image resource management.\n");
 	R_InitTextureManager();
 
 	if (DefaultsLoaded)
@@ -330,7 +334,12 @@ void D_Init()
 		G_ParseMusInfo();
 		S_ParseSndInfo();
 
+		if (first_time)
+			Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
 		R_Init();
+
+		if (first_time)
+			Printf(PRINT_HIGH, "P_Init: Init Playloop state.\n");
 		P_Init();
 	}
 	else
@@ -338,6 +347,8 @@ void D_Init()
 		// let DoomMain know it doesn't have to do everything
 		RebootInit = true;
 	}
+
+	first_time = false;
 }
 
 
@@ -363,7 +374,7 @@ void D_Shutdown()
 	R_ShutdownTextureManager();
 
 	// reset the Zone memory manager
-	Z_Init();
+	Z_Close();
 }
 
 
@@ -409,15 +420,12 @@ void D_DoomMain (void)
 		D_AddDehCommandLineFiles(newpatchfiles);
 
 		D_LoadResourceFiles(newwadfiles, newpatchfiles);
-
-		// [RH] Initialize localizable strings.
-		GStrings.LoadStrings (W_GetNumForName ("LANGUAGE"), STRING_TABLE_SIZE, false);
-		GStrings.Compact ();
-
-		//D_InitStrings ();
 	}
 
 	I_Init ();
+
+	D_Init();
+	atterm(D_Shutdown);
 
 	// Base systems have been inited; enable cvar callbacks
 	cvar_t::EnableCallbacks ();
@@ -480,19 +488,6 @@ void D_DoomMain (void)
 	G_ParseMusInfo ();
 	// [RH] Parse any SNDINFO lumps
 	S_ParseSndInfo();
-
-	// Check for -file in shareware
-	if (modifiedgame && (gameinfo.flags & GI_SHAREWARE))
-		I_Error ("You cannot -file with the shareware version. Register!");
-
-	Printf (PRINT_HIGH, "R_InitTextureManager: Init image resource management.\n");
-	R_InitTextureManager();
-
-	Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
-	R_Init ();
-
-	Printf (PRINT_HIGH, "P_Init: Init Playloop state.\n");
-	P_Init ();
 
 	Printf (PRINT_HIGH, "SV_InitNetwork: Checking network game status.\n");
     SV_InitNetwork();

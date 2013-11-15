@@ -631,7 +631,7 @@ static bool V_DoModeSetup(int width, int height, int bits)
 
 	V_ForceBlend (0,0,0,0);
 	GammaAdjustPalettes ();
-		RefreshPalettes ();
+	RefreshPalettes();
 	R_ReinitColormap ();
 
 	R_InitColumnDrawers();
@@ -639,8 +639,6 @@ static bool V_DoModeSetup(int width, int height, int bits)
 
 	// [SL] 2011-11-30 - Prevent the player's view angle from moving
 	I_FlushInput();
-
-    gotconback = false;
 
 	return true;
 }
@@ -762,7 +760,7 @@ void V_InitPalette (void)
 
 	V_ForceBlend (0, 0, 0, 0);
 
-		RefreshPalettes ();
+	RefreshPalettes ();
 
 	assert(GetDefaultPalette()->maps.colormap != NULL);
 	assert(GetDefaultPalette()->maps.shademap != NULL);
@@ -788,26 +786,17 @@ void STACK_ARGS V_Close()
 
 void V_Init (void)
 {
-	int width, height, bits;
+	int width = 0, height = 0, bits = 0;
+	const char* value;
 
-	bool firstTime = true;
-	if(firstTime)
-		atterm (V_Close);
+	if ( (value = Args.CheckValue("-width")) )
+		width = atoi(value);
 
-	width = height = bits = 0;
+	if ( (value = Args.CheckValue("-height")) )
+		height = atoi(value);
 
-	const char *w = Args.CheckValue ("-width");
-	const char *h = Args.CheckValue ("-height");
-	const char *b = Args.CheckValue ("-bits");
-
-	if (w)
-		width = atoi (w);
-
-	if (h)
-		height = atoi (h);
-
-	if (b)
-		bits = atoi (b);
+	if ( (value = Args.CheckValue("-bits")) )
+		bits = atoi(value);
 
 	if (width == 0)
 	{
@@ -839,10 +828,6 @@ void V_Init (void)
             (vid_fullscreen ? "FULLSCREEN" : "WINDOWED"));
 	else
         AddCommandString("checkres");
-
-	V_InitPalette ();
-
-	C_InitConsole (screen->width, screen->height, true);
 }
 
 void DCanvas::AttachPalette (palette_t *pal)
