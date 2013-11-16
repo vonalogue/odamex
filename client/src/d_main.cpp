@@ -802,9 +802,10 @@ void D_DoomMain (void)
 	#endif
 
 	C_InitConsole(screen->width, screen->height, true);
+	atterm(C_ShutdownConsole);
 
-    // SDL needs video mode set up first before input code can be used
-    I_InitInput();
+	// SDL needs video mode set up first before input code can be used
+	I_InitInput();
 
 	D_Init();
 	atterm(D_Shutdown);

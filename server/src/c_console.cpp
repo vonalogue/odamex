@@ -53,7 +53,6 @@ extern int KeyRepeatDelay;
 extern int		gametic;
 
 int			ConRows, ConCols, PhysRows;
-byte		*Lines, *Last = NULL;
 bool		cursoron = false;
 int			SkipRows, ConBottom, ConScroll, RowAdjust;
 int			CursorTicker, ScrollState = 0;
@@ -111,60 +110,10 @@ static void maybedrawnow (void)
 
 void C_InitConsole(int width, int height, bool ingame)
 {
-	int row;
-	byte *zap;
-
-	int cols = ConCols;
-	int rows = ConRows;
-
-	ConCols = width / 8 - 2;
-	PhysRows = height / 8;
-	ConRows = PhysRows * 10;
-
-	byte* oldLines = Lines;
-	Lines = new byte[ConRows * (ConCols + 2) + 1];
-
-	for (row = 0, zap = Lines; row < ConRows; row++, zap += ConCols + 2)
-	{
-		zap[0] = 0;
-		zap[1] = 0;
-	}
-
-	Last = Lines + (ConRows - 1) * (ConCols + 2);
-
-	if (oldLines)
-	{
-		char string[256];
-		gamestate_t oldstate = gamestate;	// Don't print during reformatting
-
-		gamestate = GS_FORCEWIPE;
-
-		for (row = 0, zap = oldLines; row < rows; row++, zap += cols + 2)
-		{
-			memcpy (string, &zap[2], zap[1]);
-			if (!zap[0])
-			{
-				string[(int)zap[1]] = '\n';
-				string[zap[1]+1] = 0;
-			}
-			else
-			{
-				string[(int)zap[1]] = 0;
-			}
-			Printf (PRINT_HIGH, "%s", string);
-		}
-
-		delete [] oldLines;
-		C_FlushDisplay();
-
-		gamestate = oldstate;
-	}
 }
 
 void C_ShutdownConsole()
 {
-	delete [] Lines;
-	Lines = NULL;
 }
 
 EXTERN_CVAR (log_fulltimestamps)
@@ -300,9 +249,7 @@ int STACK_ARGS DPrintf (const char *format, ...)
 
 void C_FlushDisplay (void)
 {
-	int i;
-
-	for (i = 0; i < NUMNOTIFIES; i++)
+	for (int i = 0; i < NUMNOTIFIES; i++)
 		NotifyStrings[i].timeout = 0;
 }
 
@@ -390,13 +337,7 @@ END_COMMAND (history)
 
 BEGIN_COMMAND (clear)
 {
-	int i;
-	byte *row = Lines;
-
-	RowAdjust = 0;
 	C_FlushDisplay ();
-	for (i = 0; i < ConRows; i++, row += ConCols + 2)
-		row[1] = 0;
 }
 END_COMMAND (clear)
 

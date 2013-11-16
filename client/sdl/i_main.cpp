@@ -222,7 +222,6 @@ int main(int argc, char *argv[])
 //		atexit (call_terms);
 //		#endif
 
-		atterm(C_ShutdownConsole);
 		atterm (I_Quit);
 		atterm (DObject::StaticShutdown);
 

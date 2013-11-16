@@ -282,15 +282,13 @@ void C_InitConsole(int width, int height, bool ingame)
 void C_ShutdownConsole()
 {
 	delete [] Lines;
-	Lines = NULL;		
+	Lines = Last = NULL;		
 }
 
 
 static void setmsgcolor (int index, const char *color)
 {
-	int i;
-
-	i = atoi (color);
+	int i = atoi (color);
 	if (i < 0 || i >= NUM_TEXT_COLORS)
 		i = 0;
 	PrintColors[index] = i;
@@ -380,6 +378,10 @@ int PrintString (int printlevel, const char *outline)
 		printf("%s", outline);
 		fflush(stdout);
 	}
+
+	// don't print to console if it's not yet initialized
+	if (!Lines)
+		return 0;
 
 	if (printlevel < (int)msglevel)
 		return 0;
@@ -711,6 +713,9 @@ void C_SetTicker (unsigned int at)
 
 void C_DrawConsole (void)
 {
+	if (!Lines)
+		return;
+
 	static const size_t str_size = 1024;
 	static char str[str_size];
 
@@ -1374,12 +1379,13 @@ END_COMMAND (history)
 
 BEGIN_COMMAND (clear)
 {
-	int i;
-	unsigned char *row = Lines;
+	if (!Lines)
+		return;
 
+	unsigned char *row = Lines;
 	RowAdjust = 0;
 	C_FlushDisplay ();
-	for (i = 0; i < CONSOLEBUFFER; i++, row += ConCols + 2)
+	for (int i = 0; i < CONSOLEBUFFER; i++, row += ConCols + 2)
 		row[1] = 0;
 }
 END_COMMAND (clear)

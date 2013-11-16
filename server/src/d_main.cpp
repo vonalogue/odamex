@@ -424,6 +424,9 @@ void D_DoomMain (void)
 
 	I_Init ();
 
+	C_InitConsole(80*8, 25*8, false);
+	atterm(C_ShutdownConsole);
+
 	D_Init();
 	atterm(D_Shutdown);
 
