@@ -46,7 +46,7 @@
 #include <vector>
 
 //static void C_TabComplete (void);
-//static BOOL TabbedLast;		// Last key pressed was tab
+//static bool TabbedLast;		// Last key pressed was tab
 
 extern int KeyRepeatDelay;
 
@@ -54,16 +54,14 @@ extern int		gametic;
 
 int			ConRows, ConCols, PhysRows;
 byte		*Lines, *Last = NULL;
-BOOL		vidactive = false, gotconback = false;
-BOOL		cursoron = false;
+bool		cursoron = false;
 int			SkipRows, ConBottom, ConScroll, RowAdjust;
 int			CursorTicker, ScrollState = 0;
 constate_e	ConsoleState = c_up;
-char		VersionString[8];
 
 event_t		RepeatEvent;		// always type ev_keydown
 int			RepeatCountdown;
-BOOL		KeysShifted;
+bool		KeysShifted;
 
 
 #define SCROLLUP 1
@@ -104,14 +102,14 @@ static struct NotifyText
 
 #define PRINTLEVELS 5
 
-BOOL C_HandleKey (event_t *ev, byte *buffer, int len);
+bool C_HandleKey(event_t *ev, byte *buffer, int len);
 
 
 static void maybedrawnow (void)
 {
 }
 
-void C_InitConsole (int width, int height, BOOL ingame)
+void C_InitConsole(int width, int height, bool ingame)
 {
 	int row;
 	byte *zap;
@@ -368,12 +366,12 @@ static void makestartposgood (void)
 	CmdLine[259] = n;
 }
 */
-BOOL C_HandleKey (event_t *ev, byte *buffer, int len)
+bool C_HandleKey(event_t *ev, byte *buffer, int len)
 {
 	return true;
 }
 
-BOOL C_Responder (event_t *ev)
+bool C_Responder(event_t *ev)
 {
 	return false;
 }

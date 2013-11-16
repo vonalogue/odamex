@@ -57,7 +57,7 @@
 std::string DownloadStr;
 
 static void C_TabComplete (void);
-static BOOL TabbedLast;		// Last key pressed was tab
+static bool TabbedLast;		// Last key pressed was tab
 
 static texhandle_t conback_texhandle = TextureManager::NOT_FOUND_TEXTURE_HANDLE;
 
@@ -67,15 +67,15 @@ extern BOOL		advancedemo;
 
 unsigned int	ConRows, ConCols, PhysRows;
 byte			*Lines, *Last = NULL;
-BOOL		vidactive = false;
-BOOL		cursoron = false;
+bool			vidactive = false;
+bool			cursoron = false;
 int			SkipRows, ConBottom;
 unsigned int	RowAdjust;
 int			CursorTicker, ScrollState = 0;
 constate_e	ConsoleState = c_up;
 
-BOOL		KeysShifted;
-BOOL		KeysCtrl;
+bool		KeysShifted;
+bool		KeysCtrl;
 
 static bool midprinting;
 
@@ -155,9 +155,9 @@ int PrintColors[PRINTLEVELS+1] = { CR_RED, CR_GOLD, CR_GRAY, CR_GREEN, CR_GREEN,
 static void setmsgcolor (int index, const char *color);
 
 
-BOOL C_HandleKey (event_t *ev, byte *buffer, int len);
+bool C_HandleKey(event_t *ev, byte *buffer, int len);
 
-cvar_t msglevel ("msg", "0", "", CVARTYPE_STRING, CVAR_ARCHIVE);
+cvar_t msglevel("msg", "0", "", CVARTYPE_STRING, CVAR_ARCHIVE);
 
 CVAR_FUNC_IMPL (msg0color)
 {
@@ -206,7 +206,7 @@ EXTERN_CVAR (con_scrlock)
 //
 void C_InitConsoleBackground()
 {
-	texhandle_t texhandle = texturemanager.getHandle("CONBACK", Texture::TEX_PATCH);
+	conback_texhandle = texturemanager.getHandle("CONBACK", Texture::TEX_PATCH);
 }
 
 //
@@ -220,13 +220,15 @@ void C_ShutdownConsoleBackground()
 //
 // C_InitConsole
 //
-void C_InitConsole(int width, int height, BOOL ingame)
+void C_InitConsole(int width, int height, bool ingame)
 {
 	int row;
 	byte *zap;
 
 	int cols = ConCols;
 	int rows = CONSOLEBUFFER;
+
+	vidactive = ingame;
 
 	ConCols = width / 8 - 2;
 	PhysRows = height / 8;
@@ -371,7 +373,7 @@ int PrintString (int printlevel, const char *outline)
 	static unsigned int xp = 0;
 	unsigned int newxp;
 	int mask;
-	BOOL scroll;
+	bool scroll;
 
 	if(print_stdout && gamestate != GS_FORCEWIPE)
 	{
@@ -946,7 +948,7 @@ static void makestartposgood (void)
 	CmdLine[259] = n;
 }
 
-BOOL C_HandleKey (event_t *ev, byte *buffer, int len)
+bool C_HandleKey (event_t *ev, byte *buffer, int len)
 {
 	const int rowheight = console_font->getHeight();
 	const char *cmd = C_GetBinding (ev->data1);
@@ -1318,7 +1320,7 @@ BOOL C_HandleKey (event_t *ev, byte *buffer, int len)
 	return true;
 }
 
-BOOL C_Responder (event_t *ev)
+bool C_Responder(event_t *ev)
 {
 	if (ConsoleState == c_up || ConsoleState == c_rising || ConsoleState == c_risefull || menuactive)
 	{

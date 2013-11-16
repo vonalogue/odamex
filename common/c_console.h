@@ -47,7 +47,7 @@ void C_InitConsoleBackground();
 void C_ShutdownConsoleBackground();
 
 // Initialize the console
-void C_InitConsole (int width, int height, BOOL ingame);
+void C_InitConsole(int width, int height, bool ingame);
 void C_ShutdownConsole();
 
 // SoM
@@ -78,7 +78,7 @@ void C_DrawMid (void);
 void C_GMidPrint(const char* msg, int color, int msgtime);
 void C_DrawGMid (void);
 
-BOOL C_Responder (event_t *ev);
+bool C_Responder(event_t *ev);
 
 void C_AddTabCommand (const char *name);
 void C_RemoveTabCommand (const char *name);
