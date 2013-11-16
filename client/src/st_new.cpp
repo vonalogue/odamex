@@ -52,37 +52,40 @@
 
 static int		widestnum, numheight;
 
-static texhandle_t		medi;
-static texhandle_t		armors[2];
-static texhandle_t		ammos[4];
-static texhandle_t		bigammos[4];
-static texhandle_t		flagiconteam;
-static texhandle_t		flagiconbhome;
-static texhandle_t		flagiconrhome;
-static texhandle_t		flagiconbtakenbyb;
-static texhandle_t		flagiconbtakenbyr;
-static texhandle_t		flagiconrtakenbyb;
-static texhandle_t		flagiconrtakenbyr;
-static texhandle_t		flagicongtakenbyb;
-static texhandle_t		flagicongtakenbyr;
-static texhandle_t		flagiconbdropped;
-static texhandle_t		flagiconrdropped;
-static texhandle_t		line_leftempty;
-static texhandle_t		line_leftfull;
-static texhandle_t		line_centerempty;
-static texhandle_t		line_centerleft;
-static texhandle_t		line_centerright;
-static texhandle_t		line_centerfull;
-static texhandle_t		line_rightempty;
-static texhandle_t		line_rightfull;
 static int		NameUp = -1;
 
-extern patch_t	*sttminus;
-extern patch_t	*tallnum[10];
-extern patch_t	*faces[];
+static const Texture*	medi;
+static const Texture*	armors[2];
+static const Texture*	ammos[4];
+static const Texture*	bigammos[4];
+static const Texture*	flagiconteam;
+static const Texture*	flagiconbhome;
+static const Texture*	flagiconrhome;
+static const Texture*	flagiconbtakenbyb;
+static const Texture*	flagiconbtakenbyr;
+static const Texture*	flagiconrtakenbyb;
+static const Texture*	flagiconrtakenbyr;
+static const Texture*	flagicongtakenbyb;
+static const Texture*	flagicongtakenbyr;
+static const Texture*	flagiconbdropped;
+static const Texture*	flagiconrdropped;
+static const Texture*	line_leftempty;
+static const Texture*	line_leftfull;
+static const Texture*	line_centerempty;
+static const Texture*	line_centerleft;
+static const Texture*	line_centerright;
+static const Texture*	line_centerfull;
+static const Texture*	line_rightempty;
+static const Texture*	line_rightfull;
+
+static const Texture*	sttminus;
+static const Texture*	tallnum[10];
+static const Texture*	keys[NUMCARDS + NUMCARDS / 2];
+static const Texture*	faces[ST_NUMFACES];
+
 extern int		st_faceindex;
-extern patch_t	*keys[NUMCARDS+NUMCARDS/2];
 extern byte		*Ranges;
+
 extern flagdata CTFdata[NUMFLAGS];
 
 extern NetDemo netdemo;
@@ -99,27 +102,17 @@ EXTERN_CVAR (sv_fraglimit)
 // Loads a status bar sprite and prevents it from being freed when the
 // Zone memory manager is low on memory.
 // 
-static texhandle_t ST_LoadSprite(const char* name)
+static const Texture* ST_LoadSprite(const char* name)
 {
 	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_SPRITE);
-	if (texhandle != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
-	{
-		const Texture* texture = texturemanager.getTexture(texhandle);
-		Z_ChangeTag(texture, PU_STATIC);
-	}
-	return texhandle;
+	return texturemanager.getTexture(texhandle);
 }
 
 //
 // ST_UnloadSprite
 //
-static void ST_UnloadSprite(texhandle_t texhandle)
+static void ST_UnloadSprite(const Texture* texture)
 {
-	if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
-		texhandle == TextureManager::NO_TEXTURE_HANDLE)
-		return;
-
-	const Texture* texture = texturemanager.getTexture(texhandle);
 	Z_ChangeTag(texture, PU_CACHE);
 }
 
@@ -156,21 +149,68 @@ void ST_unloadNew (void)
 		ST_UnloadSprite(ammos[i]);
 		ST_UnloadSprite(bigammos[i]);
 	}
+
+	ST_UnloadSprite(sttminus);
+
+	for (int i = 0; i < 10; i++)
+		ST_UnloadSprite(tallnum[i]);
+
+	for (int i = 0; i < NUMCARDS + NUMCARDS / 2; i++)
+		ST_UnloadSprite(keys[i]);
+
+	for (int i = 0; i < ST_NUMFACES; i++)
+		ST_UnloadSprite(faces[i]);
 }
 
 
 void ST_initNew (void)
 {
-	int widest = 0;
-
-	// denis - todo - security - these patches have unchecked dimensions
-	// ie, if a patch has a 0 width/height, it may cause a divide by zero
-	// somewhere else in the code. we download wads, so this is an issue!
-
-	for (int i = 0; i < 10; i++) {
-		if (tallnum[i]->width() > widest)
-			widest = tallnum[i]->width();
+	// load the player face sprites
+	int facenum = 0;
+	char face_name[9] = "STF";
+	for (int i = 0; i < ST_NUMPAINFACES; i++)
+	{
+		for (int j = 0; j < ST_NUMSTRAIGHTFACES; j++)
+		{
+			sprintf(face_name+3, "ST%d%d", i, j);
+			faces[facenum++] = ST_LoadSprite(face_name);
+		}
+		sprintf(face_name+3, "TR%d0", i);		// turn right
+		faces[facenum++] = ST_LoadSprite(face_name);
+		sprintf(face_name+3, "TL%d0", i);		// turn left
+		faces[facenum++] = ST_LoadSprite(face_name);
+		sprintf(face_name+3, "OUCH%d", i);		// ouch!
+		faces[facenum++] = ST_LoadSprite(face_name);
+		sprintf(face_name+3, "EVL%d", i);		// evil grin ;)
+		faces[facenum++] = ST_LoadSprite(face_name);
+		sprintf(face_name+3, "KILL%d", i);		// pissed off
+		faces[facenum++] = ST_LoadSprite(face_name);
 	}
+	strcpy (face_name+3, "GOD0");
+	faces[facenum++] = ST_LoadSprite(face_name);
+	strcpy (face_name+3, "DEAD0");
+	faces[facenum++] = ST_LoadSprite(face_name);
+
+	// load the key card sprites
+	char keys_name[] = "STKEYS0";
+	for (int i = 0; i < NUMCARDS + NUMCARDS / 2; i++)
+	{
+		keys[i] = ST_LoadSprite(keys_name);
+		keys_name[6]++;
+	}
+
+	// load the tall number sprites
+	sttminus = ST_LoadSprite("STTMINUS");
+
+	widestnum = 0;
+	char tallnum_name[] = "STTNUM0";
+	for (int i = 0; i < 10; i++)
+	{
+		tallnum[i] = ST_LoadSprite(tallnum_name);
+		tallnum_name[6]++;
+		widestnum = MAX(widestnum, tallnum[i]->getWidth());
+	}
+	numheight = tallnum[0]->getHeight();
 
 	medi = ST_LoadSprite("MEDIA0");
 
@@ -197,9 +237,6 @@ void ST_initNew (void)
 	flagiconbdropped	= ST_LoadSprite("FLAGIC4B");
 	flagiconrdropped	= ST_LoadSprite("FLAGIC4R");
 
-	widestnum = widest;
-	numheight = tallnum[0]->height();
-
 	if (multiplayer && (sv_gametype == GM_COOP || demoplayback || !netgame) && level.time)
 		NameUp = level.time + 2*TICRATE;
 
@@ -213,7 +250,7 @@ void ST_initNew (void)
 	line_rightfull		= ST_LoadSprite("ODABARRF");
 }
 
-void ST_DrawNum (int x, int y, DCanvas *scrn, int num)
+void ST_DrawNum(int x, int y, DCanvas *scrn, int num)
 {
 	char digits[8], *d;
 
@@ -221,13 +258,13 @@ void ST_DrawNum (int x, int y, DCanvas *scrn, int num)
 	{
 		if (hud_scale)
 		{
-			scrn->DrawLucentPatchCleanNoMove (sttminus, x, y);
-			x += CleanXfac * sttminus->width();
+			scrn->DrawLucentTextureCleanNoMove(sttminus, x, y);
+			x += CleanXfac * sttminus->getWidth();
 		}
 		else
 		{
-			scrn->DrawLucentPatch (sttminus, x, y);
-			x += sttminus->width();
+			scrn->DrawLucentTexture(sttminus, x, y);
+			x += sttminus->getWidth();
 		}
 		num = -num;
 	}
@@ -239,15 +276,17 @@ void ST_DrawNum (int x, int y, DCanvas *scrn, int num)
 	{
 		if (*d >= '0' && *d <= '9')
 		{
+			const Texture* num_texture = tallnum[*d - '0'];
+
 			if (hud_scale)
 			{
-				scrn->DrawLucentPatchCleanNoMove (tallnum[*d - '0'], x, y);
-				x += CleanXfac * tallnum[*d - '0']->width();
+				scrn->DrawLucentTextureCleanNoMove(num_texture, x, y);
+				x += CleanXfac * num_texture->getWidth();
 			}
 			else
 			{
-				scrn->DrawLucentPatch (tallnum[*d - '0'], x, y);
-				x += tallnum[*d - '0']->width();
+				scrn->DrawLucentTexture(num_texture, x, y);
+				x += num_texture->getWidth();
 			}
 		}
 		d++;
@@ -260,11 +299,11 @@ void ST_DrawNumRight (int x, int y, DCanvas *scrn, int num)
 	int xscale = hud_scale ? CleanXfac : 1;
 
 	do {
-		x -= tallnum[d%10]->width() * xscale;
+		x -= tallnum[d % 10]->getWidth() * xscale;
 	} while (d /= 10);
 
 	if (num < 0)
-		x -= sttminus->width() * xscale;
+		x -= sttminus->getWidth() * xscale;
 
 	ST_DrawNum (x, y, scrn, num);
 }
@@ -315,32 +354,32 @@ void ST_DrawBar (int normalcolor, unsigned int value, unsigned int total,
 	V_ColorMap = translationref_t(Ranges + normalcolor * 256);
 	for (int i = 0; i < bar_width; i++)
 	{
-		texhandle_t line_texhandle;
+		const Texture* line_texture;
 
 		if (!reverse)
 		{
 			if (i == 0 && !cutleft)
 			{
 				if (bar_filled == 0)
-					line_texhandle = line_leftempty;
+					line_texture = line_leftempty;
 				else
-					line_texhandle = line_leftfull;
+					line_texture = line_leftfull;
 			}
 			else if (i == bar_width - 1 && !cutright)
 			{
 				if (bar_filled == bar_width)
-					line_texhandle = line_rightfull;
+					line_texture = line_rightfull;
 				else
-					line_texhandle = line_rightempty;
+					line_texture = line_rightempty;
 			}
 			else
 			{
 				if (i == bar_filled - 1)
-					line_texhandle = line_centerleft;
+					line_texture = line_centerleft;
 				else if (i < bar_filled)
-					line_texhandle = line_centerfull;
+					line_texture = line_centerfull;
 				else
-					line_texhandle = line_centerempty;
+					line_texture = line_centerempty;
 			}
 		}
 		else
@@ -348,29 +387,27 @@ void ST_DrawBar (int normalcolor, unsigned int value, unsigned int total,
 			if (i == 0 && !cutleft)
 			{
 				if (bar_filled == bar_width)
-					line_texhandle = line_leftfull;
+					line_texture = line_leftfull;
 				else
-					line_texhandle = line_leftempty;
+					line_texture = line_leftempty;
 			}
 			else if (i == bar_width - 1 && !cutright)
 			{
 				if (bar_filled == 0)
-					line_texhandle = line_rightempty;
+					line_texture = line_rightempty;
 				else
-					line_texhandle = line_rightfull;
+					line_texture = line_rightfull;
 			}
 			else
 			{
 				if (i == (bar_width - bar_filled))
-					line_texhandle = line_centerright;
+					line_texture = line_centerright;
 				else if (i >= (bar_width - bar_filled))
-					line_texhandle = line_centerfull;
+					line_texture = line_centerfull;
 				else
-					line_texhandle = line_centerempty;
+					line_texture = line_centerempty;
 			}
 		}
-
-		const Texture* line_texture = texturemanager.getTexture(line_texhandle);
 
 		int xi = x + (i * xscale * 2);
 		if (hud_scale)
@@ -478,8 +515,8 @@ void drawCTF() {
 	int xscale = hud_scale ? CleanXfac : 1;
 	int yscale = hud_scale ? CleanYfac : 1;
 
-	texhandle_t flagblue_texhandle = flagiconbhome;
-	texhandle_t flagred_texhandle = flagiconrhome;
+	const Texture* flagblue_texture = flagiconbhome;
+	const Texture* flagred_texture = flagiconrhome;
 
 	switch (CTFdata[it_blueflag].state)
 	{
@@ -488,13 +525,13 @@ void drawCTF() {
 			{
 				player_t &player = idplayer(CTFdata[it_blueflag].flagger);
 				if (player.userinfo.team == TEAM_BLUE)
-					flagblue_texhandle = flagiconbtakenbyb;
+					flagblue_texture = flagiconbtakenbyb;
 				else if (player.userinfo.team == TEAM_RED)
-					flagblue_texhandle = flagiconbtakenbyr;
+					flagblue_texture = flagiconbtakenbyr;
 			}
 			break;
 		case flag_dropped:
-			flagblue_texhandle = flagiconbdropped;
+			flagblue_texture = flagiconbdropped;
 			break;
 		default:
 			break;
@@ -507,22 +544,19 @@ void drawCTF() {
 			{
 				player_t &player = idplayer(CTFdata[it_redflag].flagger);
 				if (player.userinfo.team == TEAM_BLUE)
-					flagred_texhandle = flagiconrtakenbyb;
+					flagred_texture = flagiconrtakenbyb;
 				else if (player.userinfo.team == TEAM_RED)
-					flagred_texhandle = flagiconrtakenbyr;
+					flagred_texture = flagiconrtakenbyr;
 			}
 			break;
 		case flag_dropped:
-			flagred_texhandle = flagiconrdropped;
+			flagred_texture = flagiconrdropped;
 			break;
 		default:
 			break;
 	}
 
-	// Draw base flag patches
-	const Texture* flagblue_texture = texturemanager.getTexture(flagblue_texhandle);
-	const Texture* flagred_texture = texturemanager.getTexture(flagred_texhandle);
-
+	// Draw base flag textures
 	hud::DrawTexture(4, 61, hud_scale,
 	               hud::X_RIGHT, hud::Y_BOTTOM,
 	               hud::X_RIGHT, hud::Y_BOTTOM,
@@ -533,21 +567,19 @@ void drawCTF() {
 	               flagred_texture);
 
 	// Draw team border
-	const Texture* flagborder_texture = texturemanager.getTexture(flagiconteam);
-
 	switch (plyr->userinfo.team)
 	{
 		case TEAM_BLUE:
 			hud::DrawTexture(4, 61, hud_scale,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
-			               flagborder_texture);
+			               flagiconteam);
 			break;
 		case TEAM_RED:
 			hud::DrawTexture(4, 43, hud_scale,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
-			               flagborder_texture);
+			               flagiconteam);
 			break;
 		default:
 			break;
@@ -607,8 +639,7 @@ void OdamexHUD() {
 	// Draw Armor if the player has any
 	if (plyr->armortype && plyr->armorpoints)
 	{
-		texhandle_t armor_texhandle = armors[plyr->armortype - 1];
-		const Texture* armor_texture = texturemanager.getTexture(armor_texhandle);
+		const Texture* armor_texture = armors[plyr->armortype - 1];
 
 		// Draw Armor type.  Vertically centered against armor number.
 		hud::DrawTextureScaled(48 + 2 + 10, 32, 20, 20, hud_scale,
@@ -620,7 +651,7 @@ void OdamexHUD() {
 
 	// Draw Doomguy.  Vertically scaled to an area two pixels above and
 	// below the health number, and horizontally centered below the armor.
-	hud::DrawPatchScaled(48 + 2 + 10, 2, 20, 20, hud_scale,
+	hud::DrawTextureScaled(48 + 2 + 10, 2, 20, 20, hud_scale,
 	                     hud::X_LEFT, hud::Y_BOTTOM,
 	                     hud::X_CENTER, hud::Y_BOTTOM,
 	                     faces[st_faceindex]);
@@ -631,8 +662,7 @@ void OdamexHUD() {
 	if (ammotype < NUMAMMO)
 	{
 		// Use big ammo if the player has a backpack.
-		texhandle_t ammo_texhandle = plyr->backpack ? bigammos[ammotype] : ammos[ammotype];
-		const Texture* ammo_texture = texturemanager.getTexture(ammo_texhandle);
+		const Texture* ammo_texture = plyr->backpack ? bigammos[ammotype] : ammos[ammotype];
 
 		// Draw ammo.  We have a 16x16 box to the right of the ammo where the
 		// ammo type is drawn.
@@ -704,7 +734,7 @@ void OdamexHUD() {
 	if (sv_gametype == GM_COOP) {
 		for (byte i = 0;i < NUMCARDS;i++) {
 			if (plyr->cards[i]) {
-				hud::DrawPatch(4 + (i * 10), 24, hud_scale,
+				hud::DrawTexture(4 + (i * 10), 24, hud_scale,
 				               hud::X_RIGHT, hud::Y_BOTTOM,
 				               hud::X_RIGHT, hud::Y_BOTTOM,
 				               keys[i]);
@@ -778,18 +808,16 @@ void ZDoomHUD() {
 	y = screen->height - (numheight + 4) * yscale;
 
 	// Draw health
-	const Texture* medi_texture = texturemanager.getTexture(medi);
 	if (hud_scale)
-		screen->DrawLucentTextureCleanNoMove(medi_texture, 20 * CleanXfac, screen->height - 2*CleanYfac);
+		screen->DrawLucentTextureCleanNoMove(medi, 20 * CleanXfac, screen->height - 2*CleanYfac);
 	else
-		screen->DrawLucentTexture(medi_texture, 20, screen->height - 2);
+		screen->DrawLucentTexture(medi, 20, screen->height - 2);
 	ST_DrawNum (40 * xscale, y, screen, plyr->health);
 
 	// Draw armor
 	if (plyr->armortype && plyr->armorpoints)
 	{
-		texhandle_t armor_texhandle = armors[plyr->armortype - 1];
-		const Texture* armor_texture = texturemanager.getTexture(armor_texhandle);
+		const Texture* armor_texture = armors[plyr->armortype - 1];
 
 		if (hud_scale)
 			screen->DrawLucentTextureCleanNoMove(armor_texture, 20 * CleanXfac, y - 4*CleanYfac);
@@ -803,8 +831,7 @@ void ZDoomHUD() {
 	// Draw ammo
 	if (ammotype < NUMAMMO)
 	{
-		texhandle_t ammo_texhandle = ammos[weaponinfo[plyr->readyweapon].ammotype];
-		const Texture* ammo_texture = texturemanager.getTexture(ammo_texhandle);
+		const Texture* ammo_texture = ammos[weaponinfo[plyr->readyweapon].ammotype];
 
 		if (hud_scale)
 			screen->DrawLucentTextureCleanNoMove(ammo_texture, screen->width - 14 * CleanXfac, screen->height - 4 * CleanYfac);
@@ -832,9 +859,9 @@ void ZDoomHUD() {
 			if (plyr->cards[i])
 			{
 				if (hud_scale)
-					screen->DrawLucentPatchCleanNoMove (keys[i], screen->width - 10*CleanXfac, y);
+					screen->DrawLucentTextureCleanNoMove(keys[i], screen->width - 10*CleanXfac, y);
 				else
-					screen->DrawLucentPatch (keys[i], screen->width - 10, y);
+					screen->DrawLucentTexture(keys[i], screen->width - 10, y);
 				y += (8 + (i < 3 ? 0 : 2)) * yscale;
 			}
 		}

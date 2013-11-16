@@ -30,6 +30,27 @@
 #include "doomtype.h"
 #include "d_event.h"
 
+// Number of status faces.
+#define ST_NUMPAINFACES 		5
+#define ST_NUMSTRAIGHTFACES 	3
+#define ST_NUMTURNFACES 		2
+#define ST_NUMSPECIALFACES		3
+
+#define ST_FACESTRIDE \
+		  (ST_NUMSTRAIGHTFACES+ST_NUMTURNFACES+ST_NUMSPECIALFACES)
+
+#define ST_NUMEXTRAFACES		2
+
+#define ST_NUMFACES \
+		  (ST_FACESTRIDE*ST_NUMPAINFACES+ST_NUMEXTRAFACES)
+
+#define ST_TURNOFFSET			(ST_NUMSTRAIGHTFACES)
+#define ST_OUCHOFFSET			(ST_TURNOFFSET + ST_NUMTURNFACES)
+#define ST_EVILGRINOFFSET		(ST_OUCHOFFSET + 1)
+#define ST_RAMPAGEOFFSET		(ST_EVILGRINOFFSET + 1)
+#define ST_GODFACE				(ST_NUMPAINFACES*ST_FACESTRIDE)
+#define ST_DEADFACE 			(ST_GODFACE+1)
+
 // [RH] Turned these into variables
 // Size of statusbar.
 // Now ([RH] truly) sensitive for scaling.

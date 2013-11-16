@@ -619,7 +619,7 @@ static forceinline void R_DrawMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 	COLORFUNC colorfunc(drawcolumn);
 
 	do {
-		PIXEL_T tempdest;
+		PIXEL_T tempdest = *dest;
 		colorfunc(source[frac >> FRACBITS], &tempdest);
 
 		// [SL] negating an unsigned number is a quick way to expand 0x01 to 0xFF
