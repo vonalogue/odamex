@@ -46,39 +46,17 @@
 #include "m_swap.h"
 
 
+void ST_DrawTexture(const Texture* texture, int x0, int y0);
+
 // in AM_map.c
 extern BOOL			automapactive;
 
-//
-// Hack display negative frags.
-//	Loads and store the stminus lump.
-//
-patch_t*				sttminus;
-
 void STlib_init(void)
 {
-	sttminus = W_CachePatch("STTMINUS", PU_STATIC);
 }
-
 
 // [RH] Routines to stretch status bar graphics depending on st_scale cvar.
 EXTERN_CVAR (st_scale)
-
-void STlib_scaleRect (int x, int y, int w, int h)
-{
-	if (st_scale)
-		stbarscreen->CopyRect (x, y, w, h, x, y, stnumscreen);
-	else
-		stbarscreen->CopyRect (x, y, w, h, x + ST_X, y + ST_Y, FG);
-}
-
-void STlib_scalePatch (int x, int y, patch_t *p)
-{
-	if (st_scale)
-		stnumscreen->DrawPatch (p, x, y);
-	else
-		FG->DrawPatch (p, x + ST_X, y + ST_Y);
-}
 
 // ?
 void
@@ -86,18 +64,20 @@ STlib_initNum
 ( st_number_t*			n,
   int					x,
   int					y,
-  patch_t** 			pl,
+  const Texture** 		textures,
   int*					num,
   bool*					on,
-  int					width )
+  int					width,
+  const Texture*		minus_texture )
 {
-	n->x		= x;
-	n->y		= y;
-	n->oldnum	= 0;
-	n->width	= width;
-	n->num		= num;
-	n->on		= on;
-	n->p		= pl;
+	n->x				= x;
+	n->y				= y;
+	n->oldnum			= 0;
+	n->width			= width;
+	n->num				= num;
+	n->on				= on;
+	n->textures			= textures;
+	n->minus_texture	= minus_texture;
 }
 
 
@@ -108,19 +88,15 @@ STlib_initNum
 //
 void STlib_drawNum (st_number_t *n, bool refresh)
 {
-
 	int 		numdigits = n->width;
 	int 		num = *n->num;
 
-	int 		w = n->p[0]->width();
-	int 		h = n->p[0]->height();
+	int 		w = n->textures[0]->getWidth();
 	int 		x = n->x;
-
-	int 		neg;
 
 	n->oldnum = *n->num;
 
-	neg = num < 0;
+	bool neg = num < 0;
 
 	if (neg)
 	{
@@ -132,11 +108,6 @@ void STlib_drawNum (st_number_t *n, bool refresh)
 		num = -num;
 	}
 
-	// clear the area
-	x = n->x - numdigits*w;
-
-	STlib_scaleRect (x, n->y, w*numdigits, h);
-
 	// if non-number, do not draw it
 	if (num == 1994)
 		return;
@@ -145,19 +116,19 @@ void STlib_drawNum (st_number_t *n, bool refresh)
 
 	// in the special case of 0, you draw 0
 	if (!num)
-		STlib_scalePatch (x - w, n->y, n->p[ 0 ]);
+		ST_DrawTexture(n->textures[0], x - w, n->y);
 
 	// draw the new number
 	while (num && numdigits--)
 	{
 		x -= w;
-		STlib_scalePatch (x, n->y, n->p[ num % 10 ]);
+		ST_DrawTexture(n->textures[num % 10], x, n->y);
 		num /= 10;
 	}
 
 	// draw a minus sign if necessary
 	if (neg)
-		STlib_scalePatch (x - 8, n->y, sttminus);
+		ST_DrawTexture(n->minus_texture, x - 8, n->y);
 }
 
 
@@ -165,9 +136,10 @@ void STlib_drawNum (st_number_t *n, bool refresh)
 void
 STlib_updateNum
 ( st_number_t*			n,
-  bool				refresh )
+  bool					refresh )
 {
-	if (*n->on) STlib_drawNum(n, refresh);
+	if (*n->on)
+		STlib_drawNum(n, refresh);
 }
 
 
@@ -177,13 +149,14 @@ STlib_initPercent
 ( st_percent_t* 		p,
   int					x,
   int					y,
-  patch_t** 			pl,
+  const Texture** 		textures,
   int*					num,
   bool*					on,
-  patch_t*				percent )
+  const Texture*		minus_texture,
+  const Texture*		percent_texture )
 {
-	STlib_initNum(&p->n, x, y, pl, num, on, 3);
-	p->p = percent;
+	STlib_initNum(&p->n, x, y, textures, num, on, 3, minus_texture);
+	p->texture = percent_texture;
 }
 
 
@@ -194,9 +167,8 @@ STlib_updatePercent
 ( st_percent_t* 		per,
   bool					refresh )
 {
-	if (refresh && *per->n.on) {
-		STlib_scalePatch (per->n.x, per->n.y, per->p);
-	}
+	if (refresh && *per->n.on)
+		ST_DrawTexture(per->texture, per->n.x, per->n.y);
 
 	STlib_updateNum(&per->n, refresh);
 }
@@ -208,16 +180,16 @@ STlib_initMultIcon
 ( st_multicon_t*		i,
   int					x,
   int					y,
-  patch_t** 			il,
+  const Texture** 		textures,
   int*					inum,
-  bool*				on )
+  bool*					on )
 {
 	i->x		= x;
 	i->y		= y;
 	i->oldinum	= -1;
 	i->inum 	= inum;
 	i->on		= on;
-	i->p		= il;
+	i->textures	= textures;
 }
 
 
@@ -225,31 +197,13 @@ STlib_initMultIcon
 void
 STlib_updateMultIcon
 ( st_multicon_t*		mi,
-  bool				refresh )
+  bool					refresh )
 {
-	int 				w;
-	int 				h;
-	int 				x;
-	int 				y;
-
 	if (*mi->on
 		&& (mi->oldinum != *mi->inum || refresh)
 		&& (*mi->inum!=-1))
 	{
-		if (mi->oldinum != -1)
-		{
-			x = mi->x - mi->p[mi->oldinum]->leftoffset();
-			y = mi->y - mi->p[mi->oldinum]->topoffset();
-			w = mi->p[mi->oldinum]->width();
-			h = mi->p[mi->oldinum]->height();
-
-			STlib_scaleRect (x, y, w, h);
-		} else {
-			w = h = 0;
-			x = 0;
-			y = 0;
-		}
-		STlib_scalePatch (mi->x, mi->y, mi->p[*mi->inum]);
+		ST_DrawTexture(mi->textures[*mi->inum], mi->x, mi->y);
 		mi->oldinum = *mi->inum;
 	}
 }
@@ -261,16 +215,16 @@ STlib_initBinIcon
 ( st_binicon_t* 		b,
   int					x,
   int					y,
-  patch_t*				i,
-  bool*				val,
-  bool*				on )
+  const Texture*		texture,
+  bool*					val,
+  bool*					on )
 {
 	b->x		= x;
 	b->y		= y;
 	b->oldval	= 0;
 	b->val		= val;
 	b->on		= on;
-	b->p		= i;
+	b->texture	= texture;
 }
 
 
@@ -278,27 +232,12 @@ STlib_initBinIcon
 void
 STlib_updateBinIcon
 ( st_binicon_t* 		bi,
-  bool				refresh )
+  bool					refresh )
 {
-	int 				x;
-	int 				y;
-	int 				w;
-	int 				h;
-
 	if (*bi->on
 		&& ((bi->oldval != *bi->val) || refresh))
 	{
-		x = bi->x - bi->p->leftoffset();
-		y = bi->y - bi->p->topoffset();
-		w = bi->p->width();
-		h = bi->p->height();
-
-		if (*bi->val)
-			STlib_scalePatch (bi->x, bi->y, bi->p);
-		else
-			STlib_scaleRect (x, y, w, h);
-
-		bi->oldval = *bi->val;
+		ST_DrawTexture(bi->texture, bi->x, bi->y);
 	}
 
 }

@@ -1264,6 +1264,8 @@ void R_SetTranslatedLucentDrawFuncs()
 
 void R_RenderPlayerView (player_t *player)
 {
+	dcol.pitch = screen->is8bit() ? screen->pitch : screen->pitch / 4;
+
 	R_SetupFrame (player);
 
 	// Clear buffers.

@@ -50,39 +50,6 @@
 #include "p_ctf.h"
 #include "cl_vote.h"
 
-static int		widestnum, numheight;
-
-static int		NameUp = -1;
-
-static const Texture*	medi;
-static const Texture*	armors[2];
-static const Texture*	ammos[4];
-static const Texture*	bigammos[4];
-static const Texture*	flagiconteam;
-static const Texture*	flagiconbhome;
-static const Texture*	flagiconrhome;
-static const Texture*	flagiconbtakenbyb;
-static const Texture*	flagiconbtakenbyr;
-static const Texture*	flagiconrtakenbyb;
-static const Texture*	flagiconrtakenbyr;
-static const Texture*	flagicongtakenbyb;
-static const Texture*	flagicongtakenbyr;
-static const Texture*	flagiconbdropped;
-static const Texture*	flagiconrdropped;
-static const Texture*	line_leftempty;
-static const Texture*	line_leftfull;
-static const Texture*	line_centerempty;
-static const Texture*	line_centerleft;
-static const Texture*	line_centerright;
-static const Texture*	line_centerfull;
-static const Texture*	line_rightempty;
-static const Texture*	line_rightfull;
-
-static const Texture*	sttminus;
-static const Texture*	tallnum[10];
-static const Texture*	keys[NUMCARDS + NUMCARDS / 2];
-static const Texture*	faces[ST_NUMFACES];
-
 extern int		st_faceindex;
 extern byte		*Ranges;
 
@@ -96,159 +63,37 @@ EXTERN_CVAR (hud_targetcount)
 EXTERN_CVAR (st_scale)
 EXTERN_CVAR (sv_fraglimit)
 
-//
-// ST_LoadSprite
-//
-// Loads a status bar sprite and prevents it from being freed when the
-// Zone memory manager is low on memory.
-// 
-static const Texture* ST_LoadSprite(const char* name)
-{
-	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_SPRITE);
-	return texturemanager.getTexture(texhandle);
-}
-
-//
-// ST_UnloadSprite
-//
-static void ST_UnloadSprite(const Texture* texture)
-{
-	Z_ChangeTag(texture, PU_CACHE);
-}
-
-void ST_unloadNew (void)
-{
-	ST_UnloadSprite(medi);
-
-	ST_UnloadSprite(flagiconteam);
-	ST_UnloadSprite(flagiconbhome);
-	ST_UnloadSprite(flagiconrhome);
-	ST_UnloadSprite(flagiconbtakenbyb);
-	ST_UnloadSprite(flagiconbtakenbyr);
-	ST_UnloadSprite(flagiconrtakenbyb);
-	ST_UnloadSprite(flagiconrtakenbyr);
-	ST_UnloadSprite(flagicongtakenbyb);
-	ST_UnloadSprite(flagicongtakenbyr);
-	ST_UnloadSprite(flagiconbdropped);
-	ST_UnloadSprite(flagiconrdropped);
-
-	ST_UnloadSprite(line_leftempty);
-	ST_UnloadSprite(line_leftfull);
-	ST_UnloadSprite(line_centerempty);
-	ST_UnloadSprite(line_centerleft);
-	ST_UnloadSprite(line_centerright);
-	ST_UnloadSprite(line_centerfull);
-	ST_UnloadSprite(line_rightempty);
-	ST_UnloadSprite(line_rightfull);
-
-	for (int i = 0; i < 2; i++)
-		ST_UnloadSprite(armors[i]);
-
-	for (int i = 0; i < 4; i++)
-	{
-		ST_UnloadSprite(ammos[i]);
-		ST_UnloadSprite(bigammos[i]);
-	}
-
-	ST_UnloadSprite(sttminus);
-
-	for (int i = 0; i < 10; i++)
-		ST_UnloadSprite(tallnum[i]);
-
-	for (int i = 0; i < NUMCARDS + NUMCARDS / 2; i++)
-		ST_UnloadSprite(keys[i]);
-
-	for (int i = 0; i < ST_NUMFACES; i++)
-		ST_UnloadSprite(faces[i]);
-}
-
-
-void ST_initNew (void)
-{
-	// load the player face sprites
-	int facenum = 0;
-	char face_name[9] = "STF";
-	for (int i = 0; i < ST_NUMPAINFACES; i++)
-	{
-		for (int j = 0; j < ST_NUMSTRAIGHTFACES; j++)
-		{
-			sprintf(face_name+3, "ST%d%d", i, j);
-			faces[facenum++] = ST_LoadSprite(face_name);
-		}
-		sprintf(face_name+3, "TR%d0", i);		// turn right
-		faces[facenum++] = ST_LoadSprite(face_name);
-		sprintf(face_name+3, "TL%d0", i);		// turn left
-		faces[facenum++] = ST_LoadSprite(face_name);
-		sprintf(face_name+3, "OUCH%d", i);		// ouch!
-		faces[facenum++] = ST_LoadSprite(face_name);
-		sprintf(face_name+3, "EVL%d", i);		// evil grin ;)
-		faces[facenum++] = ST_LoadSprite(face_name);
-		sprintf(face_name+3, "KILL%d", i);		// pissed off
-		faces[facenum++] = ST_LoadSprite(face_name);
-	}
-	strcpy (face_name+3, "GOD0");
-	faces[facenum++] = ST_LoadSprite(face_name);
-	strcpy (face_name+3, "DEAD0");
-	faces[facenum++] = ST_LoadSprite(face_name);
-
-	// load the key card sprites
-	char keys_name[] = "STKEYS0";
-	for (int i = 0; i < NUMCARDS + NUMCARDS / 2; i++)
-	{
-		keys[i] = ST_LoadSprite(keys_name);
-		keys_name[6]++;
-	}
-
-	// load the tall number sprites
-	sttminus = ST_LoadSprite("STTMINUS");
-
-	widestnum = 0;
-	char tallnum_name[] = "STTNUM0";
-	for (int i = 0; i < 10; i++)
-	{
-		tallnum[i] = ST_LoadSprite(tallnum_name);
-		tallnum_name[6]++;
-		widestnum = MAX(widestnum, tallnum[i]->getWidth());
-	}
-	numheight = tallnum[0]->getHeight();
-
-	medi = ST_LoadSprite("MEDIA0");
-
-	armors[0] = ST_LoadSprite("ARM1A0");
-	armors[1] = ST_LoadSprite("ARM2A0");
-
-	ammos[0] = ST_LoadSprite("CLIPA0");
-	ammos[1] = ST_LoadSprite("SHELA0");
-	ammos[2] = ST_LoadSprite("CELLA0");
-	ammos[3] = ST_LoadSprite("ROCKA0");
-
-	bigammos[0] = ST_LoadSprite("AMMOA0");
-	bigammos[1] = ST_LoadSprite("SBOXA0");
-	bigammos[2] = ST_LoadSprite("CELPA0");
-	bigammos[3] = ST_LoadSprite("BROKA0");
-	
-	flagiconteam		= ST_LoadSprite("FLAGIT");
-	flagiconbhome		= ST_LoadSprite("FLAGIC2B");
-	flagiconrhome		= ST_LoadSprite("FLAGIC2R");
-	flagiconbtakenbyb	= ST_LoadSprite("FLAGI3BB");
-	flagiconbtakenbyr	= ST_LoadSprite("FLAGI3BR");
-	flagiconrtakenbyb	= ST_LoadSprite("FLAGI3RB");
-	flagiconrtakenbyr	= ST_LoadSprite("FLAGI3RR");
-	flagiconbdropped	= ST_LoadSprite("FLAGIC4B");
-	flagiconrdropped	= ST_LoadSprite("FLAGIC4R");
-
-	if (multiplayer && (sv_gametype == GM_COOP || demoplayback || !netgame) && level.time)
-		NameUp = level.time + 2*TICRATE;
-
-	line_leftempty		= ST_LoadSprite("ODABARLE");
-	line_leftfull		= ST_LoadSprite("ODABARLF");
-	line_centerempty	= ST_LoadSprite("ODABARCE");
-	line_centerleft		= ST_LoadSprite("ODABARCL");
-	line_centerright	= ST_LoadSprite("ODABARCR");
-	line_centerfull		= ST_LoadSprite("ODABARCF");
-	line_rightempty		= ST_LoadSprite("ODABARRE");
-	line_rightfull		= ST_LoadSprite("ODABARRF");
-}
+// statusbar / hud graphics
+class Texture;
+extern const Texture*	medi;
+extern const Texture*	armors[2];
+extern const Texture*	ammos[4];
+extern const Texture*	bigammos[4];
+extern const Texture*	hudflagteam;
+extern const Texture*	hudflagbhome;
+extern const Texture*	hudflagrhome;
+extern const Texture*	hudflagbtakenbyb;
+extern const Texture*	hudflagbtakenbyr;
+extern const Texture*	hudflagrtakenbyb;
+extern const Texture*	hudflagrtakenbyr;
+extern const Texture*	hudflaggtakenbyb;
+extern const Texture*	hudflaggtakenbyr;
+extern const Texture*	hudflagbdropped;
+extern const Texture*	hudflagrdropped;
+extern const Texture*	line_leftempty;
+extern const Texture*	line_leftfull;
+extern const Texture*	line_centerempty;
+extern const Texture*	line_centerleft;
+extern const Texture*	line_centerright;
+extern const Texture*	line_centerfull;
+extern const Texture*	line_rightempty;
+extern const Texture*	line_rightfull;
+extern const Texture*	tallminus;
+extern const Texture*	tallpercent;
+extern const Texture*	tallnum[10];
+extern const Texture*	shortnum[10];
+extern const Texture*	keys[NUMCARDS + NUMCARDS / 2];
+extern const Texture*	faces[ST_NUMFACES];
 
 void ST_DrawNum(int x, int y, DCanvas *scrn, int num)
 {
@@ -258,13 +103,13 @@ void ST_DrawNum(int x, int y, DCanvas *scrn, int num)
 	{
 		if (hud_scale)
 		{
-			scrn->DrawLucentTextureCleanNoMove(sttminus, x, y);
-			x += CleanXfac * sttminus->getWidth();
+			scrn->DrawLucentTextureCleanNoMove(tallminus, x, y);
+			x += CleanXfac * tallminus->getWidth();
 		}
 		else
 		{
-			scrn->DrawLucentTexture(sttminus, x, y);
-			x += sttminus->getWidth();
+			scrn->DrawLucentTexture(tallminus, x, y);
+			x += tallminus->getWidth();
 		}
 		num = -num;
 	}
@@ -303,7 +148,7 @@ void ST_DrawNumRight (int x, int y, DCanvas *scrn, int num)
 	} while (d /= 10);
 
 	if (num < 0)
-		x -= sttminus->getWidth() * xscale;
+		x -= tallminus->getWidth() * xscale;
 
 	ST_DrawNum (x, y, scrn, num);
 }
@@ -515,8 +360,8 @@ void drawCTF() {
 	int xscale = hud_scale ? CleanXfac : 1;
 	int yscale = hud_scale ? CleanYfac : 1;
 
-	const Texture* flagblue_texture = flagiconbhome;
-	const Texture* flagred_texture = flagiconrhome;
+	const Texture* flagblue_texture = hudflagbhome;
+	const Texture* flagred_texture = hudflagrhome;
 
 	switch (CTFdata[it_blueflag].state)
 	{
@@ -525,13 +370,13 @@ void drawCTF() {
 			{
 				player_t &player = idplayer(CTFdata[it_blueflag].flagger);
 				if (player.userinfo.team == TEAM_BLUE)
-					flagblue_texture = flagiconbtakenbyb;
+					flagblue_texture = hudflagbtakenbyb;
 				else if (player.userinfo.team == TEAM_RED)
-					flagblue_texture = flagiconbtakenbyr;
+					flagblue_texture = hudflagbtakenbyr;
 			}
 			break;
 		case flag_dropped:
-			flagblue_texture = flagiconbdropped;
+			flagblue_texture = hudflagbdropped;
 			break;
 		default:
 			break;
@@ -544,13 +389,13 @@ void drawCTF() {
 			{
 				player_t &player = idplayer(CTFdata[it_redflag].flagger);
 				if (player.userinfo.team == TEAM_BLUE)
-					flagred_texture = flagiconrtakenbyb;
+					flagred_texture = hudflagrtakenbyb;
 				else if (player.userinfo.team == TEAM_RED)
-					flagred_texture = flagiconrtakenbyr;
+					flagred_texture = hudflagrtakenbyr;
 			}
 			break;
 		case flag_dropped:
-			flagred_texture = flagiconrdropped;
+			flagred_texture = hudflagrdropped;
 			break;
 		default:
 			break;
@@ -573,13 +418,13 @@ void drawCTF() {
 			hud::DrawTexture(4, 61, hud_scale,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
-			               flagiconteam);
+			               hudflagteam);
 			break;
 		case TEAM_RED:
 			hud::DrawTexture(4, 43, hud_scale,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
 			               hud::X_RIGHT, hud::Y_BOTTOM,
-			               flagiconteam);
+			               hudflagteam);
 			break;
 		default:
 			break;
@@ -634,6 +479,7 @@ void OdamexHUD() {
 	unsigned int y, xscale, yscale;
 	xscale = hud_scale ? CleanXfac : 1;
 	yscale = hud_scale ? CleanYfac : 1;
+	int numheight = tallnum[0]->getHeight();
 	y = screen->height - (numheight + 4) * yscale;
 
 	// Draw Armor if the player has any
@@ -805,6 +651,7 @@ void ZDoomHUD() {
 	int xscale = hud_scale ? CleanXfac : 1;
 	int yscale = hud_scale ? CleanYfac : 1;
 
+	int numheight = tallnum[0]->getHeight();
 	y = screen->height - (numheight + 4) * yscale;
 
 	// Draw health

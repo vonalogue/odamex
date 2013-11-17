@@ -76,13 +76,13 @@ void ST_Drawer (void);
 void ST_Start (void);
 
 // Called by startup code.
-void ST_Init (void);
+void ST_Init();
+
+// Called by shutdown code.
+void ST_Shutdown();
 
 // Draw the HUD (only if old status bar is not drawn)
 void ST_newDraw (void);
-
-// Called on init and whenever player's skin changes
-void ST_loadGraphics (void);
 
 // [ML] HUDified status bar
 void ST_drawStatusBar (void);

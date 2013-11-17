@@ -1205,7 +1205,6 @@ const Texture* TextureManager::getTexture(texhandle_t handle)
 	Texture* texture = mHandleMap[handle];
 	if (!texture)
 	{
-		DPrintf("cache miss 0x%x\n", handle);
 		if (handle & FLAT_HANDLE_MASK)
 			cacheFlat(handle);
 		else if (handle & WALLTEXTURE_HANDLE_MASK)

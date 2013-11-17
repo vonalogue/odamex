@@ -25,22 +25,7 @@
 #ifndef __STLIB__
 #define __STLIB__
 
-
-// We are referring to patches.
-#include "r_defs.h"
-
-
-//
-// Background and foreground screen numbers
-//
-// [RH] Status bar is another screen allocated
-// by status bar code instead of video code.
-extern DCanvas *stbarscreen;
-extern DCanvas *stnumscreen;
-#define BG (stbarscreen)
-#define FG (screen)
-
-
+class Texture;
 
 //
 // Typedefs of widgets
@@ -52,28 +37,29 @@ struct st_number_s
 {
 	// upper right-hand corner
 	//	of the number (right-justified)
-	int 		x;
-	int 		y;
+	int 				x;
+	int 				y;
 
 	// max # of digits in number
-	int width;
+	int					width;
 
 	// last number value
-	int 		oldnum;
+	int 				oldnum;
 
 	// pointer to current value
-	int*		num;
+	int*				num;
 
 	// pointer to bool stating
 	//	whether to update number
-	bool*	on;
+	bool*				on;
 
-	// list of patches for 0-9
-	patch_t**	p;
+	// list of textures for 0-9
+	const Texture**		textures;
 
 	// user data
-	int data;
+	int 				data;
 
+	const Texture*		minus_texture;
 };
 typedef struct st_number_s st_number_t;
 
@@ -87,7 +73,7 @@ struct st_percent_s
 	st_number_t 		n;
 
 	// percent sign graphic
-	patch_t*			p;
+	const Texture*		texture;
 
 };
 typedef struct st_percent_s st_percent_t;
@@ -111,7 +97,7 @@ struct st_multicon_s
 	bool*				on;
 
 	// list of icons
-	patch_t**			p;
+	const Texture**		textures;
 
 	// user data
 	int 				data;
@@ -130,18 +116,18 @@ struct st_binicon_s
 	int 				y;
 
 	// last icon value
-	bool			oldval;
+	bool				oldval;
 
 	// pointer to current icon status
-	bool*			val;
+	bool*				val;
 
 	// pointer to bool
 	//	stating whether to update icon
-	bool*			on;
+	bool*				on;
 
 
-	patch_t*			p;		// icon
-	int 				data;	// user data
+	const Texture*		texture;	// icon
+	int 				data;		// user data
 
 };
 typedef struct st_binicon_s st_binicon_t;
@@ -165,15 +151,16 @@ STlib_initNum
 ( st_number_t*			n,
   int					x,
   int					y,
-  patch_t** 			pl,
+  const Texture** 		textures,
   int*					num,
-  bool*				on,
-  int					width );
+  bool*					on,
+  int					width,
+  const Texture*		minus_texture );
 
 void
 STlib_updateNum
 ( st_number_t*			n,
-  bool				refresh );
+  bool					refresh );
 
 
 // Percent widget routines
@@ -182,10 +169,11 @@ STlib_initPercent
 ( st_percent_t* 		p,
   int					x,
   int					y,
-  patch_t** 			pl,
+  const Texture**		textures,
   int*					num,
-  bool*				on,
-  patch_t*				percent );
+  bool*					on,
+  const Texture*		minus_texture,
+  const Texture*		percent_texture );
 
 
 void
@@ -200,15 +188,15 @@ STlib_initMultIcon
 ( st_multicon_t*		mi,
   int					x,
   int					y,
-  patch_t** 			il,
+  const Texture** 		textures,
   int*					inum,
-  bool*				on );
+  bool*					on );
 
 
 void
 STlib_updateMultIcon
 ( st_multicon_t*		mi,
-  bool				refresh );
+  bool					refresh );
 
 // Binary Icon widget routines
 void
@@ -216,17 +204,17 @@ STlib_initBinIcon
 ( st_binicon_t* 		b,
   int					x,
   int					y,
-  patch_t*				i,
-  bool*				val,
-  bool*				on );
+  const Texture*		texture,
+  bool*					val,
+  bool*					on );
 
 void
 STlib_updateBinIcon
 ( st_binicon_t* 		bi,
-  bool				refresh );
+  bool					refresh );
   
-void STlib_drawNum (st_number_t *n, bool refresh);
-void ST_DrawNum (int x, int y, DCanvas *scrn, int num);
+void STlib_drawNum(st_number_t *n, bool refresh);
+void ST_DrawNum(int x, int y, DCanvas *scrn, int num);
 
 #endif
 

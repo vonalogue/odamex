@@ -74,6 +74,17 @@ CVAR_FUNC_IMPL (r_painintensity)
 
 extern int SquareWidth;
 
+static fixed_t ST_SCALEX, ST_SCALEY;
+
+void ST_DrawTexture(const Texture* texture, int x0, int y0)
+{
+	int x = ST_X + ((ST_SCALEX * x0) >> FRACBITS);
+	int y = ST_Y + ((ST_SCALEY * y0) >> FRACBITS);
+	int w = (ST_SCALEX * texture->getWidth()) >> FRACBITS;
+	int h = (ST_SCALEY * texture->getHeight()) >> FRACBITS;
+	screen->DrawTextureStretched(texture, x, y, w, h);
+}
+
 void ST_AdjustStatusBarScale(bool scale)
 {
 	if (scale)
@@ -107,6 +118,9 @@ void ST_AdjustStatusBarScale(bool scale)
 		ST_Y = screen->height - ST_HEIGHT;
 	}
 
+	ST_SCALEX = FixedDiv(ST_WIDTH << FRACBITS, 320*FRACUNIT);
+	ST_SCALEY = FixedDiv(ST_HEIGHT << FRACBITS, 32*FRACUNIT);
+
 	setsizeneeded = true;
 	st_firsttime = true;
 }
@@ -121,14 +135,7 @@ CVAR_FUNC_IMPL (st_scale)		// Stretch status bar to full screen width?
 extern BOOL setsizeneeded;
 extern BOOL automapactive;
 
-// [RH] Status bar background
-DCanvas *stbarscreen;
-// [RH] Active status bar
-DCanvas *stnumscreen;
-
-// functions in st_new.c
-void ST_initNew (void);
-void ST_unloadNew (void);
+// functions in st_new.cpp
 void ST_voteDraw (int y);
 void ST_newDraw (void);
 void ST_newDrawCTF (void);
@@ -299,6 +306,46 @@ int						ST_WIDTH;
 int						ST_X;
 int						ST_Y;
 
+// statusbar / hud graphics
+const Texture*	medi;
+const Texture*	armors[2];
+const Texture*	ammos[4];
+const Texture*	bigammos[4];
+const Texture*	hudflagteam;
+const Texture*	hudflagbhome;
+const Texture*	hudflagrhome;
+const Texture*	hudflagbtakenbyb;
+const Texture*	hudflagbtakenbyr;
+const Texture*	hudflagrtakenbyb;
+const Texture*	hudflagrtakenbyr;
+const Texture*	hudflaggtakenbyb;
+const Texture*	hudflaggtakenbyr;
+const Texture*	hudflagbdropped;
+const Texture*	hudflagrdropped;
+const Texture*	line_leftempty;
+const Texture*	line_leftfull;
+const Texture*	line_centerempty;
+const Texture*	line_centerleft;
+const Texture*	line_centerright;
+const Texture*	line_centerfull;
+const Texture*	line_rightempty;
+const Texture*	line_rightfull;
+const Texture*	tallminus;
+const Texture*	tallpercent;
+const Texture*	tallnum[10];
+const Texture*	shortnum[10];
+const Texture*	keys[NUMCARDS + NUMCARDS / 2];
+const Texture*	faces[ST_NUMFACES];
+const Texture*	armsbg;
+const Texture*	flagsbg;
+const Texture*	flagbox;
+const Texture*	flagboxb;
+const Texture*	flagboxr;
+const Texture*	arms[6][2];
+const Texture*	faceback;
+const Texture*	faceclassic[4];
+const Texture*	sbar;
+
 // used for making messages go away
 static int				st_msgcounter=0;
 
@@ -328,50 +375,6 @@ static bool			st_flagboxbluon;
 
 // show flagbox red indicator
 static bool			st_flagboxredon;
-
-// main bar left
-static patch_t* 		sbar;
-
-// 0-9, tall numbers
-// [RH] no longer static
-patch_t*		 		tallnum[10];
-
-// tall % sign
-// [RH] no longer static
-patch_t*		 		tallpercent;
-
-// 0-9, short, yellow (,different!) numbers
-static patch_t* 		shortnum[10];
-
-// 3 key-cards, 3 skulls, [RH] 3 combined
-patch_t* 				keys[NUMCARDS+NUMCARDS/2];
-
-// face status patches [RH] no longer static
-patch_t* 				faces[ST_NUMFACES];
-
-// face background
-static patch_t* 		faceback;
-
-// classic face background
-static patch_t*			faceclassic[4];
-
- // main bar right
-static patch_t* 		armsbg;
-
-// score/flags
-static patch_t* 		flagsbg;
-
-// flagbox
-static patch_t* 		flagbox;
-
-// flagbox blue indicator
-static patch_t* 		flagboxblu;
-
-// flagbox red indicator
-static patch_t* 		flagboxred;
-
-// weapon ownership patches
-static patch_t* 		arms[6][2];
 
 // ready-weapon widget
 static st_number_t		w_ready;
@@ -475,6 +478,218 @@ cheatseq_t		cheat_mypos = { cheat_mypos_seq, 0 };
 //
 // STATUS BAR CODE
 //
+
+//
+// ST_LoadSprite
+//
+// Loads a status bar sprite and prevents it from being freed when the
+// Zone memory manager is low on memory.
+// 
+static const Texture* ST_LoadSprite(const char* name)
+{
+	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_SPRITE);
+	return texturemanager.getTexture(texhandle);
+}
+
+//
+// ST_UnloadSprite
+//
+// Allows a status bar sprite to be freed by the Zone memory manager
+//
+static void ST_UnloadSprite(const Texture* texture)
+{
+	Z_ChangeTag(texture, PU_CACHE);
+}
+
+//
+// ST_ShutdownSprites
+//
+void ST_ShutdownSprites(void)
+{
+	ST_UnloadSprite(medi);
+
+	ST_UnloadSprite(hudflagteam);
+	ST_UnloadSprite(hudflagbhome);
+	ST_UnloadSprite(hudflagrhome);
+	ST_UnloadSprite(hudflagbtakenbyb);
+	ST_UnloadSprite(hudflagbtakenbyr);
+	ST_UnloadSprite(hudflagrtakenbyb);
+	ST_UnloadSprite(hudflagrtakenbyr);
+	ST_UnloadSprite(hudflaggtakenbyb);
+	ST_UnloadSprite(hudflaggtakenbyr);
+	ST_UnloadSprite(hudflagbdropped);
+	ST_UnloadSprite(hudflagrdropped);
+
+	ST_UnloadSprite(line_leftempty);
+	ST_UnloadSprite(line_leftfull);
+	ST_UnloadSprite(line_centerempty);
+	ST_UnloadSprite(line_centerleft);
+	ST_UnloadSprite(line_centerright);
+	ST_UnloadSprite(line_centerfull);
+	ST_UnloadSprite(line_rightempty);
+	ST_UnloadSprite(line_rightfull);
+
+	for (int i = 0; i < 2; i++)
+		ST_UnloadSprite(armors[i]);
+
+	for (int i = 0; i < 4; i++)
+	{
+		ST_UnloadSprite(ammos[i]);
+		ST_UnloadSprite(bigammos[i]);
+	}
+
+	ST_UnloadSprite(tallminus);
+	ST_UnloadSprite(tallpercent);
+
+	for (int i = 0; i < 10; i++)
+	{
+		ST_UnloadSprite(tallnum[i]);
+		ST_UnloadSprite(shortnum[i]);
+	}
+
+	for (int i = 0; i < NUMCARDS + NUMCARDS / 2; i++)
+		ST_UnloadSprite(keys[i]);
+
+	for (int i = 0; i < ST_NUMFACES; i++)
+		ST_UnloadSprite(faces[i]);
+
+	ST_UnloadSprite(armsbg);
+	ST_UnloadSprite(flagsbg);
+	ST_UnloadSprite(flagbox);
+	ST_UnloadSprite(flagboxb);
+	ST_UnloadSprite(flagboxr);
+
+	for (int i = 0; i < 6; i++)
+	{
+		ST_UnloadSprite(arms[i][0]);
+		ST_UnloadSprite(arms[i][1]);
+	}
+
+	ST_UnloadSprite(sbar);
+	ST_UnloadSprite(faceback);
+	
+	for (int i = 0; i < 4; i++)
+		ST_UnloadSprite(faceclassic[i]);
+}
+
+//
+// ST_InitSprites
+//
+void ST_InitSprites(void)
+{
+	char name[9];
+
+	// load the player face sprites
+	sprintf(name, "STF");
+	int facenum = 0;
+	for (int i = 0; i < ST_NUMPAINFACES; i++)
+	{
+		for (int j = 0; j < ST_NUMSTRAIGHTFACES; j++)
+		{
+			sprintf(name+3, "ST%d%d", i, j);
+			faces[facenum++] = ST_LoadSprite(name);
+		}
+		sprintf(name+3, "TR%d0", i);		// turn right
+		faces[facenum++] = ST_LoadSprite(name);
+		sprintf(name+3, "TL%d0", i);		// turn left
+		faces[facenum++] = ST_LoadSprite(name);
+		sprintf(name+3, "OUCH%d", i);		// ouch!
+		faces[facenum++] = ST_LoadSprite(name);
+		sprintf(name+3, "EVL%d", i);		// evil grin ;)
+		faces[facenum++] = ST_LoadSprite(name);
+		sprintf(name+3, "KILL%d", i);		// pissed off
+		faces[facenum++] = ST_LoadSprite(name);
+	}
+	strcpy(name+3, "GOD0");
+	faces[facenum++] = ST_LoadSprite(name);
+	strcpy(name+3, "DEAD0");
+	faces[facenum++] = ST_LoadSprite(name);
+
+	// load the key card sprites
+	for (int i = 0; i < NUMCARDS + NUMCARDS / 2; i++)
+	{
+		sprintf(name, "STKEYS%d", i);
+		keys[i] = ST_LoadSprite(name);
+	}
+
+	tallminus = ST_LoadSprite("STTMINUS");
+	tallpercent = ST_LoadSprite("STTPRCNT");
+
+	// load the tall & short number sprites
+	for (int i = 0; i < 10; i++)
+	{
+		sprintf(name, "STTNUM%d", i);
+		tallnum[i] = ST_LoadSprite(name);
+
+		sprintf(name, "STYSNUM%d", i);
+		shortnum[i] = ST_LoadSprite(name);
+	}
+
+	medi = ST_LoadSprite("MEDIA0");
+
+	armors[0] = ST_LoadSprite("ARM1A0");
+	armors[1] = ST_LoadSprite("ARM2A0");
+
+	ammos[0] = ST_LoadSprite("CLIPA0");
+	ammos[1] = ST_LoadSprite("SHELA0");
+	ammos[2] = ST_LoadSprite("CELLA0");
+	ammos[3] = ST_LoadSprite("ROCKA0");
+
+	bigammos[0] = ST_LoadSprite("AMMOA0");
+	bigammos[1] = ST_LoadSprite("SBOXA0");
+	bigammos[2] = ST_LoadSprite("CELPA0");
+	bigammos[3] = ST_LoadSprite("BROKA0");
+	
+	hudflagteam			= ST_LoadSprite("FLAGIT");
+	hudflagbhome		= ST_LoadSprite("FLAGIC2B");
+	hudflagrhome		= ST_LoadSprite("FLAGIC2R");
+	hudflagbtakenbyb	= ST_LoadSprite("FLAGI3BB");
+	hudflagbtakenbyr	= ST_LoadSprite("FLAGI3BR");
+	hudflagrtakenbyb	= ST_LoadSprite("FLAGI3RB");
+	hudflagrtakenbyr	= ST_LoadSprite("FLAGI3RR");
+	hudflagbdropped		= ST_LoadSprite("FLAGIC4B");
+	hudflagrdropped		= ST_LoadSprite("FLAGIC4R");
+
+	flagsbg		= ST_LoadSprite("STFLAGS");
+	flagbox		= ST_LoadSprite("STFLGBOX");
+	flagboxb	= ST_LoadSprite("STFLGBXB");
+	flagboxr	= ST_LoadSprite("STFLGBXR");
+
+	// face backgrounds for different color players
+	// [RH] only one face background used for all players
+	//		different colors are accomplished with translations
+	faceback = ST_LoadSprite("STFBANY");
+
+	// [Nes] Classic vanilla lifebars.
+	for (int i = 0; i < 4; i++)
+	{
+		sprintf(name, "STFB%d", i);
+		faceclassic[i] = ST_LoadSprite(name);
+	}
+
+	// status bar background bits
+	sbar = ST_LoadSprite("STBAR");
+	armsbg = ST_LoadSprite("STARMS");
+
+	// arms ownership widgets
+	for (int i = 0; i < 6; i++)
+	{
+		sprintf(name, "STGNUM%d", i + 2);
+		arms[i][0] = ST_LoadSprite(name);	// gray number
+		arms[i][1] = shortnum[i + 2];		// yellow number
+	}
+
+	// horizontal rulers for scoreboards
+	line_leftempty		= ST_LoadSprite("ODABARLE");
+	line_leftfull		= ST_LoadSprite("ODABARLF");
+	line_centerempty	= ST_LoadSprite("ODABARCE");
+	line_centerleft		= ST_LoadSprite("ODABARCL");
+	line_centerright	= ST_LoadSprite("ODABARCR");
+	line_centerfull		= ST_LoadSprite("ODABARCF");
+	line_rightempty		= ST_LoadSprite("ODABARRE");
+	line_rightfull		= ST_LoadSprite("ODABARRF");
+}
+
 void ST_Stop(void);
 void ST_createWidgets(void);
 
@@ -484,38 +699,41 @@ void ST_refreshBackground(void)
 	{
 		// [RH] If screen is wider than the status bar,
 		//      draw stuff around status bar.
-		if (FG->width > ST_WIDTH)
+		if (screen->width > ST_WIDTH)
 		{
-			R_DrawBorder (0, ST_Y, ST_X, FG->height);
-			R_DrawBorder (FG->width - ST_X, ST_Y, FG->width, FG->height);
+			R_DrawBorder(0, ST_Y, ST_X, screen->height);
+			R_DrawBorder(screen->width - ST_X, ST_Y, screen->width, screen->height);
 		}
 
-		BG->DrawPatch (sbar, 0, 0);
+		ST_DrawTexture(sbar, 0, 0);
 
-		if (sv_gametype == GM_CTF) {
-			BG->DrawPatch (flagsbg, ST_FLAGSBGX, ST_FLAGSBGY);
-			BG->DrawPatch (flagbox, ST_FLGBOXX, ST_FLGBOXY);
-		} else if (sv_gametype == GM_COOP)
-			BG->DrawPatch (armsbg, ST_ARMSBGX, ST_ARMSBGY);
+		if (sv_gametype == GM_CTF)
+		{
+			ST_DrawTexture(flagsbg, ST_FLAGSBGX, ST_FLAGSBGY);
+			ST_DrawTexture(flagbox, ST_FLGBOXX, ST_FLGBOXY);
+		}
+		else if (sv_gametype == GM_COOP)
+		{
+			ST_DrawTexture(armsbg, ST_ARMSBGX, ST_ARMSBGY);
+		}
 
 		if (multiplayer)
 		{
-			if (!demoplayback || !democlassic) {
+			if (!demoplayback || !democlassic)
+			{
 				// [RH] Always draw faceback with the player's color
 				//		using a translation rather than a different patch.
 				//V_ColorMap = translationtables + (displayplayer_id) * 256;
 				V_ColorMap = translationref_t(translationtables + displayplayer_id * 256, displayplayer_id);
-				BG->DrawTranslatedPatch (faceback, ST_FX, ST_FY);
-			} else {
-				BG->DrawPatch (faceclassic[displayplayer_id-1], ST_FX, ST_FY);
+				// TODO: Add color translation
+				ST_DrawTexture(faceback, ST_FX, ST_FY);
+				
+			}
+			else
+			{
+				ST_DrawTexture(faceclassic[displayplayer_id-1], ST_FX, ST_FY);
 			}
 		}
-
-		BG->Blit (0, 0, 320, 32, stnumscreen, 0, 0, 320, 32);
-
-		if (!st_scale)
-			stnumscreen->Blit (0, 0, 320, 32,
-				FG, ST_X, ST_Y, ST_WIDTH, ST_HEIGHT);
 	}
 }
 
@@ -1275,44 +1493,39 @@ void ST_Ticker (void)
 
 void ST_drawWidgets(bool refresh)
 {
-	int i;
-
 	// used by w_arms[] widgets
 	st_armson = st_statusbaron && sv_gametype == GM_COOP;
 
 	// used by w_frags widget
 	st_fragson = sv_gametype != GM_COOP && st_statusbaron;
 
-	STlib_updateNum (&w_ready, refresh);
+	STlib_updateNum(&w_ready, refresh);
 
-	for (i = 0; i < 4; i++)
+	for (int i = 0; i < 4; i++)
 	{
-		STlib_updateNum (&w_ammo[i], refresh);
-		STlib_updateNum (&w_maxammo[i], refresh);
+		STlib_updateNum(&w_ammo[i], refresh);
+		STlib_updateNum(&w_maxammo[i], refresh);
 	}
 
-	STlib_updatePercent (&w_health, refresh);
-	STlib_updatePercent (&w_armor, refresh);
+	STlib_updatePercent(&w_health, refresh);
+	STlib_updatePercent(&w_armor, refresh);
 
-	for (i = 0; i < 6; i++)
-		STlib_updateMultIcon (&w_arms[i], refresh);
+	for (int i = 0; i < 6; i++)
+		STlib_updateMultIcon(&w_arms[i], refresh);
 
-	STlib_updateMultIcon (&w_faces, refresh);
+	STlib_updateMultIcon(&w_faces, refresh);
 
 	if (sv_gametype != GM_CTF) // [Toke - CTF] Dont display keys in ctf mode
-		for (i = 0; i < 3; i++)
-			STlib_updateMultIcon (&w_keyboxes[i], refresh);
+		for (int i = 0; i < 3; i++)
+			STlib_updateMultIcon(&w_keyboxes[i], refresh);
 
-	STlib_updateNum (&w_frags, refresh);
+	STlib_updateNum(&w_frags, refresh);
 
-	if (sv_gametype == GM_CTF) {
-		STlib_updateBinIcon (&w_flagboxblu, refresh);
-		STlib_updateBinIcon (&w_flagboxred, refresh);
+	if (sv_gametype == GM_CTF)
+	{
+		STlib_updateBinIcon(&w_flagboxblu, refresh);
+		STlib_updateBinIcon(&w_flagboxred, refresh);
 	}
-
-	if (st_scale && st_statusbaron)
-		stnumscreen->Blit (0, 0, 320, 32,
-			FG, ST_X, ST_Y, ST_WIDTH, ST_HEIGHT);
 }
 
 void ST_doRefresh(void)
@@ -1324,7 +1537,6 @@ void ST_doRefresh(void)
 
 	// and refresh all widgets
 	ST_drawWidgets(true);
-
 }
 
 void ST_diffDraw(void)
@@ -1356,20 +1568,10 @@ void ST_Drawer (void)
 	}
 	else
 	{
-		stbarscreen->Lock ();
-		stnumscreen->Lock ();
-
 		if (st_firsttime)
-		{
-			ST_doRefresh ();
-		}
+			ST_doRefresh();
 		else
-		{
-			ST_diffDraw ();
-		}
-
-		stnumscreen->Unlock ();
-		stbarscreen->Unlock ();
+			ST_diffDraw();
 
 		hud::DoomHUD();
 	}
@@ -1386,198 +1588,20 @@ void ST_Drawer (void)
 				displayplayer().camera->z/FRACUNIT);
 }
 
-static patch_t *LoadFaceGraphic (char *name, int namespc)
-{
-	char othername[9];
-	int lump;
-
-	lump = W_CheckNumForName (name, namespc);
-	if (lump == -1)
-	{
-		strcpy (othername, name);
-		othername[0] = 'S'; othername[1] = 'T'; othername[2] = 'F';
-		lump = W_GetNumForName (othername);
-	}
-	return W_CachePatch (lump, PU_STATIC);
-}
-
-void ST_loadGraphics(void)
-{
-	playerskin_t *skin;
-	int i, j;
-	int namespc;
-	int facenum;
-	char namebuf[9];
-
-	player_t *plyr = &displayplayer();
-
-	namebuf[8] = 0;
-	if (plyr)
-		skin = &skins[plyr->userinfo.skin];
-	else
-		skin = &skins[consoleplayer().userinfo.skin];
-
-	// Load the numbers, tall and short
-	for (i=0;i<10;i++)
-	{
-		sprintf(namebuf, "STTNUM%d", i);
-		tallnum[i] = W_CachePatch(namebuf, PU_STATIC);
-
-		sprintf(namebuf, "STYSNUM%d", i);
-		shortnum[i] = W_CachePatch(namebuf, PU_STATIC);
-	}
-
-	// Load percent key.
-	//Note: why not load STMINUS here, too?
-	tallpercent = W_CachePatch("STTPRCNT", PU_STATIC);
-
-	// key cards
-	for (i=0;i<NUMCARDS+NUMCARDS/2;i++)
-	{
-		sprintf(namebuf, "STKEYS%d", i);
-		keys[i] = W_CachePatch(namebuf, PU_STATIC);
-	}
-
-	// arms background
-	armsbg = W_CachePatch("STARMS", PU_STATIC);
-
-	// flags background
-	flagsbg = W_CachePatch("STFLAGS", PU_STATIC);
-
-	// flagbox
-	flagbox = W_CachePatch("STFLGBOX", PU_STATIC);
-
-	// blue flag indicator
-	flagboxblu = W_CachePatch("STFLGBXB", PU_STATIC);
-
-	// red flag indicator
-	flagboxred = W_CachePatch("STFLGBXR", PU_STATIC);
-
-	// arms ownership widgets
-	for (i=0;i<6;i++)
-	{
-		sprintf(namebuf, "STGNUM%d", i+2);
-
-		// gray #
-		arms[i][0] = W_CachePatch(namebuf, PU_STATIC);
-
-		// yellow #
-		arms[i][1] = shortnum[i+2];
-	}
-
-	// face backgrounds for different color players
-	// [RH] only one face background used for all players
-	//		different colors are accomplished with translations
-	faceback = W_CachePatch("STFBANY", PU_STATIC);
-
-	// [Nes] Classic vanilla lifebars.
-	for (i = 0; i < 4; i++) {
-		sprintf(namebuf, "STFB%d", i);
-		faceclassic[i] = W_CachePatch(namebuf, PU_STATIC);
-	}
-
-	// status bar background bits
-	sbar = W_CachePatch("STBAR", PU_STATIC);
-
-	// face states
-	facenum = 0;
-
-	// [RH] Use face specified by "skin"
-	if (skin->face[0]) {
-		// The skin has its own face
-		strncpy (namebuf, skin->face, 3);
-		namespc = skin->namespc;
-	} else {
-		// The skin doesn't have its own face; use the normal one
-		namebuf[0] = 'S'; namebuf[1] = 'T'; namebuf[2] = 'F';
-		namespc = ns_global;
-	}
-
-	for (i = 0; i < ST_NUMPAINFACES; i++)
-	{
-		for (j = 0; j < ST_NUMSTRAIGHTFACES; j++)
-		{
-			sprintf(namebuf+3, "ST%d%d", i, j);
-			faces[facenum++] = LoadFaceGraphic (namebuf, namespc);
-		}
-		sprintf(namebuf+3, "TR%d0", i);		// turn right
-		faces[facenum++] = LoadFaceGraphic (namebuf, namespc);
-		sprintf(namebuf+3, "TL%d0", i);		// turn left
-		faces[facenum++] = LoadFaceGraphic (namebuf, namespc);
-		sprintf(namebuf+3, "OUCH%d", i);		// ouch!
-		faces[facenum++] = LoadFaceGraphic (namebuf, namespc);
-		sprintf(namebuf+3, "EVL%d", i);		// evil grin ;)
-		faces[facenum++] = LoadFaceGraphic (namebuf, namespc);
-		sprintf(namebuf+3, "KILL%d", i);		// pissed off
-		faces[facenum++] = LoadFaceGraphic (namebuf, namespc);
-	}
-	strcpy (namebuf+3, "GOD0");
-	faces[facenum++] = LoadFaceGraphic (namebuf, namespc);
-	strcpy (namebuf+3, "DEAD0");
-	faces[facenum++] = LoadFaceGraphic (namebuf, namespc);
-}
-
 void ST_loadData (void)
 {
     lu_palette = W_GetNumForName ("PLAYPAL");
-	ST_loadGraphics();
-}
 
-void ST_unloadGraphics (void)
-{
-
-	int i;
-
-	// unload the numbers, tall and short
-	for (i=0;i<10;i++)
-	{
-		Z_ChangeTag(tallnum[i], PU_CACHE);
-		Z_ChangeTag(shortnum[i], PU_CACHE);
-	}
-	// unload tall percent
-	Z_ChangeTag(tallpercent, PU_CACHE);
-
-	// unload arms background
-	Z_ChangeTag(armsbg, PU_CACHE);
-
-	// unload flags background
-	Z_ChangeTag(flagsbg, PU_CACHE);
-
-	// unload flagbox
-	Z_ChangeTag(flagbox, PU_CACHE);
-	Z_ChangeTag(flagboxblu, PU_CACHE);
-	Z_ChangeTag(flagboxred, PU_CACHE);
-
-	// unload gray #'s
-	for (i=0;i<6;i++)
-		Z_ChangeTag(arms[i][0], PU_CACHE);
-
-	// unload the key cards
-	for (i=0;i<NUMCARDS+NUMCARDS/2;i++)
-		Z_ChangeTag(keys[i], PU_CACHE);
-
-	Z_ChangeTag(sbar, PU_CACHE);
-	Z_ChangeTag(faceback, PU_CACHE);
-
-	for (i=0;i<ST_NUMFACES;i++)
-		Z_ChangeTag(faces[i], PU_CACHE);
-
-	// Note: nobody ain't seen no unloading
-	//	 of stminus yet. Dude.
-
-
+	ST_InitSprites();
 }
 
 void ST_unloadData(void)
 {
-	ST_unloadGraphics();
-	ST_unloadNew();
+	ST_ShutdownSprites();
 }
 
 void ST_initData(void)
 {
-	int i;
-
 	st_firsttime = true;
 
 	st_gamestate = FirstPersonState;
@@ -1590,22 +1614,19 @@ void ST_initData(void)
 
 	st_oldhealth = -1;
 
-	for (i=0;i<NUMWEAPONS;i++)
+	for (int i = 0; i < NUMWEAPONS; i++)
 		oldweaponsowned[i] = displayplayer().weaponowned[i];
 
-	for (i=0;i<3;i++)
+	for (int i = 0; i < 3; i++)
 		keyboxes[i] = -1;
 
 	STlib_init();
-	ST_initNew();
 }
 
 
 
 void ST_createWidgets(void)
 {
-	int i;
-
 	// ready weapon ammo
 	STlib_initNum(&w_ready,
 				  ST_AMMOX,
@@ -1613,7 +1634,8 @@ void ST_createWidgets(void)
 				  tallnum,
 				  &st_current_ammo,
 				  &st_statusbaron,
-				  ST_AMMOWIDTH );
+				  ST_AMMOWIDTH,
+	              tallminus);
 
 	// health percentage
 	STlib_initPercent(&w_health,
@@ -1622,10 +1644,11 @@ void ST_createWidgets(void)
 					  tallnum,
 					  &st_health,
 					  &st_statusbaron,
+	                  tallminus,
 					  tallpercent);
 
 	// weapons owned
-	for(i=0;i<6;i++)
+	for(int i = 0; i < 6; i++)
 	{
 		STlib_initMultIcon(&w_arms[i],
 						   ST_ARMSX+(i%3)*ST_ARMSXSPACE,
@@ -1642,7 +1665,8 @@ void ST_createWidgets(void)
 				  tallnum,
 				  &st_fragscount,
 				  &st_fragson,
-				  ST_FRAGSWIDTH);
+				  ST_FRAGSWIDTH,
+	              tallminus);
 
 	// faces
 	STlib_initMultIcon(&w_faces,
@@ -1658,7 +1682,9 @@ void ST_createWidgets(void)
 					  ST_ARMORY,
 					  tallnum,
 					  &st_armor,
-					  &st_statusbaron, tallpercent);
+					  &st_statusbaron,
+	                  tallminus,
+	                  tallpercent);
 
 	// keyboxes 0-2
 	STlib_initMultIcon(&w_keyboxes[0],
@@ -1686,14 +1712,14 @@ void ST_createWidgets(void)
 	STlib_initBinIcon(&w_flagboxblu,
 					  ST_FLGBOXBLUX,
 					  ST_FLGBOXBLUY,
-					  flagboxblu,
+					  flagboxb,
 					  &st_flagboxbluon,
 					  &st_statusbaron);
 
 	STlib_initBinIcon(&w_flagboxred,
 					  ST_FLGBOXREDX,
 					  ST_FLGBOXREDY,
-					  flagboxred,
+					  flagboxr,
 					  &st_flagboxredon,
 					  &st_statusbaron);
 
@@ -1704,7 +1730,8 @@ void ST_createWidgets(void)
 				  shortnum,
 				  &st_ammo[0],
 				  &st_statusbaron,
-				  ST_AMMO0WIDTH);
+				  ST_AMMO0WIDTH,
+	              tallminus);
 
 	STlib_initNum(&w_ammo[1],
 				  ST_AMMO1X,
@@ -1712,7 +1739,8 @@ void ST_createWidgets(void)
 				  shortnum,
 				  &st_ammo[1],
 				  &st_statusbaron,
-				  ST_AMMO1WIDTH);
+				  ST_AMMO1WIDTH,
+	              tallminus);
 
 	STlib_initNum(&w_ammo[2],
 				  ST_AMMO2X,
@@ -1720,7 +1748,8 @@ void ST_createWidgets(void)
 				  shortnum,
 				  &st_ammo[2],
 				  &st_statusbaron,
-				  ST_AMMO2WIDTH);
+				  ST_AMMO2WIDTH,
+	              tallminus);
 
 	STlib_initNum(&w_ammo[3],
 				  ST_AMMO3X,
@@ -1728,7 +1757,8 @@ void ST_createWidgets(void)
 				  shortnum,
 				  &st_ammo[3],
 				  &st_statusbaron,
-				  ST_AMMO3WIDTH);
+				  ST_AMMO3WIDTH,
+	              tallminus);
 
 	// max ammo count (all four kinds)
 	STlib_initNum(&w_maxammo[0],
@@ -1737,7 +1767,8 @@ void ST_createWidgets(void)
 				  shortnum,
 				  &st_maxammo[0],
 				  &st_statusbaron,
-				  ST_MAXAMMO0WIDTH);
+				  ST_MAXAMMO0WIDTH,
+	              tallminus);
 
 	STlib_initNum(&w_maxammo[1],
 				  ST_MAXAMMO1X,
@@ -1745,7 +1776,8 @@ void ST_createWidgets(void)
 				  shortnum,
 				  &st_maxammo[1],
 				  &st_statusbaron,
-				  ST_MAXAMMO1WIDTH);
+				  ST_MAXAMMO1WIDTH,
+	              tallminus);
 
 	STlib_initNum(&w_maxammo[2],
 				  ST_MAXAMMO2X,
@@ -1753,7 +1785,8 @@ void ST_createWidgets(void)
 				  shortnum,
 				  &st_maxammo[2],
 				  &st_statusbaron,
-				  ST_MAXAMMO2WIDTH);
+				  ST_MAXAMMO2WIDTH,
+	              tallminus);
 
 	STlib_initNum(&w_maxammo[3],
 				  ST_MAXAMMO3X,
@@ -1761,12 +1794,12 @@ void ST_createWidgets(void)
 				  shortnum,
 				  &st_maxammo[3],
 				  &st_statusbaron,
-				  ST_MAXAMMO3WIDTH);
+				  ST_MAXAMMO3WIDTH,
+	              tallminus);
 
 }
 
-static BOOL	st_stopped = true;
-
+static bool	st_stopped = true;
 
 void ST_Start (void)
 {
@@ -1790,15 +1823,13 @@ void ST_Stop (void)
 	st_stopped = true;
 }
 
-void ST_Init (void)
+void ST_Init()
 {
-	if(!stbarscreen)
-		stbarscreen = I_AllocateScreen (320, 32, 8);
-
-	if(!stnumscreen)
-		stnumscreen = I_AllocateScreen (320, 32, 8);
-
 	ST_loadData();
+}
+
+void ST_Shutdown()
+{
 }
 
 VERSION_CONTROL (st_stuff_cpp, "$Id$")

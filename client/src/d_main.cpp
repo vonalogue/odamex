@@ -726,6 +726,8 @@ void D_Init()
 //
 void D_Shutdown()
 {
+	ST_Shutdown();
+
 	// stop sound effects and music
 	S_Stop();
 	

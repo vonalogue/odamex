@@ -57,6 +57,8 @@ typedef struct
 
 	translationref_t	translation;
 	shaderef_t			colormap;
+
+	const DCanvas*		canvas;
 } drawcolumn_t;
 
 extern "C" drawcolumn_t dcol;
@@ -92,6 +94,8 @@ typedef struct
 
 	shaderef_t			colormap;
 	shaderef_t			slopelighting[MAXWIDTH];
+
+	const DCanvas*		canvas;
 } drawspan_t;
 
 extern "C" drawspan_t dspan;
