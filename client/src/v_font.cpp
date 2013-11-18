@@ -80,7 +80,7 @@ void OFont::printText(const DCanvas* canvas, int x, int y, int color, const char
 
 int OFont::getTextWidth(char c) const
 {
-	const Texture* texture = mCharacters[(byte)c];
+	const Texture* texture = mCharacters[(int)c];
 	if (texture)
 		return texture->getWidth() - texture->getOffsetX();
 	else
@@ -253,7 +253,12 @@ SmallDoomFont::~SmallDoomFont()
 //
 // ----------------------------------------------------------------------------
 
-TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
+inline bool is_solid(const Texture* texture, int x, int y)
+{
+	return *(texture->getMaskData() + x * texture->getHeight() + y) != 0;
+}
+
+TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemask)
 {
 	memset(mCharacters, 0, sizeof(*mCharacters) * 256);
 
@@ -282,7 +287,7 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 	// open the TTF for usage 
 	SDL_RWops* rw = SDL_RWFromMem(rawlumpdata, lumplen);
 	TTF_Font* font = TTF_OpenFontRW(rw, 0, size);
-	SDL_Color font_color = { 255, 0, 0 };	// Red for easy color translation
+	SDL_Color font_color = { 0, 0, 0 };
 
 	texhandle_t background_texhandle = texturemanager.getHandle("FONTBACK", Texture::TEX_PATCH);
 	const Texture* background_texture = texturemanager.getTexture(background_texhandle);
@@ -301,8 +306,20 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 		mCharacterHandles[charnum] = texturemanager.createCustomHandle();
 		Texture* texture = texturemanager.createTexture(mCharacterHandles[charnum], width, height);
 
-		// load a texture to use for the background of the text
-		R_CopySubimage(texture, background_texture, 0, 0, width - 1, height - 1);
+		if (stylemask & TTF_TEXTURE)
+		{
+			// load a texture to use for the background of the text
+			R_CopySubimage(texture, background_texture, 0, 0, width - 1, height - 1);
+		}
+		else if (stylemask & TTF_GRADIENT)
+		{
+			// TODO
+		}
+		else
+		{
+			// set the background to a solid
+			memset(texture, 0xB0, width * height * sizeof(byte));
+		}
 
 		SDL_PixelFormat* format = surface->format;
 		if (format->BytesPerPixel == 1)
@@ -339,10 +356,35 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size)
 			}
 		}
 
+		SDL_FreeSurface(surface);
+
+		if (stylemask & TTF_OUTLINE)
+		{
+			for (int x = 0; x < width; x++)
+			{
+				for (int y = 0; y < height; y++)
+				{
+					if (is_solid(texture, x, y))
+					{
+						bool edge = false;
+						if (x == 0 || (x > 0 && !is_solid(texture, x - 1, y)))
+							edge = true;
+						else if (x == width - 1 || (x < width - 1 && !is_solid(texture, x + 1, y)))
+							edge = true;
+						else if (y == 0 || (y > 0 && !is_solid(texture, x, y - 1)))
+							edge = true;
+						else if (y == height - 1 || (y < height - 1 && !is_solid(texture, x, y + 1)))
+							edge = true;
+
+						if (edge)
+							*(texture->getData() + x * height + y) = 0xBF;
+					}
+				}
+			}
+		}
+
 		mCharacters[charnum] = texture;
 		Z_ChangeTag(texture, PU_STATIC);
-
-		SDL_FreeSurface(surface);
 	}
 	
 	texturemanager.freeTexture(background_texhandle);

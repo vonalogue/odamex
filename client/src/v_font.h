@@ -83,7 +83,15 @@ private:
 class TrueTypeFont : public OFont
 {
 public:
-	TrueTypeFont(const char* filename, int size);
+	enum
+	{
+		TTF_GRADIENT		= 0x01,
+		TTF_TEXTURE			= 0x02,
+		TTF_OUTLINE			= 0x04,
+		TTF_SHADOW			= 0x08
+	};
+
+	TrueTypeFont(const char* filename, int size, unsigned int stylemask);
 	~TrueTypeFont();
 
 	virtual int getHeight() const
