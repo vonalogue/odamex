@@ -72,13 +72,13 @@ void V_LoadHudFont()
 {
 	if (hud_font)
 		V_UnloadHudFont();
-//	hud_font = new SmallDoomFont(hud_scaletext * FRACUNIT);
+	hud_font = new SmallDoomFont(hud_scaletext * FRACUNIT);
 
 	unsigned int ttf_stylemask =
 			TrueTypeFont::TTF_TEXTURE |
 			TrueTypeFont::TTF_OUTLINE;
 
-	hud_font = new TrueTypeFont("FONT_SM", hud_scaletext * 8, ttf_stylemask);
+//	hud_font = new TrueTypeFont("FONT_SM", hud_scaletext * 8, ttf_stylemask);
 }
 
 void V_UnloadMenuFont()

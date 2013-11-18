@@ -79,6 +79,20 @@ private:
 	int				mHeight;
 };
 
+class LargeDoomFont : public OFont
+{
+public:
+	LargeDoomFont(fixed_t scale);
+	~LargeDoomFont();
+
+	virtual int getHeight() const
+	{
+		return mHeight;
+	}
+
+private:
+	int				mHeight;
+};
 
 class TrueTypeFont : public OFont
 {

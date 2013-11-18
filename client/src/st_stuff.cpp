@@ -488,7 +488,9 @@ cheatseq_t		cheat_mypos = { cheat_mypos_seq, 0 };
 static const Texture* ST_LoadSprite(const char* name)
 {
 	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_SPRITE);
-	return texturemanager.getTexture(texhandle);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	Z_ChangeTag(texture, PU_STATIC);
+	return texture;
 }
 
 //

@@ -33,6 +33,57 @@
 
 extern byte *Ranges;
 
+//
+// V_LoadDoomFontChar
+//
+// Reads a font character sprite from the WAD file and creates a scaled
+// Texture from the sprite.
+//
+static texhandle_t V_LoadDoomFontChar(const char* name, fixed_t scale)
+{
+	texhandle_t source_texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
+	const Texture* source_texture = texturemanager.getTexture(source_texhandle);
+
+	int dest_charwidth = (source_texture->getWidth() * scale) >> FRACBITS;
+	int dest_charheight = (source_texture->getHeight() * scale) >> FRACBITS;
+
+	texhandle_t dest_texhandle = texturemanager.createCustomHandle();
+	Texture* dest_texture = texturemanager.createTexture(dest_texhandle, dest_charwidth, dest_charheight);
+	R_CopySubimage(dest_texture, source_texture, 0, 0, source_texture->getWidth() - 1, source_texture->getHeight() - 1);
+
+	texturemanager.freeTexture(source_texhandle);
+
+	// translate the characters to red so that they can be
+	// easily translated later
+	byte* data = dest_texture->getData();
+	for (int i = 0; i < dest_charwidth * dest_charheight; i++)
+	{
+		if (data[i] >= 0x50 && data[i] <= 0x5F)
+			data[i] += (0xB0 - 0x50);
+	}
+
+	Z_ChangeTag(dest_texture, PU_STATIC);	// don't allow texture to be purged from cache
+	return dest_texhandle;
+}
+
+//
+// V_LoadBlankDoomFontChar
+//
+// Creates a scaled blank texture given the unscaled width & height.
+//
+static texhandle_t V_LoadBlankDoomFontChar(int width, int height, fixed_t scale)
+{
+	int dest_charwidth = (width * scale) >> FRACBITS;
+	int dest_charheight = (height * scale) >> FRACBITS;
+
+	texhandle_t dest_texhandle = texturemanager.createCustomHandle();
+	Texture* dest_texture = texturemanager.createTexture(dest_texhandle, dest_charwidth, dest_charheight);
+
+	Z_ChangeTag(dest_texture, PU_STATIC);
+	return dest_texhandle;
+}
+
+
 // ----------------------------------------------------------------------------
 //
 // OFont base class implementation
@@ -154,7 +205,7 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 			byte* data = texture->getData();
 			for (int i = 0; i < dest_charwidth * dest_charheight; i++)
 			{
-				if (data[i] >= 0x50 && data[i] <= 0x5A)
+				if (data[i] >= 0x50 && data[i] <= 0x5F)
 					data[i] += (0xB0 - 0x50);
 			}
 		}
@@ -175,6 +226,7 @@ ConCharsFont::~ConCharsFont()
 	}
 }
 
+
 // ----------------------------------------------------------------------------
 //
 // SmallDoomFont implementation
@@ -183,7 +235,6 @@ ConCharsFont::~ConCharsFont()
 
 SmallDoomFont::SmallDoomFont(fixed_t scale)
 {
-	static const char* tplate = "STCFN%.3d";
 	char name[12];
 
 	// initialize lookups
@@ -193,51 +244,96 @@ SmallDoomFont::SmallDoomFont(fixed_t scale)
 		mCharacterHandles[i] = TextureManager::NO_TEXTURE_HANDLE;
 	}
 
+	// load the glyphs
 	for (int charnum = '!'; charnum <= '_'; charnum++)
 	{
-		sprintf(name, tplate, charnum);
-		texhandle_t source_texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
-		const Texture* source_texture = texturemanager.getTexture(source_texhandle);
-
-		int dest_charwidth = (source_texture->getWidth() * scale) >> FRACBITS;
-		int dest_charheight = (source_texture->getHeight() * scale) >> FRACBITS;
-
-		mCharacterHandles[charnum] = texturemanager.createCustomHandle();
-		Texture* dest_texture = texturemanager.createTexture(mCharacterHandles[charnum], dest_charwidth, dest_charheight);
-		R_CopySubimage(dest_texture, source_texture, 0, 0, source_texture->getWidth() - 1, source_texture->getHeight() - 1);
-
-		mCharacters[charnum] = dest_texture;
-		Z_ChangeTag(dest_texture, PU_STATIC);	// don't allow texture to be purged from cache
-
-		texturemanager.freeTexture(source_texhandle);
+		sprintf(name, "STCFN%.3d", charnum);
+		mCharacterHandles[charnum] = V_LoadDoomFontChar(name, scale);
+		mCharacters[charnum] = texturemanager.getTexture(mCharacterHandles[charnum]);
 	}
 
+	// lowercase glyphs are the same as uppercase
 	for (int charnum = 'a'; charnum <= 'z'; charnum++)
+	{
 		mCharacters[charnum] = mCharacters[charnum - 32];	
+		mCharacterHandles[charnum] = mCharacterHandles[charnum - 32];
+	}
 
-	// add a character for ' ' (based on dimensions of the T character)
-	int spacewidth = mCharacters['T']->getWidth() / 2;
-	int spaceheight = mCharacters['T']->getHeight();
-	texhandle_t space_texhandle = texturemanager.createCustomHandle();
-	Texture* space_texture = texturemanager.createTexture(space_texhandle, spacewidth, spaceheight);
-	Z_ChangeTag(space_texture, PU_STATIC);
-	mCharacters[' '] = space_texture;
-
-	// add blank textures for the characters not present in the font
-	int blankwidth = mCharacters['T']->getWidth() / 2;
-	int blankheight = mCharacters['T']->getHeight();
-	texhandle_t blank_texhandle = texturemanager.createCustomHandle();
-	Texture* blank_texture = texturemanager.createTexture(blank_texhandle, blankwidth, blankheight);
-	Z_ChangeTag(blank_texture, PU_STATIC);
+	// add blank glyphs for any not present in the font
+	texhandle_t blank_texhandle = V_LoadBlankDoomFontChar(4, 7, scale);
+	const Texture* blank_texture = texturemanager.getTexture(blank_texhandle);
 
 	for (int charnum = 0; charnum < 256; charnum++)
+	{
 		if (mCharacters[charnum] == NULL)
-			mCharacters[charnum] = blank_texture;	
+		{
+			mCharacterHandles[charnum] = blank_texhandle;
+			mCharacters[charnum] = blank_texture;
+		}
+	}
 
 	mHeight = mCharacters['T']->getHeight() + (scale >> FRACBITS);
 }
 
 SmallDoomFont::~SmallDoomFont()
+{
+	for (int i = 0; i < 256; i++)
+	{
+		if (mCharacterHandles[i] != TextureManager::NO_TEXTURE_HANDLE)
+			texturemanager.freeTexture(mCharacterHandles[i]);
+	}
+}
+
+
+// ----------------------------------------------------------------------------
+//
+// LargeDoomFont implementation
+//
+// ----------------------------------------------------------------------------
+
+LargeDoomFont::LargeDoomFont(fixed_t scale)
+{
+	char name[12];
+
+	// initialize lookups
+	for (int i = 0; i < 256; i++)
+	{
+		mCharacters[i] = NULL;
+		mCharacterHandles[i] = TextureManager::NO_TEXTURE_HANDLE;
+	}
+
+	// load the glyphs
+	for (int charnum = '!'; charnum <= 'Z'; charnum++)
+	{
+		sprintf(name, "FONTB%02u", charnum - 32);
+		mCharacterHandles[charnum] = V_LoadDoomFontChar(name, scale);
+		mCharacters[charnum] = texturemanager.getTexture(mCharacterHandles[charnum]);
+	}
+
+	// lowercase glyphs are the same as uppercase
+	for (int charnum = 'a'; charnum <= 'z'; charnum++)
+	{
+		mCharacters[charnum] = mCharacters[charnum - 32];	
+		mCharacterHandles[charnum] = mCharacterHandles[charnum - 32];
+	}
+
+	// add blank glyphs for any not present in the font
+	texhandle_t blank_texhandle = V_LoadBlankDoomFontChar(12, 12, scale);
+	const Texture* blank_texture = texturemanager.getTexture(blank_texhandle);
+
+	for (int charnum = 0; charnum < 256; charnum++)
+	{
+		if (mCharacters[charnum] == NULL)
+		{
+			mCharacterHandles[charnum] = blank_texhandle;
+			mCharacters[charnum] = blank_texture;
+		}
+	}
+
+	mHeight = mCharacters['T']->getHeight() + (scale >> FRACBITS);
+}
+
+LargeDoomFont::~LargeDoomFont()
 {
 	for (int i = 0; i < 256; i++)
 	{
