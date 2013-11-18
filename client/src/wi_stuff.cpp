@@ -352,7 +352,8 @@ static const Texture* 	bstar;
 
 static const Texture* 	face_bg;		// [RH] Only one
 
-static Texture*	background_tex;
+texhandle_t background_texhandle;
+static Texture*	background_texture;
 
  // Name graphics of each level (centered)
 static const Texture*	lnames[2];
@@ -582,14 +583,14 @@ void WI_drawAnimatedBack (void)
 				int width = source_texture->getWidth();
 				int height = source_texture->getHeight();
 
-				R_CopySubimage(background_tex, source_texture,
-						a->loc.x, a->loc.y,	a->loc.x + width - 1, a->loc.y + height - 1,
+				R_CopySubimage(background_texture, source_texture,
+						a->loc.x, a->loc.y, a->loc.x + width - 1, a->loc.y + height - 1,
 						0, 0, width - 1, height - 1); 
 			}
 		}
 	}
 
-	FB->DrawTextureFullScreen(background_tex);
+	FB->DrawTextureFullScreen(background_texture);
 }
 
 int WI_drawNum (int n, int x, int y, int digits)
@@ -1268,7 +1269,7 @@ void WI_Ticker (void)
 // 
 static const Texture* WI_LoadSprite(const char* name)
 {
-	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_SPRITE);
+	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
 	const Texture* texture = texturemanager.getTexture(texhandle);
 	Z_ChangeTag(texture, PU_STATIC);
 	return texture;
@@ -1288,19 +1289,29 @@ static void WI_UnloadSprite(const Texture* texture)
 
 void WI_loadData (void)
 {
-	wi_font = new LargeDoomFont(CleanXfac * FRACUNIT);
-
 	char name[9];
 
+	wi_font = new LargeDoomFont(CleanXfac * FRACUNIT);
+
+	// background
 	if ((gameinfo.flags & GI_MAPxx) ||
 		((gameinfo.flags & GI_MENUHACK_RETAIL) && wbs->epsd >= 3))
 		strcpy(name, "INTERPIC");
 	else
 		sprintf(name, "WIMAP%d", wbs->epsd);
 
-	// background
-	// TODO: don't cast away const!
-	background_tex = (Texture*)WI_LoadSprite(name);
+	texhandle_t original_background_texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
+	const Texture* original_background_texture = texturemanager.getTexture(original_background_texhandle);
+	int bg_width = original_background_texture->getWidth();
+	int bg_height = original_background_texture->getHeight();
+
+	background_texhandle = texturemanager.createCustomHandle();	
+	background_texture = texturemanager.createTexture(background_texhandle, bg_width, bg_height);
+	Z_ChangeTag(background_texture, PU_STATIC);
+
+	R_CopySubimage(background_texture, original_background_texture,
+			0, 0, bg_width - 1, bg_height - 1,
+			0, 0, bg_width - 1, bg_height - 1);
 
 	for (int i = 0; i < 2; i++)
 	{
@@ -1409,7 +1420,8 @@ void WI_unloadData (void)
 	delete wi_font;
 	wi_font = NULL;
 
-	WI_UnloadSprite(background_tex);
+	texturemanager.freeTexture(background_texhandle);
+	background_texture = NULL;
 
 	WI_UnloadSprite(yah[0]);
 	WI_UnloadSprite(yah[1]);
@@ -1451,7 +1463,7 @@ void WI_Drawer (void)
 {
 	// If the background texture has been freed, then we really shouldn't
 	// be in here. (But it happens anyway.)
-	if (background_tex)
+	if (background_texture)
 	{
 		switch (state)
 		{
