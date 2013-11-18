@@ -215,6 +215,7 @@ public:
 	inline void DrawPatchClean (const patch_t *patch, int x, int y) const;
 	inline void DrawPatchCleanNoMove (const patch_t *patch, int x, int y) const;
 
+	void DrawTextureFullScreen(const Texture* texture) const;
 	void DrawPatchFullScreen(const patch_t* patch) const;
 
 	inline void DrawLucentTexture(const Texture* texture, int x, int y) const;

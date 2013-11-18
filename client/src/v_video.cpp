@@ -217,6 +217,30 @@ void DCanvas::FlatFill (int left, int top, int right, int bottom, const byte *sr
 }
 
 
+// [SL] Stretches a texture to fill the full-screen while maintaining a 4:3
+// aspect ratio. Pillarboxing is used in widescreen resolutions.
+void DCanvas::DrawTextureFullScreen(const Texture* texture) const
+{
+	Clear(0, 0, width, height, 0);
+
+	if (isProtectedRes())
+	{
+		DrawTexture(texture, 0, 0);
+	}   
+	else if (width * 3 > height * 4)
+	{   
+		// widescreen resolution - draw pic in 4:3 ratio in center of screen
+		int picwidth = 4 * height / 3;
+		int picheight = height;
+		DrawTextureStretched(texture, (width - picwidth) / 2, 0, picwidth, picheight);
+	}   
+	else
+	{
+		// 4:3 resolution - draw pic to the entire screen
+		DrawTextureStretched(texture, 0, 0, width, height);
+	}
+}
+
 // [SL] Stretches a patch to fill the full-screen while maintaining a 4:3
 // aspect ratio. Pillarboxing is used in widescreen resolutions.
 void DCanvas::DrawPatchFullScreen(const patch_t* patch) const

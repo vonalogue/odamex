@@ -49,7 +49,9 @@ static texhandle_t V_LoadDoomFontChar(const char* name, fixed_t scale)
 
 	texhandle_t dest_texhandle = texturemanager.createCustomHandle();
 	Texture* dest_texture = texturemanager.createTexture(dest_texhandle, dest_charwidth, dest_charheight);
-	R_CopySubimage(dest_texture, source_texture, 0, 0, source_texture->getWidth() - 1, source_texture->getHeight() - 1);
+	R_CopySubimage(dest_texture, source_texture,
+			0, 0, dest_charwidth - 1, dest_charheight - 1,
+			0, 0, source_texture->getWidth() - 1, source_texture->getHeight() - 1);
 
 	texturemanager.freeTexture(source_texhandle);
 
@@ -154,6 +156,27 @@ int OFont::getTextWidth(const char* str) const
 	return width;
 }
 
+int OFont::getTextHeight(char c) const
+{
+	const Texture* texture = mCharacters[(int)c];
+	if (texture)
+		return texture->getHeight() - texture->getOffsetY();
+	else
+		return 0;
+}
+
+int OFont::getTextHeight(const char* str) const
+{
+	int height = 0;
+	while (*str)
+	{
+		height = MAX(height, getTextHeight(*str));
+		str++;
+	}
+
+	return height;
+}
+
 // ----------------------------------------------------------------------------
 //
 // ConCharsFont implementation
@@ -198,7 +221,9 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 			int x2 = x1 + charwidth - 1;
 			int y1 = row * charheight;
 			int y2 = y1 + charheight - 1;
-			R_CopySubimage(texture, conchars_texture, x1, y1, x2, y2);
+			R_CopySubimage(texture, conchars_texture,
+					0, 0, dest_charwidth - 1, dest_charheight - 1,
+					x1, y1, x2, y2);
 
 			// translate the characters to red so that they can be
 			// easily translated later
@@ -405,7 +430,9 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 		if (stylemask & TTF_TEXTURE)
 		{
 			// load a texture to use for the background of the text
-			R_CopySubimage(texture, background_texture, 0, 0, width - 1, height - 1);
+			R_CopySubimage(texture, background_texture,
+					0, 0, width - 1, height - 1,
+					0, 0, width - 1, height - 1);
 		}
 		else if (stylemask & TTF_GRADIENT)
 		{

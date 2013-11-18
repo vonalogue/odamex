@@ -43,12 +43,14 @@
 #include "hu_stuff.h"
 #include "v_palette.h"
 #include "gi.h"
+#include "v_font.h"
+#include "v_text.h"
 
 void WI_unloadData(void);
 
 //
-// Data needed to add patches to full screen intermission pics.
-// Patches are statistics messages, and animations.
+// Data needed to add textures to full screen intermission pics.
+// Textures are statistics messages, and animations.
 // Loads of by-pixel layout and placement, offsets etc.
 //
 
@@ -75,7 +77,7 @@ void WI_unloadData(void);
 
 // NET GAME STUFF
 #define NG_STATSY				50
-#define NG_STATSX				(32 + star->width()/2 + 32*!dofrags)
+#define NG_STATSX				(32 + star->getWidth() / 2 + 32*!dofrags)
 
 #define NG_SPACINGX 			64
 
@@ -96,7 +98,7 @@ typedef struct
 
 //
 // Animation.
-// There is another anim_t used in p_spec.
+// There is another anim_t used in the TextureManager class.
 //
 typedef struct
 {
@@ -122,7 +124,7 @@ typedef struct
     int		data2;
 
     // actual graphics for frames of animations
-    patch_t*	p[3];
+	const Texture*	textures[3];
 
     // following must be initialized to zero before use!
 
@@ -185,7 +187,7 @@ static point_t lnodes[NUMEPISODES][NUMMAPS] =
 
 //
 // Animation locations for episode 0 (1).
-// Using patches saves a lot of space,
+// Using textures saves a lot of space,
 //  as they replace 320x200 full screen frames.
 //
 static anim_t epsd0animinfo[] =
@@ -278,7 +280,6 @@ static std::vector<int> cnt_kills_c;	// = cnt_kills
 static std::vector<int> cnt_items_c;	// = cnt_items
 static std::vector<int> cnt_secret_c;	// = cnt_secret
 static std::vector<int> cnt_frags_c;	// = cnt_frags
-static patch_t*			faceclassic[4];
 static int dofrags;
 static int ng_state;
 
@@ -309,59 +310,60 @@ static int			cnt_pause;
 //		GRAPHICS
 //
 
-// Scoreboard Border - Dan
-//static patch_t* 		sbborder;
-
 // You Are Here graphic
-static patch_t* 		yah[2];
+static const Texture*	yah[2];
 
 // splat
-static patch_t* 		splat;
+static const Texture* 	splat;
 
 // %, : graphics
-static patch_t*			percent;
-static patch_t*			colon;
+static const Texture*	percent;
+static const Texture*	colon;
 
 // 0-9 graphic
-static patch_t* 		num[10];
+static const Texture* 	num[10];
 
 // minus sign
-static patch_t* 		wiminus;
+static const Texture* 	wiminus;
 
 // "Finished!" graphics
-static patch_t* 		finished; //(Removed) Dan - Causes GUI Issues |FIX-ME|
+static const Texture* 	finished; //(Removed) Dan - Causes GUI Issues |FIX-ME|
 // [Nes] Re-added for singleplayer
 
 // "Entering" graphic
-static patch_t* 		entering;
+static const Texture* 	entering;
 
  // "Kills", "Items", "Secrets"
-static patch_t*			kills;
-static patch_t*			secret;
-static patch_t*			items;
-static patch_t* 		frags;
-static patch_t*			scrt;
+static const Texture*	kills;
+static const Texture*	secret;
+static const Texture*	items;
+static const Texture*	frags;
+static const Texture*	scrt;
 
 // Time sucks.
-static patch_t*			timepatch;
-static patch_t*			par;
-static patch_t*			sucks;
+static const Texture*	timepatch;
+static const Texture*	par;
+static const Texture*	sucks;
 
 // "Total", your face, your dead face
-static patch_t* 		total;
-static patch_t* 		star;
-static patch_t* 		bstar;
+static const Texture* 	total;
+static const Texture* 	star;
+static const Texture* 	bstar;
 
-static patch_t* 		p;		// [RH] Only one
+static const Texture* 	face_bg;		// [RH] Only one
+
+static Texture*	background_tex;
 
  // Name graphics of each level (centered)
-static patch_t*			lnames[2];
+static const Texture*	lnames[2];
+
+static OFont* wi_font = NULL;
+
+
 
 // [RH] Info to dynamically generate the level name graphics
 static int				lnamewidths[2];
-static const char			*lnametexts[2];
-
-static DCanvas			*background;
+static const char*		lnametexts[2];
 
 EXTERN_CVAR (sv_maxplayers)
 EXTERN_CVAR (wi_newintermission)
@@ -370,70 +372,34 @@ EXTERN_CVAR (wi_newintermission)
 // CODE
 //
 
-// slam background
-// UNUSED static unsigned char *background=0;
-
-
-void WI_slamBackground (void)
-{
-	background->Blit (0, 0, background->width, background->height,
-		FB, 0, 0, FB->width, FB->height);
-}
-
-static int WI_DrawName (const char *str, int x, int y)
-{
-	int lump;
-	patch_t *p = NULL;
-	char charname[9];
-
-	while (*str)
-	{
-		sprintf (charname, "FONTB%02u", toupper(*str) - 32);
-		lump = W_CheckNumForName (charname);
-		if (lump != -1)
-		{
-			p = W_CachePatch (lump);
-			FB->DrawPatchClean (p, x, y);
-			x += p->width() - 1;
-		}
-		else
-		{
-			x += 12;
-		}
-		str++;
-	}
-
-	p = W_CachePatch ("FONTB39");
-	return (5*(p->height()-p->topoffset()))/4;
-}
-
-
 
 //Draws "<Levelname> Finished!"
 void WI_drawLF (void)
 {
-	int y;
+	int y = WI_TITLEY;
 
-	if (!lnames[0] && !lnamewidths[0])
-		return;
-
-	y = WI_TITLEY;
-
-	if (lnames[0])
+	if (lnames[0] != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
 	{
-		// draw <LevelName>
-		FB->DrawPatchClean (lnames[0], (320 - lnames[0]->width())/2, y);
-		y += (5*lnames[0]->height())/4;
+		// draw <LevelName> centered
+		const Texture* texture = lnames[0];
+		FB->DrawTextureClean(texture, (320 - texture->getWidth()) / 2, y);
+		y += (5 * texture->getHeight()) / 4;
 	}
 	else
 	{
 		// [RH] draw a dynamic title string
-		y += WI_DrawName (lnametexts[0], 160 - lnamewidths[0] / 2, y);
+		const char* str = lnametexts[0];
+		int str_width = wi_font->getTextWidth(str) / CleanXfac;
+		int str_height = wi_font->getTextHeight(str) / CleanYfac;
+	
+		int realx = CleanXfac * (160 - str_width) / 2;
+		int realy = CleanYfac * y;
+		wi_font->printText(FB, realx, realy, CR_WHITE, str);
+		y += str_height;
 	}
 
-	// draw "Finished!"
-	//if (!multiplayer || sv_maxplayers <= 1)
-		FB->DrawPatchClean (finished, (320 - finished->width())/2, y);  // (Removed) Dan - Causes GUI Issues |FIX-ME|
+	// draw "Finished!" centered
+	FB->DrawTextureClean(finished, (320 - finished->getWidth()) / 2, y);
 }
 
 
@@ -443,26 +409,27 @@ void WI_drawEL (void)
 {
 	int y = WI_TITLEY;
 
-	if (!lnames[1] && !lnamewidths[1])
-		return;
-
-	y = WI_TITLEY;
-
 	// draw "Entering"
-	FB->DrawPatchClean (entering, (320 - entering->width())/2, y);
+	FB->DrawTextureClean(entering, (320 - entering->getWidth()) / 2, y);
+	y += (5 * entering->getHeight()) / 4;
 
-	// [RH] Changed to adjust by height of entering patch instead of title
-	y += (5*entering->height())/4;
-
-	if (lnames[1])
+	if (lnames[1] != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
 	{
-		// draw level
-		FB->DrawPatchClean (lnames[1], (320 - lnames[1]->width())/2, y);
+		// draw <LevelName> centered
+		const Texture* texture = lnames[1];
+		FB->DrawTextureClean(texture, (320 - texture->getWidth()) / 2, y);
 	}
 	else
 	{
 		// [RH] draw a dynamic title string
-		WI_DrawName (lnametexts[1], 160 - lnamewidths[1] / 2, y);
+		const char* str = lnametexts[1];
+		int str_width = wi_font->getTextWidth(str) / CleanXfac;
+		int str_height = wi_font->getTextHeight(str) / CleanYfac;
+	
+		int realx = CleanXfac * (160 - str_width) / 2;
+		int realy = CleanYfac * y;
+		wi_font->printText(FB, realx, realy, CR_WHITE, str);
+		y += str_height;
 	}
 }
 
@@ -481,38 +448,31 @@ int WI_MapToIndex (char *map)
 
 // ====================================================================
 // WI_drawOnLnode
-// Purpose: Draw patches at a location based on episode/map
+// Purpose: Draw textures at a location based on episode/map
 // Args:    n   -- index to map# within episode
-//          c[] -- array of patches to be drawn
-//          numpatches -- haleyjd 04/12/03: bug fix - number of patches
+//          c[] -- array of textures to be drawn
+//          numtextures -- haleyjd 04/12/03: bug fix - number of textures
 // Returns: void
 //
 // draw stuff at a location by episode/map#
 //
 // [Russell] - Modified for odamex, fixes a crash with certain pwads at
 // intermission change
-void WI_drawOnLnode (int n, patch_t *c[], int numpatches)
+void WI_drawOnLnode(int n, const Texture* c[], int numtextures)
 {
-
 	int 	i;
-	int 	left;
-	int 	top;
-	int 	right;
-	int 	bottom;
-	BOOL 	fits = false;
+	bool 	fits = false;
 
 	i = 0;
 	do
 	{
-		left = lnodes[wbs->epsd][n].x - c[i]->leftoffset();
-		top = lnodes[wbs->epsd][n].y - c[i]->topoffset();
-		right = left + c[i]->width();
-		bottom = top + c[i]->height();
+		int left = lnodes[wbs->epsd][n].x - c[i]->getOffsetX();
+		int top = lnodes[wbs->epsd][n].y - c[i]->getOffsetY();
+		int right = left + c[i]->getWidth();
+		int bottom = top + c[i]->getHeight();
 
-		if (left >= 0 &&
-            right < screen->width &&
-            top >= 0 &&
-            bottom < screen->height)
+		if (left >= 0 && right < FB->width &&
+            top >= 0 && bottom < FB->height)
 		{
 			fits = true;
 		}
@@ -520,16 +480,16 @@ void WI_drawOnLnode (int n, patch_t *c[], int numpatches)
 		{
 			i++;
 		}
-	} while (!fits && i != numpatches); // haleyjd: bug fix
+	} while (!fits && i != numtextures); // haleyjd: bug fix
 
-	if (fits && i < numpatches) // haleyjd: bug fix
+	if (fits && i < numtextures) // haleyjd: bug fix
 	{
-		FB->DrawPatchIndirect (c[i], lnodes[wbs->epsd][n].x, lnodes[wbs->epsd][n].y);
+		FB->DrawTextureIndirect(c[i], lnodes[wbs->epsd][n].x, lnodes[wbs->epsd][n].y);
 	}
 	else
 	{
 		// DEBUG
-		DPrintf ("Could not place patch on level %d", n+1);
+		DPrintf("Could not place texture on level %d", n+1);
 	}
 }
 
@@ -561,15 +521,12 @@ void WI_initAnimatedBack (void)
 
 void WI_updateAnimatedBack (void)
 {
-	int i;
-	anim_t *a;
-
 	if ((gameinfo.flags & GI_MAPxx) || wbs->epsd > 2)
 		return;
 
-	for (i = 0; i < NUMANIMS[wbs->epsd]; i++)
+	for (int i = 0; i < NUMANIMS[wbs->epsd]; i++)
 	{
-		a = &anims[wbs->epsd][i];
+		anim_t* a = &anims[wbs->epsd][i];
 
 		if (bcnt == a->nexttic)
 		{
@@ -606,9 +563,7 @@ void WI_updateAnimatedBack (void)
 				break;
 			}
 		}
-
 	}
-
 }
 
 void WI_drawAnimatedBack (void)
@@ -618,80 +573,84 @@ void WI_drawAnimatedBack (void)
 
 	if (gamemode != commercial && gamemode != commercial_bfg && wbs->epsd <= 2)
 	{
-		background->Lock ();
 		for (i = 0; i < NUMANIMS[wbs->epsd]; i++)
 		{
 			a = &anims[wbs->epsd][i];
 
 			if (a->ctr >= 0)
-				background->DrawPatch (a->p[a->ctr], a->loc.x, a->loc.y);
+			{
+				const Texture* source_texture = a->textures[a->ctr];
+				int width = source_texture->getWidth();
+				int height = source_texture->getHeight();
+
+				R_CopySubimage(background_tex, source_texture,
+						a->loc.x, a->loc.y,	a->loc.x + width - 1, a->loc.y + height - 1,
+						0, 0, width - 1, height - 1); 
+			}
 		}
-		background->Unlock ();
 	}
 
-	WI_slamBackground ();
+	FB->DrawTextureFullScreen(background_tex);
 }
 
 int WI_drawNum (int n, int x, int y, int digits)
 {
-
-    int		fontwidth = num[0]->width();
+    int		fontwidth = num[0]->getWidth();
     int		neg;
     int		temp;
 
-    if (digits < 0)
-    {
-	if (!n)
+	if (digits < 0)
 	{
-	    // make variable-length zeros 1 digit long
-	    digits = 1;
+		if (!n)
+		{
+			// make variable-length zeros 1 digit long
+			digits = 1;
+		}
+		else
+		{
+			// figure out # of digits in #
+			digits = 0;
+			temp = n;
+
+			while (temp)
+			{
+				temp /= 10;
+				digits++;
+			}
+		}
 	}
-	else
+
+	// if non-number, do not draw it
+	if (n == 1994)
+		return 0;
+
+	neg = n < 0;
+	if (neg)
+		n = -n;
+
+	// draw the new number
+	while (digits--)
 	{
-	    // figure out # of digits in #
-	    digits = 0;
-	    temp = n;
-
-	    while (temp)
-	    {
-		temp /= 10;
-		digits++;
-	    }
+		x -= fontwidth;
+		FB->DrawTextureClean(num[ n % 10 ], x, y);
+		n /= 10;
 	}
-    }
 
-    neg = n < 0;
-    if (neg)
-	n = -n;
-
-    // if non-number, do not draw it
-    if (n == 1994)
-	return 0;
-
-    // draw the new number
-    while (digits--)
-    {
-	x -= fontwidth;
-	screen->DrawPatchClean(num[ n % 10 ], x, y);
-	n /= 10;
-    }
-
-    // draw a minus sign if necessary
-    if (neg)
-	screen->DrawPatchClean(wiminus, x-=8, y);
+	// draw a minus sign if necessary
+	if (neg)
+		FB->DrawTextureClean(wiminus, x-=8, y);
 
     return x;
-
 }
 
 #include "hu_stuff.h"
 
 void WI_drawPercent (int p, int x, int y, int b = 0)
 {
-    if (p < 0)
+	if (p < 0)
 		return;
 
-	screen->DrawPatchClean (percent, x, y);
+	FB->DrawTextureClean(percent, x, y);
 	if (b == 0)
 		WI_drawNum(p, x, y, -1);
 	else
@@ -700,45 +659,37 @@ void WI_drawPercent (int p, int x, int y, int b = 0)
 
 void WI_drawTime (int t, int x, int y)
 {
+	int		div;
+	int		n;
 
-    int		div;
-    int		n;
+	if (t < 0)
+		return;
 
-    if (t<0)
-	return;
-
-    if (t <= 61*59)
-    {
-	div = 1;
-
-	do
+	if (t <= 61*59)
 	{
-	    n = (t / div) % 60;
-	    x = WI_drawNum(n, x, y, 2) - colon->width();
-	    div *= 60;
+		div = 1;
 
-	    // draw
-	    if (div==60 || t / div)
-		screen->DrawPatchClean(colon, x, y);
+		do
+		{
+			n = (t / div) % 60;
+			x = WI_drawNum(n, x, y, 2) - colon->getWidth();
+			div *= 60;
 
-	} while (t / div);
-    }
-    else
-    {
-	// "sucks"
-	screen->DrawPatchClean(sucks, x - sucks->width(), y);
-    }
+			// draw
+			if (div==60 || t / div)
+				FB->DrawTextureClean(colon, x, y);
+		} while (t / div);
+	}
+	else
+	{
+		// "sucks"
+		FB->DrawTextureClean(sucks, x - sucks->getWidth(), y);
+	}
 }
 
 void WI_End (void)
 {
 	WI_unloadData();
-
-	if(background)
-	{
-		I_FreeScreen(background);
-		background = NULL;
-	}
 }
 
 void WI_initNoState (void)
@@ -1028,8 +979,8 @@ void WI_updateNetgameStats()
 
 void WI_drawNetgameStats(void)
 {
-	unsigned int i, x, y;
-	short pwidth = percent->width();
+	unsigned int x, y;
+	short pwidth = percent->getWidth();
 
 	// draw animated background
 	WI_drawAnimatedBack();
@@ -1037,17 +988,24 @@ void WI_drawNetgameStats(void)
 	WI_drawLF();
 
 	// draw stat titles (top line)
-	screen->DrawPatchClean (kills, NG_STATSX+NG_SPACINGX-kills->width(), NG_STATSY);
+	x = NG_STATSX + 1*NG_SPACINGX - kills->getWidth();
+	y = NG_STATSY;
+	FB->DrawTextureClean(kills, x, y);
 
-	screen->DrawPatchClean (items, NG_STATSX+2*NG_SPACINGX-items->width(), NG_STATSY);
+	x = NG_STATSX + 2*NG_SPACINGX - items->getWidth();
+	FB->DrawTextureClean(items, x, y);
 
-	screen->DrawPatchClean (scrt, NG_STATSX+3*NG_SPACINGX-scrt->width(), NG_STATSY);
+	x = NG_STATSX + 3*NG_SPACINGX - scrt->getWidth();
+	FB->DrawTextureClean(scrt, x, y);
 
 	if (dofrags)
-		screen->DrawPatchClean (frags, NG_STATSX+4*NG_SPACINGX-frags->width(), NG_STATSY);
+	{
+		x = NG_STATSX + 4*NG_SPACINGX - frags->getWidth();
+		FB->DrawTextureClean(frags, x, y);
+	}
 
 	// draw stats
-	y = NG_STATSY + kills->height();
+	y = NG_STATSY + kills->getHeight();
 
 	for (Players::iterator it = players.begin();it != players.end();++it)
 	{
@@ -1063,20 +1021,18 @@ void WI_drawNetgameStats(void)
 		x = NG_STATSX;
 		// [RH] Only use one graphic for the face backgrounds
 		V_ColorMap = translationref_t(translationtables + i * 256, i);
-        screen->DrawTranslatedPatchClean (p, x - p->width(), y);
-		// classic face background colour
-		//screen->DrawTranslatedPatchClean (faceclassic[i], x-p->width(), y);
+        FB->DrawTranslatedTextureClean(face_bg, x - face_bg->getWidth(), y);
 
 		if (i == me)
-			screen->DrawPatchClean (star, x-p->width(), y);
+			FB->DrawTextureClean(star, x - face_bg->getWidth(), y);
 
 		x += NG_SPACINGX;
-		WI_drawPercent (cnt_kills_c[i], x-pwidth, y+10, wbs->maxkills);	x += NG_SPACINGX;
-		WI_drawPercent (cnt_items_c[i], x-pwidth, y+10, wbs->maxitems);	x += NG_SPACINGX;
-		WI_drawPercent (cnt_secret_c[i], x-pwidth, y+10, wbs->maxsecret); x += NG_SPACINGX;
+		WI_drawPercent(cnt_kills_c[i], x - pwidth, y + 10, wbs->maxkills);	x += NG_SPACINGX;
+		WI_drawPercent(cnt_items_c[i], x - pwidth, y + 10, wbs->maxitems);	x += NG_SPACINGX;
+		WI_drawPercent(cnt_secret_c[i], x - pwidth, y + 10, wbs->maxsecret); x += NG_SPACINGX;
 
 		if (dofrags)
-			WI_drawNum(cnt_frags_c[i], x, y+10, -1);
+			WI_drawNum(cnt_frags_c[i], x, y + 10, -1);
 
 		y += WI_SPACINGY;
 	}
@@ -1205,27 +1161,27 @@ void WI_updateStats(void)
 void WI_drawStats (void)
 {
     // line height
-    int lh = (3*num[0]->height())/2;
+    int lh = (3 * num[0]->getHeight()) / 2;
 
     // draw animated background
     WI_drawAnimatedBack();
     WI_drawLF();
 
-    screen->DrawPatchClean(kills, SP_STATSX, SP_STATSY);
+    FB->DrawTextureClean(kills, SP_STATSX, SP_STATSY);
     WI_drawPercent(cnt_kills, 320 - SP_STATSX, SP_STATSY);
 
-    screen->DrawPatchClean(items, SP_STATSX, SP_STATSY+lh);
+    FB->DrawTextureClean(items, SP_STATSX, SP_STATSY+lh);
     WI_drawPercent(cnt_items, 320 - SP_STATSX, SP_STATSY+lh);
 
-    screen->DrawPatchClean(secret, SP_STATSX, SP_STATSY+2*lh);
+    FB->DrawTextureClean(secret, SP_STATSX, SP_STATSY+2*lh);
     WI_drawPercent(cnt_secret, 320 - SP_STATSX, SP_STATSY+2*lh);
 
-    screen->DrawPatchClean(timepatch, SP_TIMEX, SP_TIMEY);
+    FB->DrawTextureClean(timepatch, SP_TIMEX, SP_TIMEY);
     WI_drawTime(cnt_time, 160 - SP_TIMEX, SP_TIMEY);
 
 	if ((gameinfo.flags & GI_MAPxx) || wbs->epsd < 3)
     {
-    	screen->DrawPatchClean(par, SP_TIMEX + 160, SP_TIMEY);
+    	FB->DrawTextureClean(par, SP_TIMEX + 160, SP_TIMEY);
     	WI_drawTime(cnt_par, 320 - SP_TIMEX, SP_TIMEY);
     }
 
@@ -1304,240 +1260,197 @@ void WI_Ticker (void)
 	}
 }
 
-static int WI_CalcWidth (const char *str)
+
+//
+// WI_LoadSprite
+//
+// Loads an intermission sprite and prevents it from being freed when the
+// Zone memory manager is low on memory.
+// 
+static const Texture* WI_LoadSprite(const char* name)
 {
-	int w = 0;
-	int lump;
-	patch_t *p;
-	char charname[9];
-
-	if (!str)
-		return 0;
-
-	while (*str) {
-		sprintf (charname, "FONTB%02u", toupper(*str) - 32);
-		lump = W_CheckNumForName (charname);
-		if (lump != -1) {
-			p = W_CachePatch (lump);
-			w += p->width() - 1;
-		} else {
-			w += 12;
-		}
-		str++;
-	}
-
-	return w;
+	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_SPRITE);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	Z_ChangeTag(texture, PU_STATIC);
+	return texture;
 }
+
+//
+// WI_UnloadSprite
+//
+// Allows an intermission sprite to be freed by the Zone memory manager
+//
+static void WI_UnloadSprite(const Texture* texture)
+{
+	if (texture)
+		Z_ChangeTag(texture, PU_CACHE);
+}
+
 
 void WI_loadData (void)
 {
-	int i, j;
+	wi_font = new LargeDoomFont(CleanXfac * FRACUNIT);
+
 	char name[9];
-	anim_t *a;
-	patch_t *bg;
 
 	if ((gameinfo.flags & GI_MAPxx) ||
 		((gameinfo.flags & GI_MENUHACK_RETAIL) && wbs->epsd >= 3))
-		strcpy (name, "INTERPIC");
+		strcpy(name, "INTERPIC");
 	else
-		sprintf (name, "WIMAP%d", wbs->epsd);
+		sprintf(name, "WIMAP%d", wbs->epsd);
 
 	// background
-	bg = W_CachePatch (name);
-	background = I_AllocateScreen (bg->width(), bg->height(), 8);
-	background->Lock ();
-	background->DrawPatch (bg, 0, 0);
-	background->Unlock ();
+	// TODO: don't cast away const!
+	background_tex = (Texture*)WI_LoadSprite(name);
 
-	for (i = 0; i < 2; i++)
+	for (int i = 0; i < 2; i++)
 	{
-		char *lname = (i == 0 ? wbs->lname0 : wbs->lname1);
-
-		if (lname)
-			j = W_CheckNumForName (lname);
-		else
-			j = -1;
-
-		if (j >= 0)
-		{
-			lnames[i] = W_CachePatch (j, PU_STATIC);
-		}
-		else
-		{
-			lnames[i] = NULL;
-			lnametexts[i] = FindLevelInfo (i == 0 ? wbs->current : wbs->next)->level_name;
-			lnamewidths[i] = WI_CalcWidth (lnametexts[i]);
-		}
+		const char* lname = (i == 0 ? wbs->lname0 : wbs->lname1);
+		lnames[i] = WI_LoadSprite(lname);
 	}
 
-	if (gamemode != commercial && gamemode != commercial_bfg )
+	if (gamemode != commercial && gamemode != commercial_bfg)
 	{
 		// you are here
-		yah[0] = W_CachePatch ("WIURH0", PU_STATIC);
+		yah[0] = WI_LoadSprite("WIURHO");
 
 		// you are here (alt.)
-		yah[1] = W_CachePatch ("WIURH1", PU_STATIC);
+		yah[1] = WI_LoadSprite("WIURH1");
 
 		// splat
-		splat = W_CachePatch ("WISPLAT", PU_STATIC);
+		splat = WI_LoadSprite("WISPLAT");
 
 		if (wbs->epsd < 3)
 		{
-			for (j=0;j<NUMANIMS[wbs->epsd];j++)
+			for (int j = 0; j < NUMANIMS[wbs->epsd]; j++)
 			{
-				a = &anims[wbs->epsd][j];
-				for (i=0;i<a->nanims;i++)
+				anim_t* a = &anims[wbs->epsd][j];
+				for (int i = 0; i < a->nanims; i++)
 				{
 					// MONDO HACK!
 					if (wbs->epsd != 1 || j != 8)
 					{
 						// animations
-						sprintf (name, "WIA%d%.2d%.2d", wbs->epsd, j, i);
-						a->p[i] = W_CachePatch (name, PU_STATIC);
+						sprintf(name, "WIA%d%.2d%.2d", wbs->epsd, j, i);
+						a->textures[i] = WI_LoadSprite(name);
 					}
 					else
 					{
 						// HACK ALERT!
-						a->p[i] = anims[1][4].p[i];
+						a->textures[i] = anims[1][4].textures[i];
 					}
 				}
 			}
 		}
 	}
 
-	for (i=0;i<10;i++)
+	// numbers 0-9
+	for (int i = 0; i < 10; i++)
     {
-		 // numbers 0-9
 		sprintf(name, "WINUM%d", i);
-		num[i] = W_CachePatch (name, PU_STATIC);
+		num[i] = WI_LoadSprite(name);
     }
 
-    wiminus = W_CachePatch ("WIMINUS", PU_STATIC);
+	// "-"
+    wiminus = WI_LoadSprite("WIMINUS");
 
-	// percent sign
-    percent = W_CachePatch ("WIPCNT", PU_STATIC);
+	// "%"
+    percent = WI_LoadSprite("WIPCNT");
 
 	// ":"
-    colon = W_CachePatch ("WICOLON", PU_STATIC);
+    colon = WI_LoadSprite("WICOLON");
 
 	// "finished"
-	finished = W_CachePatch ("WIF", PU_STATIC); // (Removed) Dan - Causes GUI Issues |FIX-ME|
+	finished = WI_LoadSprite("WIF"); // (Removed) Dan - Causes GUI Issues |FIX-ME|
 
 	// "entering"
-	entering = W_CachePatch ("WIENTER", PU_STATIC);
+	entering = WI_LoadSprite("WIENTER");
 
 	// "kills"
-    kills = W_CachePatch ("WIOSTK", PU_STATIC);
+    kills = WI_LoadSprite("WIOSTK");
 
 	// "items"
-    items = W_CachePatch ("WIOSTI", PU_STATIC);
+    items = WI_LoadSprite("WIOSTI");
 
     // "scrt"
-    scrt = W_CachePatch ("WIOSTS", PU_STATIC);
+    scrt = WI_LoadSprite("WIOSTS");
 
 	// "secret"
-    secret = W_CachePatch ("WISCRT2", PU_STATIC);
+    secret = WI_LoadSprite("WISCRT2");
 
 	// "frgs"
-	frags = (patch_t *)W_CachePatch ("WIFRGS", PU_STATIC);
+	frags = WI_LoadSprite("WIFRGS");
 
 	// "time"
-    timepatch = W_CachePatch ("WITIME", PU_STATIC);
+    timepatch = WI_LoadSprite("WITIME");
 
     // "sucks"
-    sucks =W_CachePatch ("WISUCKS", PU_STATIC);
+    sucks =WI_LoadSprite("WISUCKS");
 
     // "par"
-    par = W_CachePatch ("WIPAR", PU_STATIC);
+    par = WI_LoadSprite("WIPAR");
 
 	// "total"
-	total = (patch_t *)W_CachePatch ("WIMSTT", PU_STATIC);
+	total = WI_LoadSprite("WIMSTT");
 
 	// your face
-	star = (patch_t *)W_CachePatch ("STFST01", PU_STATIC);
+	star = WI_LoadSprite("STFST01");
 
 	// dead face
-	bstar = (patch_t *)W_CachePatch("STFDEAD0", PU_STATIC);
+	bstar = WI_LoadSprite("STFDEAD0");
 
-	p = W_CachePatch ("STPBANY", PU_STATIC);
-
-	// [Nes] Classic vanilla lifebars.
-	for (i = 0; i < 4; i++) {
-		sprintf(name, "STPB%d", i);
-		faceclassic[i] = W_CachePatch(name, PU_STATIC);
-	}
+	// background for player face (translatable)
+	face_bg = WI_LoadSprite("STPBANY");
 }
 
 void WI_unloadData (void)
 {
-/*	int i, j;
+	delete wi_font;
+	wi_font = NULL;
 
-	Z_ChangeTag (wiminus, PU_CACHE);
+	WI_UnloadSprite(background_tex);
 
-	for (i = 0; i < 10; i++)
-		Z_ChangeTag (num[i], PU_CACHE);
-
-	for (i = 0; i < 2; i++) {
-		if (lnames[i]) {
-			Z_ChangeTag (lnames[i], PU_CACHE);
-			lnames[i] = NULL;
-		}
-	}
-
-	if (gamemode != commercial && gamemode != commercial_bfg )
+	WI_UnloadSprite(yah[0]);
+	WI_UnloadSprite(yah[1]);
+	WI_UnloadSprite(splat);
+	if (wbs->epsd < 3)
 	{
-		Z_ChangeTag (yah[0], PU_CACHE);
-		Z_ChangeTag (yah[1], PU_CACHE);
-
-		Z_ChangeTag (splat, PU_CACHE);
-
-		if (wbs->epsd < 3)
+		for (int j = 0; j < NUMANIMS[wbs->epsd]; j++)
 		{
-			for (j=0;j<NUMANIMS[wbs->epsd];j++)
-			{
-				if (wbs->epsd != 1 || j != 8)
-					for (i=0;i<anims[wbs->epsd][j].nanims;i++)
-						Z_ChangeTag (anims[wbs->epsd][j].p[i], PU_CACHE);
-			}
+			anim_t* a = &anims[wbs->epsd][j];
+			for (int i = 0; i < a->nanims; i++)
+				WI_UnloadSprite(a->textures[i]);
 		}
 	}
 
-	//Z_ChangeTag (finished, PU_CACHE); (Removed) Dan - Causes GUI Issues |FIX-ME|
-	Z_ChangeTag (entering, PU_CACHE);
+	for (int i = 0; i < 10; i++)
+		WI_UnloadSprite(num[i]);
 
-	Z_ChangeTag (p, PU_CACHE);*/
+	WI_UnloadSprite(wiminus);
+	WI_UnloadSprite(percent);
+	WI_UnloadSprite(colon);
+	WI_UnloadSprite(finished);
+	WI_UnloadSprite(entering);
+	WI_UnloadSprite(kills);
+	WI_UnloadSprite(items);
+	WI_UnloadSprite(scrt);
+	WI_UnloadSprite(secret);
+	WI_UnloadSprite(frags);
+	WI_UnloadSprite(timepatch);
+	WI_UnloadSprite(sucks);
+	WI_UnloadSprite(par);
+	WI_UnloadSprite(total);
+	WI_UnloadSprite(star);
+	WI_UnloadSprite(bstar);
 
-	int i;
-
-	for (i=0 ; i<10 ; i++)
-		Z_ChangeTag(num[i], PU_CACHE);
-
-	Z_ChangeTag(wiminus, PU_CACHE);
-    Z_ChangeTag(percent, PU_CACHE);
-    Z_ChangeTag(colon, PU_CACHE);
-	Z_ChangeTag(kills, PU_CACHE);
-	Z_ChangeTag(secret, PU_CACHE);
-	Z_ChangeTag(frags, PU_CACHE);
-	Z_ChangeTag(items, PU_CACHE);
-    Z_ChangeTag(finished, PU_CACHE);
-    Z_ChangeTag(entering, PU_CACHE);
-    Z_ChangeTag(timepatch, PU_CACHE);
-    Z_ChangeTag(sucks, PU_CACHE);
-    Z_ChangeTag(par, PU_CACHE);
-	Z_ChangeTag (total, PU_CACHE);
-	//	Z_ChangeTag(star, PU_CACHE);
-	//	Z_ChangeTag(bstar, PU_CACHE);
-    Z_ChangeTag(p, PU_CACHE);
-
-	for (i=0 ; i<4 ; i++)
-		Z_ChangeTag(faceclassic[i], PU_CACHE);
+	WI_UnloadSprite(face_bg);
 }
 
 void WI_Drawer (void)
 {
-	// If the background screen has been freed, then we really shouldn't
+	// If the background texture has been freed, then we really shouldn't
 	// be in here. (But it happens anyway.)
-	if (background)
+	if (background_tex)
 	{
 		switch (state)
 		{

@@ -35,6 +35,8 @@ public:
 	virtual int getHeight() const = 0;
 	int getTextWidth(char c) const;
 	int getTextWidth(const char* str) const;
+	int getTextHeight(char c) const;
+	int getTextHeight(const char* str) const;
 	void printText(const DCanvas* canvas, int x, int y, int color, const char* str) const;
 
 protected:

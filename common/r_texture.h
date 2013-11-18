@@ -40,7 +40,9 @@ class TextureManager;
 void R_InitTextureManager();
 void R_ShutdownTextureManager();
 
-void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1, int y1, int x2, int y2);
+void R_CopySubimage(Texture* dest_texture, const Texture* source_texture,
+	int dx1, int dy1, int dx2, int dy2,
+	int sx1, int sy1, int sx2, int sy2);
 
 
 // ============================================================================

@@ -109,13 +109,15 @@ void R_DrawPatchIntoTexture(Texture* texture, const patch_t* patch, int xoffs, i
 // Note: no clipping is performed so it is possible to read past the
 // end of the source texture.
 //
-void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1, int y1, int x2, int y2)
+void R_CopySubimage(Texture* dest_texture, const Texture* source_texture,
+	int dx1, int dy1, int dx2, int dy2,
+	int sx1, int sy1, int sx2, int sy2)
 {
-	const int destwidth = dest_texture->getWidth();
-	const int destheight = dest_texture->getHeight();
+	const int destwidth = dx2 - dx1 + 1; 
+	const int destheight = dy2 - dy1 + 1;
 
-	const int sourcewidth = x2 - x1 + 1;
-	const int sourceheight = y2 - y1 + 1;
+	const int sourcewidth = sx2 - sx1 + 1;
+	const int sourceheight = sy2 - sy1 + 1;
 
 	const fixed_t xstep = FixedDiv(sourcewidth << FRACBITS, destwidth << FRACBITS) + 1;
 	const fixed_t ystep = FixedDiv(sourceheight << FRACBITS, destheight << FRACBITS) + 1;
@@ -126,14 +128,14 @@ void R_CopySubimage(Texture* dest_texture, const Texture* source_texture, int x1
 	memset(dest_mask, 1, sizeof(*dest_mask) * destwidth * destheight);
 
 	fixed_t xfrac = 0;
-	for (int x = 0; x < destwidth; x++)
+	for (int x = dx1; x <= dx2; x++)
 	{
-		int offset = (x1 + (xfrac >> FRACBITS)) * source_texture->getHeight() + y1;
+		int offset = (sx1 + (xfrac >> FRACBITS)) * source_texture->getHeight() + sy1;
 		const byte* source = source_texture->getData() + offset;
 		const byte* source_mask = source_texture->getMaskData() + offset;
 
 		fixed_t yfrac = 0;
-		for (int y = 0; y < destheight; y++)
+		for (int y = dy1; y <= dy2; y++)
 		{
 			*dest++ = source[yfrac >> FRACBITS];	
 			*dest_mask++ = source_mask[yfrac >> FRACBITS];	
