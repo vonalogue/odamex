@@ -258,8 +258,7 @@ private:
 	};
 
 	int*						mPNameLookup;
-	unsigned int				mTextureDefinitionCount;
-	texdef_t**					mTextureDefinitions;
+	std::vector<texdef_t*>		mTextureDefinitions;
 
 	// lookup table to translate texdef_t name to indices in mTextureDefinitions
 	typedef OHashTable<OString, unsigned int> TextureNameTranslationMap;

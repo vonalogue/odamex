@@ -267,8 +267,6 @@ const texhandle_t TextureManager::GARBAGE_TEXTURE_HANDLE = TextureManager::WALLT
 TextureManager::TextureManager() :
 	mHandleMap(2049),
 	mPNameLookup(NULL),
-	mTextureDefinitionCount(0),
-	mTextureDefinitions(NULL),
 	mTextureNameTranslationMap(513),
 	mFreeCustomHandlesHead(0),
 	mFreeCustomHandlesTail(TextureManager::MAX_CUSTOM_HANDLES)
@@ -304,11 +302,9 @@ void TextureManager::clear()
 	delete [] mPNameLookup;
 	mPNameLookup = NULL;
 
-	for (unsigned int i = 0; i < mTextureDefinitionCount; i++)
-		delete [] mTextureDefinitions[i];
-	delete [] mTextureDefinitions;
-	mTextureDefinitions = NULL;
-	mTextureDefinitionCount = 0;
+	for (size_t i = 0; i < mTextureDefinitions.size(); i++)
+		delete [] (byte*)mTextureDefinitions[i];
+	mTextureDefinitions.clear();
 
 	mTextureNameTranslationMap.clear();
 
@@ -799,21 +795,18 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 	byte* rawlumpdata = new byte[lumplen];
 	W_ReadLump(lumpnum, rawlumpdata);
 
-	mTextureDefinitionCount = LELONG(*((int*)(rawlumpdata + 0)));
 	int* texoffs = (int*)(rawlumpdata + 4);
 
 	// keep track of the number of texture errors
 	int errors = 0;
 
-	mTextureDefinitions = new texdef_t*[mTextureDefinitionCount];
-
-	for (unsigned int i = 0; i < mTextureDefinitionCount; i++)
+	int count = LELONG(*((int*)(rawlumpdata + 0)));
+	for (int i = 0; i < count; i++)
 	{
 		maptexture_t* mtexdef = (maptexture_t*)((byte*)rawlumpdata + LELONG(texoffs[i]));
 		
 		size_t texdefsize = sizeof(texdef_t) + sizeof(texdefpatch_t) * (SAFESHORT(mtexdef->patchcount) - 1);
 		texdef_t* texdef = (texdef_t*)(new byte[texdefsize]); 	
-		mTextureDefinitions[i] = texdef;
 
 		texdef->width = SAFESHORT(mtexdef->width);
 		texdef->height = SAFESHORT(mtexdef->height);
@@ -841,7 +834,8 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 			}
 		}
 
-		mTextureNameTranslationMap[uname] = i;
+		mTextureDefinitions.push_back(texdef);
+		mTextureNameTranslationMap[uname] = mTextureDefinitions.size() - 1;
 	}
 
 	delete [] rawlumpdata;
@@ -1077,7 +1071,7 @@ void TextureManager::cacheFlat(texhandle_t handle)
 texhandle_t TextureManager::getWallTextureHandle(unsigned int texdef_handle)
 {
 	// texdef_handle > number of wall textures in the WAD file?
-	if (texdef_handle >= mTextureDefinitionCount)
+	if (texdef_handle >= mTextureDefinitions.size())
 		return NOT_FOUND_TEXTURE_HANDLE;
 
 	return (texhandle_t)texdef_handle | WALLTEXTURE_HANDLE_MASK;

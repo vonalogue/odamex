@@ -362,7 +362,6 @@ static OFont* wi_font = NULL;
 
 
 // [RH] Info to dynamically generate the level name graphics
-static int				lnamewidths[2];
 static const char*		lnametexts[2];
 
 EXTERN_CVAR (sv_maxplayers)
@@ -378,7 +377,7 @@ void WI_drawLF (void)
 {
 	int y = WI_TITLEY;
 
-	if (lnames[0] != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+	if (lnames[0])
 	{
 		// draw <LevelName> centered
 		const Texture* texture = lnames[0];
@@ -413,7 +412,7 @@ void WI_drawEL (void)
 	FB->DrawTextureClean(entering, (320 - entering->getWidth()) / 2, y);
 	y += (5 * entering->getHeight()) / 4;
 
-	if (lnames[1] != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+	if (lnames[1])
 	{
 		// draw <LevelName> centered
 		const Texture* texture = lnames[1];
@@ -1307,6 +1306,8 @@ void WI_loadData (void)
 	{
 		const char* lname = (i == 0 ? wbs->lname0 : wbs->lname1);
 		lnames[i] = WI_LoadSprite(lname);
+		if (lnames[i] == texturemanager.getTexture(TextureManager::NOT_FOUND_TEXTURE_HANDLE))
+			lnames[i] = NULL;
 	}
 
 	if (gamemode != commercial && gamemode != commercial_bfg)
