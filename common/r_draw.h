@@ -314,7 +314,10 @@ void R_BuildClassicPlayerTranslation (int player, int color);
 
 
 // If the view size is not full screen, draws a border around it.
-void R_DrawViewBorder (void);
+void R_InitViewBorder();
+void R_ShutdownViewBorder();
+void R_DrawViewBorder();
+
 void R_DrawBorder (int x1, int y1, int x2, int y2);
 
 // [RH] Added for muliresolution support

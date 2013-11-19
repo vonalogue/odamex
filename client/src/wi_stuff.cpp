@@ -376,6 +376,9 @@ EXTERN_CVAR (wi_newintermission)
 //Draws "<Levelname> Finished!"
 void WI_drawLF (void)
 {
+	if (!lnames[0] && !lnametexts[0])
+		return;
+
 	int y = WI_TITLEY;
 
 	if (lnames[0])
@@ -407,6 +410,9 @@ void WI_drawLF (void)
 // Draws "Entering <LevelName>"
 void WI_drawEL (void)
 {
+	if (!lnames[1] && !lnametexts[1])
+		return;
+
 	int y = WI_TITLEY;
 
 	// draw "Entering"

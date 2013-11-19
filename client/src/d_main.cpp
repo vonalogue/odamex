@@ -678,6 +678,7 @@ void D_Init()
 	R_Init();
 
 	// fonts
+	V_LoadDoomFont();
 	V_LoadHudFont();
 	V_LoadMenuFont();
 	V_LoadConsoleFont();
@@ -710,6 +711,8 @@ void D_Init()
 	}
 	S_Init(snd_sfxvolume, snd_musicvolume);
 
+	R_InitViewBorder();
+
 	// init the status bar
 	if (first_time)
 		Printf(PRINT_HIGH, "ST_Init: Init status bar.\n");
@@ -728,6 +731,8 @@ void D_Shutdown()
 {
 	ST_Shutdown();
 
+	R_ShutdownViewBorder();
+
 	// stop sound effects and music
 	S_Stop();
 	
@@ -743,6 +748,7 @@ void D_Shutdown()
 	V_UnloadConsoleFont();
 	V_UnloadMenuFont();
 	V_UnloadHudFont();
+	V_UnloadDoomFont();
 
 	R_Shutdown();
 

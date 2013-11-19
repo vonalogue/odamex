@@ -703,8 +703,8 @@ void ST_refreshBackground(void)
 		//      draw stuff around status bar.
 		if (screen->width > ST_WIDTH)
 		{
-			R_DrawBorder(0, ST_Y, ST_X, screen->height);
-			R_DrawBorder(screen->width - ST_X, ST_Y, screen->width, screen->height);
+			R_DrawBorder(0, ST_Y, ST_X - 1, screen->height - 1);
+			R_DrawBorder(screen->width - ST_X, ST_Y, screen->width - 1, screen->height - 1);
 		}
 
 		ST_DrawTexture(sbar, 0, 0);

@@ -168,7 +168,8 @@ public:
 	void Dim (int x, int y, int width, int height) const;
 
 	// Fill an area with a 64x64 flat texture
-	void FlatFill (int left, int top, int right, int bottom, const byte *src) const;
+	void FlatFill(const Texture* texture, int left, int top, int right, int bottom) const;
+	void FlatFill(int left, int top, int right, int bottom, const byte *src) const;
 
 	// Set an area to a specified color
 	void Clear (int left, int top, int right, int bottom, int color) const;

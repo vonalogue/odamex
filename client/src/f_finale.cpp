@@ -173,58 +173,66 @@ void F_Ticker (void)
 //
 void F_TextWrite (void)
 {
-	int 		w;
-	int 		count;
-	const char*		ch;
+	const char*	ch;
 	int 		c;
 	int 		cx;
 	int 		cy;
 
+	screen->Clear(0, 0, screen->width, screen->height, 0);
+
+	int background_width = screen->width;
+	int background_height = screen->height;
+	if (!screen->isProtectedRes() && screen->width * 3 > screen->height * 4)
+		background_width = 4 * screen->height / 3;
+
+	// center the background and text in 4:3 perspective
+	int x1 = (screen->width - background_width) / 2;
+	int y1 = (screen->height - background_height) / 2;
+	int x2 = x1 + background_width - 1;
+	int y2 = y1 + background_height - 1;
+
 	// erase the entire screen to a tiled background
+	texhandle_t flat_texhandle = texturemanager.getHandle(finaleflat, Texture::TEX_FLAT);
+	if (flat_texhandle != TextureManager::NOT_FOUND_TEXTURE_HANDLE)
 	{
-		int lump = W_CheckNumForName (finaleflat, ns_flats);
-		if (lump >= 0)
-		{
-			screen->FlatFill (0,0, screen->width, screen->height,
-						(byte *)W_CacheLumpNum (lump, PU_CACHE));
-		}
-		else
-		{
-			screen->Clear (0, 0, screen->width, screen->height, 0);
-		}
+		const Texture* flat_texture = texturemanager.getTexture(flat_texhandle);
+		screen->FlatFill(flat_texture, x1, y1, x2, y2);
 	}
-	V_MarkRect (0, 0, screen->width, screen->height);
+
+	V_MarkRect(0, 0, screen->width, screen->height);
 
 	// draw some of the text onto the screen
-	cx = 10;
-	cy = 10;
+	const int initial_cx = 10 * CleanXfac + x1;
+	const int initial_cy = 10 * CleanYfac + y1;
+	const int cy_inc = 11 * CleanYfac;
+
+	cx = initial_cx; 
+	cy = initial_cy; 
 	ch = finaletext;
 
 	if (finalecount < 11)
 		return;
 
-	count = (finalecount - 10)/TEXTSPEED;
-	for ( ; count ; count-- )
+	for (int count = (finalecount - 10) / TEXTSPEED; count; count--)
 	{
 		c = *ch++;
 		if (!c)
 			break;
 		if (c == '\n')
 		{
-			cx = 10;
-			cy += 11;
+			cx = initial_cx;
+			cy += cy_inc;
 			continue;
 		}
 
-		w = hud_font->getTextWidth(c);
-		if (cx+w > screen->width)
+		int charwidth = doom_font->getTextWidth(c);
+		if (cx + charwidth > x2)
 			break;
 		
 		char dummy_str[2] = { c, 0 };
-		screen->DrawTextClean(CR_RED, cx, cy, dummy_str);
-		cx+=w;
+		doom_font->printText(screen, cx, cy, CR_RED, dummy_str);
+		cx += charwidth;
 	}
-
 }
 
 //
@@ -478,30 +486,33 @@ void F_CastDrawer (void)
 {
 	spritedef_t*		sprdef;
 	spriteframe_t*		sprframe;
-	int 				lump;
-	BOOL	 			flip;
-	patch_t*			patch;
 
-	// erase the entire screen to a background
-	screen->DrawPatchIndirect (W_CachePatch ("BOSSBACK"), 0, 0);
-
-	int textwidth = menu_font->getTextWidth(castorder[castnum].name);
+	texhandle_t background_texhandle = texturemanager.getHandle("BOSSBACK", Texture::TEX_PATCH);
+	const Texture* background_texture = texturemanager.getTexture(background_texhandle);
+	screen->DrawTextureFullScreen(background_texture);
+	
+	int textwidth = doom_font->getTextWidth(castorder[castnum].name);
 	int x = (screen->width - textwidth) / 2;
 	int y = (screen->height * 180) / 200;
 
-	menu_font->printText(screen, x, y, CR_RED, castorder[castnum].name);
+	doom_font->printText(screen, x, y, CR_RED, castorder[castnum].name);
 
 	// draw the current frame in the middle of the screen
 	sprdef = &sprites[castsprite];
 	sprframe = &sprdef->spriteframes[caststate->frame & FF_FRAMEMASK];
-	lump = sprframe->lump[0];
-	flip = (BOOL)sprframe->flip[0];
 
-	patch = W_CachePatch (lump);
-	if (flip)
-		screen->DrawPatchFlipped (patch, 160, 170);
+	texhandle_t sprite_texhandle = texturemanager.getHandle(sprframe->lump[0], Texture::TEX_SPRITE);
+	const Texture* sprite_texture = texturemanager.getTexture(sprite_texhandle);
+
+/*
+	// TODO: add flipping drawing function
+	if (sprframe->flip[0])
+		screen->DrawTextureFlipped(sprite_texture, 160, 170);
 	else
-		screen->DrawPatchIndirect (patch, 160, 170);
+		screen->DrawTextureIndirect(sprite_texture, 160, 170);
+*/
+
+	screen->DrawTextureIndirect(sprite_texture, 160, 170);
 }
 
 

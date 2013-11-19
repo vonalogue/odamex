@@ -1576,22 +1576,6 @@ void R_InitBuffer(int width, int height)
 }
 
 
-void R_DrawBorder (int x1, int y1, int x2, int y2)
-{
-	int lump;
-
-	lump = W_CheckNumForName (gameinfo.borderFlat, ns_flats);
-	if (lump >= 0)
-	{
-		screen->FlatFill (x1 & ~63, y1, x2, y2,
-			(byte *)W_CacheLumpNum (lump, PU_CACHE));
-	}
-	else
-	{
-		screen->Clear (x1, y1, x2, y2, 0);
-	}
-}
-
 
 //
 // R_DrawViewBorder
@@ -1600,53 +1584,118 @@ void R_DrawBorder (int x1, int y1, int x2, int y2)
 //
 void V_MarkRect (int x, int y, int width, int height);
 
+static texhandle_t viewborder_flat_texhandle;
+static texhandle_t top_viewborder_bevel_texhandle;
+static texhandle_t bottom_viewborder_bevel_texhandle;
+static texhandle_t left_viewborder_bevel_texhandle;
+static texhandle_t right_viewborder_bevel_texhandle;
+static texhandle_t topleft_viewborder_bevel_texhandle;
+static texhandle_t topright_viewborder_bevel_texhandle;
+static texhandle_t bottomleft_viewborder_bevel_texhandle;
+static texhandle_t bottomright_viewborder_bevel_texhandle;
+
+static const Texture* viewborder_flat_texture;
+static const Texture* top_viewborder_bevel_texture;
+static const Texture* bottom_viewborder_bevel_texture;
+static const Texture* left_viewborder_bevel_texture;
+static const Texture* right_viewborder_bevel_texture;
+static const Texture* topleft_viewborder_bevel_texture;
+static const Texture* topright_viewborder_bevel_texture;
+static const Texture* bottomleft_viewborder_bevel_texture;
+static const Texture* bottomright_viewborder_bevel_texture;
+
+void R_InitViewBorder()
+{
+	viewborder_flat_texhandle				= texturemanager.getHandle(gameinfo.borderFlat, Texture::TEX_FLAT);
+	top_viewborder_bevel_texhandle			= texturemanager.getHandle(gameinfo.border->t, Texture::TEX_PATCH);
+	bottom_viewborder_bevel_texhandle		= texturemanager.getHandle(gameinfo.border->b, Texture::TEX_PATCH);
+	left_viewborder_bevel_texhandle			= texturemanager.getHandle(gameinfo.border->l, Texture::TEX_PATCH);
+	right_viewborder_bevel_texhandle		= texturemanager.getHandle(gameinfo.border->r, Texture::TEX_PATCH);
+	topleft_viewborder_bevel_texhandle		= texturemanager.getHandle(gameinfo.border->tl, Texture::TEX_PATCH);
+	topright_viewborder_bevel_texhandle		= texturemanager.getHandle(gameinfo.border->tr, Texture::TEX_PATCH);
+	bottomleft_viewborder_bevel_texhandle	= texturemanager.getHandle(gameinfo.border->bl, Texture::TEX_PATCH);
+	bottomright_viewborder_bevel_texhandle	= texturemanager.getHandle(gameinfo.border->br, Texture::TEX_PATCH);
+
+	viewborder_flat_texture					= texturemanager.getTexture(viewborder_flat_texhandle);
+	top_viewborder_bevel_texture			= texturemanager.getTexture(top_viewborder_bevel_texhandle);
+	bottom_viewborder_bevel_texture			= texturemanager.getTexture(bottom_viewborder_bevel_texhandle);
+	left_viewborder_bevel_texture			= texturemanager.getTexture(left_viewborder_bevel_texhandle);
+	right_viewborder_bevel_texture			= texturemanager.getTexture(right_viewborder_bevel_texhandle);
+	topleft_viewborder_bevel_texture		= texturemanager.getTexture(topleft_viewborder_bevel_texhandle);
+	topright_viewborder_bevel_texture		= texturemanager.getTexture(topright_viewborder_bevel_texhandle);
+	bottomleft_viewborder_bevel_texture		= texturemanager.getTexture(bottomleft_viewborder_bevel_texhandle);
+	bottomright_viewborder_bevel_texture	= texturemanager.getTexture(bottomright_viewborder_bevel_texhandle);
+
+	Z_ChangeTag(viewborder_flat_texture, PU_STATIC);
+	Z_ChangeTag(top_viewborder_bevel_texture, PU_STATIC);
+	Z_ChangeTag(bottom_viewborder_bevel_texture, PU_STATIC);
+	Z_ChangeTag(left_viewborder_bevel_texture, PU_STATIC);
+	Z_ChangeTag(right_viewborder_bevel_texture, PU_STATIC);
+	Z_ChangeTag(topleft_viewborder_bevel_texture, PU_STATIC);
+	Z_ChangeTag(topright_viewborder_bevel_texture, PU_STATIC);
+	Z_ChangeTag(bottomleft_viewborder_bevel_texture, PU_STATIC);
+	Z_ChangeTag(bottomright_viewborder_bevel_texture, PU_STATIC);
+}
+
+void R_ShutdownViewBorder()
+{
+	texturemanager.freeTexture(viewborder_flat_texhandle);
+	texturemanager.freeTexture(top_viewborder_bevel_texhandle);
+	texturemanager.freeTexture(bottom_viewborder_bevel_texhandle);
+	texturemanager.freeTexture(left_viewborder_bevel_texhandle);
+	texturemanager.freeTexture(right_viewborder_bevel_texhandle);
+	texturemanager.freeTexture(topleft_viewborder_bevel_texhandle);
+	texturemanager.freeTexture(topright_viewborder_bevel_texhandle);
+	texturemanager.freeTexture(bottomleft_viewborder_bevel_texhandle);
+	texturemanager.freeTexture(bottomright_viewborder_bevel_texhandle);
+}
+
+void R_DrawBorder(int x1, int y1, int x2, int y2)
+{
+	if (viewborder_flat_texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE)
+		screen->Clear(x1, y1, x2 - 1, y2 - 1, 0);
+	else
+		screen->FlatFill(viewborder_flat_texture, x1, y1, x2, y2);
+}
+
+
 void R_DrawViewBorder (void)
 {
-	int x, y;
-	int offset, size;
-	gameborder_t *border;
-
-	if (realviewwidth == screen->width) {
+	if (realviewwidth == screen->width)
 		return;
-	}
 
-	border = gameinfo.border;
-	offset = border->offset;
-	size = border->size;
+	int offset = gameinfo.border->offset;
+	int size = gameinfo.border->size;
 
-	R_DrawBorder (0, 0, screen->width, viewwindowy);
-	R_DrawBorder (0, viewwindowy, viewwindowx, realviewheight + viewwindowy);
-	R_DrawBorder (viewwindowx + realviewwidth, viewwindowy, screen->width, realviewheight + viewwindowy);
-	R_DrawBorder (0, viewwindowy + realviewheight, screen->width, ST_Y);
+	// Draw a tiled border around the view window
+	R_DrawBorder(0, 0, screen->width - 1, viewwindowy - 1);
+	R_DrawBorder(0, viewwindowy, viewwindowx - 1, realviewheight + viewwindowy - 1);
+	R_DrawBorder(viewwindowx + realviewwidth, viewwindowy, screen->width - 1, realviewheight + viewwindowy - 1);
+	R_DrawBorder(0, viewwindowy + realviewheight, screen->width - 1, ST_Y - 1);
 
-	for (x = viewwindowx; x < viewwindowx + realviewwidth; x += size)
+	// Draw top and bottom beveled edges
+	for (int x = viewwindowx; x < viewwindowx + realviewwidth; x += size)
 	{
-		screen->DrawPatch (W_CachePatch (border->t),
-			x, viewwindowy - offset);
-		screen->DrawPatch (W_CachePatch (border->b),
-			x, viewwindowy + realviewheight);
+		screen->DrawTexture(top_viewborder_bevel_texture, x, viewwindowy - offset);
+		screen->DrawTexture(bottom_viewborder_bevel_texture, x, viewwindowy + realviewheight);
 	}
-	for (y = viewwindowy; y < viewwindowy + realviewheight; y += size)
+	// Draw left and right beveled edges
+	for (int y = viewwindowy; y < viewwindowy + realviewheight; y += size)
 	{
-		screen->DrawPatch (W_CachePatch (border->l),
-			viewwindowx - offset, y);
-		screen->DrawPatch (W_CachePatch (border->r),
-			viewwindowx + realviewwidth, y);
+		screen->DrawTexture(left_viewborder_bevel_texture, viewwindowx - offset, y);
+		screen->DrawTexture(right_viewborder_bevel_texture, viewwindowx + realviewwidth, y);
 	}
-	// Draw beveled edge.
-	screen->DrawPatch (W_CachePatch (border->tl),
-		viewwindowx-offset, viewwindowy-offset);
-	
-	screen->DrawPatch (W_CachePatch (border->tr),
-		viewwindowx+realviewwidth, viewwindowy-offset);
-	
-	screen->DrawPatch (W_CachePatch (border->bl),
-		viewwindowx-offset, viewwindowy+realviewheight);
-	
-	screen->DrawPatch (W_CachePatch (border->br),
-		viewwindowx+realviewwidth, viewwindowy+realviewheight);
+	// Draw beveled edge corners
+	screen->DrawTexture(topleft_viewborder_bevel_texture,
+			viewwindowx - offset, viewwindowy - offset);
+	screen->DrawTexture(topright_viewborder_bevel_texture,
+			viewwindowx + realviewwidth, viewwindowy - offset);
+	screen->DrawTexture(bottomleft_viewborder_bevel_texture,
+			viewwindowx - offset, viewwindowy + realviewheight);
+	screen->DrawTexture(bottomright_viewborder_bevel_texture,
+			viewwindowx + realviewwidth, viewwindowy + realviewheight);
 
-	V_MarkRect (0, 0, screen->width, ST_Y);
+	V_MarkRect(0, 0, screen->width, ST_Y);
 }
 
 // [RH] Double pixels in the view window horizontally

@@ -138,6 +138,59 @@ void V_MarkRect (int x, int y, int width, int height)
 }
 
 
+//
+// DCanvas::FlatFill
+//
+// Fills an area with a tiling texture.
+// [RH] Fill an area with a 64x64 flat texture
+//		right and bottom are one pixel *past* the boundaries they describe.
+void DCanvas::FlatFill(const Texture* texture, int x1, int y1, int x2, int y2) const
+{
+	int tex_width_bits = MIN(texture->getWidthBits(), 8);
+	int tex_height_bits = MIN(texture->getHeightBits(), 8);
+	int tex_width = 1 << tex_width_bits;
+	int tex_height = 1 << tex_height_bits;
+	int tex_width_mask = tex_width - 1;
+	int tex_height_mask = tex_height - 1;
+
+	// TODO: rotate texture 
+	static byte source[256*256];
+	memcpy(source, texture->getData(), tex_width * tex_height);
+
+	if (is8bit())
+	{
+		int advance = pitch - x2 + x1 - 1;
+		palindex_t* dest = (palindex_t*)buffer + y1 * pitch + x1;
+
+		for (int y = y1; y <= y2; y++)
+		{
+			for (int x = x1; x <= x2; x++)
+			{
+				int offset = ((y & tex_height_mask) << tex_width_bits) + (x & tex_width_mask);
+				*dest++ = source[offset];
+			}
+
+			dest += advance;
+		}
+	}
+	else
+	{
+		int advance = pitch / 4 - x2 + x1 - 1;
+		argb_t* dest = (argb_t*)buffer + y1 * pitch / 4 + x1;
+
+		for (int y = y1; y <= y2; y++)
+		{
+			for (int x = x1; x <= x2; x++)
+			{
+				int offset = ((y & tex_height_mask) << tex_width_bits) + (x & tex_width_mask);
+				*dest++ = V_Palette.shade(source[offset]);
+			}
+
+			dest += advance;
+		}
+	}
+}
+
 // [RH] Fill an area with a 64x64 flat texture
 //		right and bottom are one pixel *past* the boundaries they describe.
 void DCanvas::FlatFill (int left, int top, int right, int bottom, const byte *src) const

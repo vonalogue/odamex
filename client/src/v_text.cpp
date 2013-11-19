@@ -45,6 +45,7 @@ EXTERN_CVAR(con_scaletext)
 OFont* console_font;
 OFont* hud_font;
 OFont* menu_font;
+OFont* doom_font;
 
 extern byte *Ranges;
 
@@ -99,7 +100,18 @@ void V_LoadMenuFont()
 	menu_font = new TrueTypeFont("FONT_SM", MIN(CleanXfac, CleanYfac) * 8, ttf_stylemask);
 }
 
+void V_UnloadDoomFont()
+{
+	delete doom_font;
+	doom_font = NULL;
+}
 
+void V_LoadDoomFont()
+{
+	if (doom_font)
+		V_UnloadDoomFont();
+	doom_font = new SmallDoomFont(MIN(CleanXfac, CleanYfac) * FRACUNIT);
+}
 
 extern "C" void STACK_ARGS PrintChar1P (DWORD *charimg, byte *dest, int screenpitch);
 extern "C" void STACK_ARGS PrintChar2P_MMX (DWORD *charimg, byte *dest, int screenpitch);

@@ -111,10 +111,13 @@ void V_LoadHudFont();
 void V_UnloadHudFont();
 void V_LoadMenuFont();
 void V_UnloadMenuFont();
+void V_LoadDoomFont();
+void V_UnloadDoomFont();
 
 extern OFont* console_font;
 extern OFont* hud_font;
 extern OFont* menu_font;
+extern OFont* doom_font;
 
 #endif //__V_TEXT_H__
 
