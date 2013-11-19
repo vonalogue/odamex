@@ -83,43 +83,43 @@
 void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 {
 #ifdef RANGECHECK
-	if (dspan.x2 < dspan.x1 || dspan.x1 < 0 || dspan.x2 >= screen->width || dspan.y > screen->height)
+	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= screen->width || drawspan.y > screen->height)
 	{
-		I_Error ("R_DrawSpan: %i to %i at %i", dspan.x1, dspan.x2, dspan.y);
+		I_Error ("R_DrawSpan: %i to %i at %i", drawspan.x1, drawspan.x2, drawspan.y);
 	}
 #endif
 
-	dsfixed_t ufrac = dspan.xfrac;
-	dsfixed_t vfrac = dspan.yfrac;
-	dsfixed_t ustep = dspan.xstep;
-	dsfixed_t vstep = dspan.ystep;
+	dsfixed_t ufrac = drawspan.xfrac;
+	dsfixed_t vfrac = drawspan.yfrac;
+	dsfixed_t ustep = drawspan.xstep;
+	dsfixed_t vstep = drawspan.ystep;
 
+	const byte* source = drawspan.source;
 	argb_t* dest = (argb_t*)drawspan.dest;
-
+	shaderef_t colormap = drawspan.colormap;
+	int colsize = drawspan.colsize;
+	
 	// We do not check for zero spans here?
-	int count = dspan.x2 - dspan.x1 + 1;
-
-	// NOTE(jsd): Can this just die already?
-	assert(dspan.colsize == 1);
+	int count = drawspan.x2 - drawspan.x1 + 1;
 
 	// [SL] Note that the texture orientation differs from typical Doom span
 	// drawers since flats are stored in column major format now. The roles
 	// of ufrac and vfrac have been reversed to accomodate this.
-	const int umask = ((1 << dspan.texturewidthbits) - 1) << dspan.textureheightbits;
-	const int vmask = (1 << dspan.textureheightbits) - 1;
-	const int ushift = FRACBITS - dspan.textureheightbits; 
+	const int umask = ((1 << drawspan.texturewidthbits) - 1) << drawspan.textureheightbits;
+	const int vmask = (1 << drawspan.textureheightbits) - 1;
+	const int ushift = FRACBITS - drawspan.textureheightbits; 
 	const int vshift = FRACBITS;
 
 	// Blit until we align ourselves with a 16-byte offset for SSE2:
-	while (((size_t)dest) & 15)
+	while (((uintptr_t)dest) & 15)
 	{
 		// Current texture index in u,v.
 		const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 
 		// Lookup pixel from flat texture tile,
 		//  re-index using light/colormap.
-		*dest = dspan.colormap.shade(dspan.source[spot]);
-		dest += dspan.colsize;
+		*dest = colormap.shade(source[spot]);
+		dest += colsize;
 
 		// Next step in u,v.
 		ufrac += ustep;
@@ -128,50 +128,70 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		--count;
 	}
 
-	const int rounds = count / 4;
-	if (rounds > 0)
+	// SSE2 optimized and aligned stores for quicker memory writes:
+	const __m128i mumask = _mm_set1_epi32(umask);
+	const __m128i mvmask = _mm_set1_epi32(vmask);
+
+	__m128i mufrac = _mm_set_epi32(ufrac+ustep*0, ufrac+ustep*1, ufrac+ustep*2, ufrac+ustep*3);
+	const __m128i mufracinc = _mm_set1_epi32(ustep*4);
+	__m128i mvfrac = _mm_set_epi32(vfrac+vstep*0, vfrac+vstep*1, vfrac+vstep*2, vfrac+vstep*3);
+	const __m128i mvfracinc = _mm_set1_epi32(vstep*4);
+
+	ufrac += count & ~3;
+	vfrac += count & ~3;
+
+	const int sse_end_count = count & 3;
+	while (count > sse_end_count)
 	{
-		// SSE2 optimized and aligned stores for quicker memory writes:
-		for (int i = 0; i < rounds; ++i, count -= 4)
-		{
-			// TODO(jsd): Consider SSE2 bit twiddling here!
-			const int spot0 = (((ufrac + ustep*0) >> ushift) & umask) | (((vfrac + vstep*0) >> vshift) & vmask); 
-			const int spot1 = (((ufrac + ustep*1) >> ushift) & umask) | (((vfrac + vstep*1) >> vshift) & vmask); 
-			const int spot2 = (((ufrac + ustep*2) >> ushift) & umask) | (((vfrac + vstep*2) >> vshift) & vmask); 
-			const int spot3 = (((ufrac + ustep*3) >> ushift) & umask) | (((vfrac + vstep*3) >> vshift) & vmask); 
+//		[SL] The below SSE2 intrinsics are equivalent to the following block:
+//		const int spot0 = (((ufrac + ustep*0) >> ushift) & umask) | (((vfrac + vstep*0) >> vshift) & vmask); 
+//		const int spot1 = (((ufrac + ustep*1) >> ushift) & umask) | (((vfrac + vstep*1) >> vshift) & vmask); 
+//		const int spot2 = (((ufrac + ustep*2) >> ushift) & umask) | (((vfrac + vstep*2) >> vshift) & vmask); 
+//		const int spot3 = (((ufrac + ustep*3) >> ushift) & umask) | (((vfrac + vstep*3) >> vshift) & vmask); 
 
-			const __m128i finalColors = _mm_setr_epi32(
-				dspan.colormap.shade(dspan.source[spot0]),
-				dspan.colormap.shade(dspan.source[spot1]),
-				dspan.colormap.shade(dspan.source[spot2]),
-				dspan.colormap.shade(dspan.source[spot3])
-			);
-			_mm_store_si128((__m128i *)dest, finalColors);
-			dest += 4;
+		__m128i u = _mm_and_si128(_mm_srai_epi32(mufrac, ushift), mumask);
+		__m128i v = _mm_and_si128(_mm_srai_epi32(mvfrac, vshift), mvmask);
+		__m128i spots = _mm_or_si128(u, v);
 
-			// Next step in u,v.
-			ufrac += ustep*4;
-			vfrac += vstep*4;
-		}
+		// get the color of the pixels at each of the spots
+		byte pixel0 = source[((int*)&spots)[0]];
+		byte pixel1 = source[((int*)&spots)[1]];
+		byte pixel2 = source[((int*)&spots)[2]];
+		byte pixel3 = source[((int*)&spots)[3]];
+
+		const __m128i finalColors = _mm_set_epi32(
+			colormap.shade(pixel0),
+			colormap.shade(pixel1),
+			colormap.shade(pixel2),
+			colormap.shade(pixel3)
+		);
+
+		_mm_store_si128((__m128i*)dest, finalColors);
+
+		// [SL] TODO: does this break with r_detail != 0?
+		dest += 4;
+
+		mufrac = _mm_add_epi32(mufrac, mufracinc);
+		mvfrac = _mm_add_epi32(mvfrac, mvfracinc);
+
+		count -= 4;
 	}
 
-	if (count > 0)
+	// blit the remaining 0 - 3 pixels
+	while (count > 0)
 	{
-		// Blit the last remainder:
-		while (count--)
-		{
-			// Current texture index in u,v.
-			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
+		// Current texture index in u,v.
+		const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 
-			// Lookup pixel from flat texture tile,
-			//  re-index using light/colormap.
-			*dest = dspan.colormap.shade(dspan.source[spot]);
-			dest += dspan.colsize;
+		// Lookup pixel from flat texture tile,
+		//  re-index using light/colormap.
+		*dest = colormap.shade(source[spot]);
+		dest += colsize;
 
-			// Next step in u,v.
-			ufrac += ustep;
-			vfrac += vstep;
-		}
+		// Next step in u,v.
+		ufrac += ustep;
+		vfrac += vstep;
+		count--;
 	}
 }
 
@@ -235,7 +255,7 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 		int incount = SPANJUMP;
 
 		// Blit up to the first 16-byte aligned position:
-		while ((((size_t)dest) & 15) && (incount > 0))
+		while ((((uintptr_t)dest) & 15) && (incount > 0))
 		{
 			const shaderef_t &colormap = dspan.slopelighting[ltindex++];
 	
@@ -365,7 +385,7 @@ void r_dimpatchD_SSE2(const DCanvas *const canvas, argb_t color, int alpha, int 
 		// SSE2 optimize the bulk in batches of 4 colors:
 		for (int i = 0; i < batches; i++)
 		{
-			const __m128i input = _mm_setr_epi32(dest[0], dest[1], dest[2], dest[3]);
+			const __m128i input = _mm_load_si128((__m128i*)dest);
 			_mm_store_si128((__m128i *)dest, blend4vs1_sse2(input, blendMult, blendInvAlpha, upper8mask));
 			dest += 4;
 		}
