@@ -330,17 +330,21 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 	}
 }
 
-void r_dimpatchD_SSE2(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h)
+void r_dimpatchD_SSE2(const DCanvas *const canvas, argb_t color, int alpha, int x1, int y1, int w, int h)
 {
-	int x, y, i;
-	argb_t *line;
 	int invAlpha = 256 - alpha;
 
-	int dpitch = cvs->pitch / sizeof(argb_t);
-	line = (argb_t *)cvs->buffer + y1 * dpitch;
+	int pitch = canvas->pitch / sizeof(argb_t);
+	int line_inc = pitch - w;
+	argb_t* dest = (argb_t *)canvas->buffer + y1 * pitch + x1;
 
-	int batches = w / 4;
-	int remainder = w & 3;
+	// [SL] Calculate how many pixels of each row need to be drawn before dest is
+	// aligned to a 16-byte boundary. Note that Odamex ensures the frame buffer's
+	// pitch is always a multiple of 16 so the value of align doesn't change
+	// for each row.
+	const int align = (int)((uintptr_t)dest - ((uintptr_t)dest & ~15)) / sizeof(argb_t);
+	const int batches = (w - align) / 4;
+	const int remainder = (w - align) & 3;
 
 	// SSE2 temporaries:
 	const __m128i upper8mask = _mm_set_epi16(0, 0xff, 0xff, 0xff, 0, 0xff, 0xff, 0xff);
@@ -349,25 +353,31 @@ void r_dimpatchD_SSE2(const DCanvas *const cvs, argb_t color, int alpha, int x1,
 	const __m128i blendColor = _mm_set_epi16(0, RPART(color), GPART(color), BPART(color), 0, RPART(color), GPART(color), BPART(color));
 	const __m128i blendMult = _mm_mullo_epi16(blendColor, blendAlpha);
 
-	for (y = y1; y < y1 + h; y++)
+	for (int y = 0; y < h; y++)
 	{
+		// align the destination buffer to 16-byte boundary
+		for (int i = 0; i < align; i++)
+		{
+			*dest = alphablend1a(*dest, color, alpha);
+			dest++;
+		}
+
 		// SSE2 optimize the bulk in batches of 4 colors:
-		for (i = 0, x = x1; i < batches; ++i, x += 4)
+		for (int i = 0; i < batches; i++)
 		{
-			const __m128i input = _mm_setr_epi32(line[x + 0], line[x + 1], line[x + 2], line[x + 3]);
-			_mm_storeu_si128((__m128i *)&line[x], blend4vs1_sse2(input, blendMult, blendInvAlpha, upper8mask));
+			const __m128i input = _mm_setr_epi32(dest[0], dest[1], dest[2], dest[3]);
+			_mm_store_si128((__m128i *)dest, blend4vs1_sse2(input, blendMult, blendInvAlpha, upper8mask));
+			dest += 4;
 		}
 
-		if (remainder)
+		// Pick up the remainder:
+		for (int i = 0; i < remainder; i++)
 		{
-			// Pick up the remainder:
-			for (; x < x1 + w; x++)
-			{
-				line[x] = alphablend1a(line[x], color, alpha);
-			}
+			*dest = alphablend1a(*dest, color, alpha);
+			dest++;
 		}
 
-		line += dpitch;
+		dest += line_inc;
 	}
 }
 

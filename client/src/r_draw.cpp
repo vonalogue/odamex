@@ -2000,17 +2000,22 @@ void R_InitColumnDrawers ()
 	}
 }
 
-void r_dimpatchD_c(const DCanvas *const cvs, argb_t color, int alpha, int x1, int y1, int w, int h)
+void r_dimpatchD_c(const DCanvas *const canvas , argb_t color, int alpha, int x1, int y1, int w, int h)
 {
-	int dpitch = cvs->pitch / sizeof(argb_t);
-	argb_t* line = (argb_t *)cvs->buffer + y1 * dpitch;
+	int pitch = canvas->pitch / sizeof(argb_t);
+	int line_inc = pitch - w;
+	
+	argb_t* dest = (argb_t *)canvas->buffer + y1 * pitch + x1;
 
-	for (int y = y1; y < y1 + h; y++)
+	for (int y = 0; y < h; y++)
 	{
-		for (int x = x1; x < x1 + w; x++)
-			line[x] = alphablend1a(line[x], color, alpha);
+		for (int x = 0; x < w; x++)
+		{
+			*dest = alphablend1a(*dest, color, alpha);
+			dest++;
+		}
 
-		line += dpitch;
+		dest += line_inc;
 	}
 }
 

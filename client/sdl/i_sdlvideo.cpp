@@ -383,7 +383,7 @@ DCanvas *SDLVideo::AllocateSurface(int width, int height, int bits, bool primary
 	int bytesperpixel = bits / 8;
 	int alignedwidth = (width * bytesperpixel + alignment - 1) & ~(alignment - 1);
 	framebuffer = new byte[height * alignedwidth];
-	byte* aligned_framebuffer = (byte*)(((size_t)framebuffer + alignment - 1) & ~(alignment - 1));
+	byte* aligned_framebuffer = (byte*)(((uintptr_t)framebuffer + alignment - 1) & ~(alignment - 1));
 
 	new_surface = SDL_CreateRGBSurfaceFrom(aligned_framebuffer, width, height, bits, alignedwidth, 0, 0, 0, 0);
 
