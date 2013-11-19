@@ -50,33 +50,6 @@
 #include "r_things.h"
 #include "v_video.h"
 
-// SSE2 alpha-blending functions.
-// NOTE(jsd): We can only blend two colors per 128-bit register because we need 16-bit resolution for multiplication.
-
-// Blend 4 colors against 1 color using SSE2:
-#define blend4vs1_sse2(input,blendMult,blendInvAlpha,upper8mask) \
-	(_mm_packus_epi16( \
-		_mm_srli_epi16( \
-			_mm_adds_epu16( \
-				_mm_mullo_epi16( \
-					_mm_and_si128(_mm_unpacklo_epi8(input, input), upper8mask), \
-					blendInvAlpha \
-				), \
-				blendMult \
-			), \
-			8 \
-		), \
-		_mm_srli_epi16( \
-			_mm_adds_epu16( \
-				_mm_mullo_epi16( \
-					_mm_and_si128(_mm_unpackhi_epi8(input, input), upper8mask), \
-					blendInvAlpha \
-				), \
-				blendMult \
-			), \
-			8 \
-		) \
-	))
 
 // Direct rendering (32-bit) functions for SSE2 optimization:
 
@@ -367,11 +340,15 @@ void r_dimpatchD_SSE2(const DCanvas *const canvas, argb_t color, int alpha, int 
 	const int remainder = (w - align) & 3;
 
 	// SSE2 temporaries:
-	const __m128i upper8mask = _mm_set_epi16(0, 0xff, 0xff, 0xff, 0, 0xff, 0xff, 0xff);
-	const __m128i blendAlpha = _mm_set_epi16(0, alpha, alpha, alpha, 0, alpha, alpha, alpha);
-	const __m128i blendInvAlpha = _mm_set_epi16(0, invAlpha, invAlpha, invAlpha, 0, invAlpha, invAlpha, invAlpha);
-	const __m128i blendColor = _mm_set_epi16(0, RPART(color), GPART(color), BPART(color), 0, RPART(color), GPART(color), BPART(color));
-	const __m128i blendMult = _mm_mullo_epi16(blendColor, blendAlpha);
+	const __m128i upper8mask = _mm_set_epi16(	0, 0xff, 0xff, 0xff,
+												0, 0xff, 0xff, 0xff);
+	const __m128i blendAlpha = _mm_set_epi16(	0, alpha, alpha, alpha,
+												0, alpha, alpha, alpha);
+	const __m128i blendInvAlpha = _mm_set_epi16(0, invAlpha, invAlpha, invAlpha,
+												0, invAlpha, invAlpha, invAlpha);
+	const __m128i blendColor = _mm_set_epi16(	0, RPART(color), GPART(color), BPART(color),
+												0, RPART(color), GPART(color), BPART(color));
+	const __m128i blendMult = _mm_mullo_epi16(	blendColor, blendAlpha);
 
 	for (int y = 0; y < h; y++)
 	{
@@ -386,7 +363,21 @@ void r_dimpatchD_SSE2(const DCanvas *const canvas, argb_t color, int alpha, int 
 		for (int i = 0; i < batches; i++)
 		{
 			const __m128i input = _mm_load_si128((__m128i*)dest);
-			_mm_store_si128((__m128i *)dest, blend4vs1_sse2(input, blendMult, blendInvAlpha, upper8mask));
+	
+			// Expand the width of each color channel from 8bits to 16 bits
+			// by splitting input into two 128bit variables, each
+			// containing 2 ARGB values. 16bit color channels are needed to
+			// accomodate multiplication.
+			__m128i lower = _mm_and_si128(_mm_unpacklo_epi8(input, input), upper8mask);
+			__m128i upper = _mm_and_si128(_mm_unpackhi_epi8(input, input), upper8mask);
+
+			// ((input * invAlpha) + (color * Alpha)) >> 8
+			lower = _mm_srli_epi16(_mm_adds_epu16(_mm_mullo_epi16(lower, blendInvAlpha), blendMult), 8);
+			upper = _mm_srli_epi16(_mm_adds_epu16(_mm_mullo_epi16(upper, blendInvAlpha), blendMult), 8);
+
+			// Compress the width of each color channel to 8bits again and store in dest
+			_mm_store_si128((__m128i*)dest, _mm_packus_epi16(lower, upper));
+
 			dest += 4;
 		}
 
