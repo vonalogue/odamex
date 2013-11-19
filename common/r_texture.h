@@ -69,7 +69,8 @@ public:
 		TEX_FLAT,
 		TEX_PATCH,
 		TEX_SPRITE,
-		TEX_WALLTEXTURE
+		TEX_WALLTEXTURE,
+		TEX_RAW,
 	} TextureSourceType;
 
 	static const unsigned int MAX_TEXTURE_WIDTH			= 2048;
@@ -200,7 +201,8 @@ private:
 	static const unsigned int PATCH_HANDLE_MASK			= 0x00020000ul;
 	static const unsigned int SPRITE_HANDLE_MASK		= 0x00040000ul;
 	static const unsigned int WALLTEXTURE_HANDLE_MASK	= 0x00080000ul;
-	static const unsigned int CUSTOM_HANDLE_MASK		= 0x000A0000ul;
+	static const unsigned int RAW_HANDLE_MASK			= 0x000A0000ul;
+	static const unsigned int CUSTOM_HANDLE_MASK		= 0x00100000ul;
 
 	// initialization routines
 	void clear();
@@ -229,6 +231,11 @@ private:
 	texhandle_t getWallTextureHandle(unsigned int lumpnum);
 	texhandle_t getWallTextureHandle(const char* name);
 	void cacheWallTexture(texhandle_t handle);
+
+	// raw images
+	texhandle_t getRawTextureHandle(unsigned int lumpnum);
+	texhandle_t getRawTextureHandle(const char* name);
+	void cacheRawTexture(texhandle_t handle);
 
 	// maps texture handles to Texture*
 	typedef OHashTable<texhandle_t, Texture*> HandleMap;

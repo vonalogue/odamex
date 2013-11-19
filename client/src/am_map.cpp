@@ -329,7 +329,7 @@ static fixed_t scale_mtof = (fixed_t)INITSCALEMTOF;
 // used by FTOM to scale from frame-buffer-to-map coords (=1/scale_mtof)
 static fixed_t scale_ftom;
 
-static patch_t *marknums[10]; // numbers used for marking by the automap
+static const Texture* marknums[10];	// numbers used for marking by the automap
 static mpoint_t markpoints[AM_NUMMARKPOINTS]; // where the points are
 static int markpointnum = 0; // next point to be assigned
 
@@ -625,28 +625,24 @@ void AM_initColors (BOOL overlayed)
 //
 void AM_loadPics(void)
 {
-	int i;
-	char namebuf[9];
-
-	for (i = 0; i < 10; i++)
+	char name[9];
+	for (int i = 0; i < 10; i++)
 	{
-		sprintf(namebuf, "AMMNUM%d", i);
-		marknums[i] = W_CachePatch (namebuf, PU_STATIC);
+		sprintf(name, "AMMNUM%d", i);
+		texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
+		marknums[i] = texturemanager.getTexture(texhandle);
+		Z_ChangeTag(marknums[i], PU_STATIC);
 	}
 }
 
 void AM_unloadPics(void)
 {
-	int i;
-
-	for (i = 0; i < 10; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		if (marknums[i])
-		{
-			Z_ChangeTag (marknums[i], PU_CACHE);
-			marknums[i] = NULL;
-		}
-	}
+			Z_ChangeTag(marknums[i], PU_CACHE);
+		marknums[i] = NULL;
+	} 
 }
 
 void AM_clearMarks(void)
@@ -1628,7 +1624,7 @@ void AM_drawMarks (void)
 			fy = CYMTOF(pt.y) - 3;
 
 			if (fx >= f_x && fx <= f_w - w && fy >= f_y && fy <= f_h - h)
-				FB->DrawPatchCleanNoMove (marknums[i], fx, fy);
+				FB->DrawTextureCleanNoMove(marknums[i], fx, fy);
 		}
 	}
 }

@@ -133,11 +133,12 @@ event_t events[MAXEVENTS];
 int eventhead;
 int eventtail;
 gamestate_t wipegamestate = GS_DEMOSCREEN;	// can be -1 to force a wipe
-DCanvas *page;
 bool demotest;
 
 static int demosequence;
 static int pagetic;
+
+static texhandle_t page_texhandle;		// demo loop pic
 
 EXTERN_CVAR (sv_allowexit)
 EXTERN_CVAR (sv_nomonsters)
@@ -320,25 +321,23 @@ void D_Display (void)
 	// draw pause pic
 	if (paused && !menuactive)
 	{
-		patch_t *pause = W_CachePatch ("M_PAUSE");
-		int y;
-
-		y = (automapactive && !viewactive) ? 4 : viewwindowy + 4;
-		screen->DrawPatchCleanNoMove (pause, (screen->width-(pause->width())*CleanXfac)/2, y);
+		texhandle_t texhandle = texturemanager.getHandle("M_PAUSE", Texture::TEX_PATCH);
+		const Texture* texture = texturemanager.getTexture(texhandle);
+		int x = (screen->width - texture->getWidth() * CleanXfac) / 2;
+		int y = (automapactive && !viewactive) ? 4 : viewwindowy + 4;
+		screen->DrawTextureCleanNoMove(texture, x, y);
 	}
 
 	// [RH] Draw icon, if any
 	if (D_DrawIcon)
 	{
-		int lump = W_CheckNumForName (D_DrawIcon);
-
+		texhandle_t texhandle = texturemanager.getHandle(D_DrawIcon, Texture::TEX_PATCH);
+		const Texture* texture = texturemanager.getTexture(texhandle);
 		D_DrawIcon = NULL;
-		if (lump >= 0)
-		{
-			patch_t *p = W_CachePatch (lump);
 
-			screen->DrawPatchIndirect (p, 160-p->width()/2, 100-p->height()/2);
-		}
+		int x = 160 - texture->getWidth() / 2;
+		int y = 100 - texture->getHeight() / 2;
+		screen->DrawTextureIndirect(texture, x, y);
 		NoWipe = 10;
 	}
 
@@ -395,16 +394,8 @@ void D_PageTicker (void)
 //
 void D_PageDrawer (void)
 {
-	if (page)
-	{
-		page->Blit (0, 0, page->width, page->height,
-			screen, 0, 0, screen->width, screen->height);
-	}
-	else
-	{
-		screen->Clear (0, 0, screen->width, screen->height, 0);
-		//screen->PrintStr (0, 0, "Page graphic goes here", 22);
-	}
+	const Texture* page_texture = texturemanager.getTexture(page_texhandle);
+	screen->DrawTextureFullScreen(page_texture);
 }
 
 //
@@ -506,33 +497,9 @@ void D_DoAdvanceDemo (void)
     // [Russell] - Still need this toilet humor for now unfortunately
 	if (pagename)
 	{
-		const int width = 320, height = 200;
-		patch_t *data;
-
-		if (page && (page->width != screen->width || page->height != screen->height))
-		{
-			I_FreeScreen(page);
-			page = NULL;
-		}
-
-		data = W_CachePatch (pagename);
-
-		if (page == NULL)
-        {
-            if (screen->isProtectedRes())
-                page = I_AllocateScreen(data->width(), data->height(), 8);
-            else
-                page = I_AllocateScreen(screen->width, screen->height, 8);
-        }
-
-		page->Lock ();
-
-		if (gameinfo.flags & GI_PAGESARERAW)
-            page->DrawBlock (0, 0, width, height, (byte *)data);
-		else
-			page->DrawPatchFullScreen(data);
-
-		page->Unlock ();
+		Texture::TextureSourceType textype =
+				(gameinfo.flags & GI_PAGESARERAW) ? Texture::TEX_RAW : Texture::TEX_PATCH;
+		page_texhandle = texturemanager.getHandle(pagename, textype);
 	}
 }
 
@@ -541,11 +508,6 @@ void D_DoAdvanceDemo (void)
 //
 void STACK_ARGS D_Close (void)
 {
-	if(page)
-	{
-		I_FreeScreen(page);
-		page = NULL;
-	}
 }
 
 //

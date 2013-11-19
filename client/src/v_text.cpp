@@ -150,7 +150,7 @@ void DCanvas::TextSWrapper(EWrapperCode drawer, int normalcolor, int x, int y,
 static void breakit(brokenlines_t *line, const byte *start, const byte *string, const OFont* font)
 {
 	// Leave out trailing white space
-	while (string > start && isspace (*(string - 1)))
+	while (string > start && isspace(*(string - 1)))
 		string--;
 
 	line->string = new char[string - start + 1];
@@ -159,15 +159,16 @@ static void breakit(brokenlines_t *line, const byte *start, const byte *string, 
 	line->width = font->getTextWidth((const char*)line->string);
 }
 
-brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const byte *string)
+brokenlines_t* V_BreakLines(const OFont* font, int maxwidth, const byte* string)
 {
 	brokenlines_t lines[128];	// Support up to 128 lines (should be plenty)
 
-	const byte *space = NULL, *start = string;
-	int i, c, w, nw;
-	BOOL lastWasSpace = false;
+	const byte* space = NULL;
+	const byte* start = string;
+	int c, i = 0;
+	bool lastWasSpace = false;
 
-	i = w = 0;
+	int width = 0;
 
 	while ( (c = *string++) )
 	{
@@ -189,10 +190,10 @@ brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const byte *string)
 		else
 			lastWasSpace = false;
 
-		nw = hud_font->getTextWidth(c);
+		int charwidth = font->getTextWidth(c);
 		
 		// Time to break the line
-		if (w + nw > maxwidth || c == '\n' - HU_FONTSTART)
+		if (width + charwidth > maxwidth || c == '\n')
 		{	
 			if (!space)
 				space = string - 1;
@@ -200,19 +201,19 @@ brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const byte *string)
 			breakit(&lines[i], start, space, font);
 
 			i++;
-			w = 0;
+			width = 0;
 			lastWasSpace = false;
 			start = space;
 			space = NULL;
 
-			while (*start && isspace (*start) && *start != '\n')
+			while (*start && isspace(*start) && *start != '\n')
 				start++;
 
 			if (*start == '\n')
 				start++;
 			else
 			{
-				while (*start && isspace (*start))
+				while (*start && isspace(*start))
 					start++;
 			}
 
@@ -220,17 +221,17 @@ brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const byte *string)
 		}
 		else
 		{
-			w += nw;
+			width += charwidth;
 		}
 	}
 
 	if (string - start > 1)
 	{
-		const byte *s = start;
+		const byte* s = start;
 
 		while (s < string)
 		{
-			if (!isspace (*s++))
+			if (!isspace(*s++))
 			{
 				breakit(&lines[i++], start, string, font);
 				break;
@@ -238,16 +239,14 @@ brokenlines_t *V_BreakLines(const OFont* font, int maxwidth, const byte *string)
 		}
 	}
 
-	{
-		// Make a copy of the broken lines and return them
-		brokenlines_t *broken = new brokenlines_t[i+1];
+	// Make a copy of the broken lines and return them
+	brokenlines_t *broken = new brokenlines_t[i+1];
 
-		memcpy (broken, lines, sizeof(brokenlines_t) * i);
-		broken[i].string = NULL;
-		broken[i].width = -1;
+	memcpy(broken, lines, sizeof(brokenlines_t) * i);
+	broken[i].string = NULL;
+	broken[i].width = -1;
 
-		return broken;
-	}
+	return broken;
 }
 
 void V_FreeBrokenLines (brokenlines_t *lines)

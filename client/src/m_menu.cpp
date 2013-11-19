@@ -651,12 +651,13 @@ void M_ReadSaveStrings(void)
 //
 void M_DrawLoad (void)
 {
-	int i;
+	texhandle_t load_texhandle = texturemanager.getHandle("M_LOADG", Texture::TEX_PATCH);
+	const Texture* load_texture = texturemanager.getTexture(load_texhandle);
+	screen->DrawTextureClean(load_texture, 72, 28);
 
-	screen->DrawPatchClean ((patch_t *)W_CachePatch("M_LOADG"), 72, 28);
-	for (i = 0; i < load_end; i++)
+	for (int i = 0; i < load_end; i++)
 	{
-		M_DrawSaveLoadBorder (LoadDef.x, LoadDef.y+LINEHEIGHT*i, 24);
+		M_DrawSaveLoadBorder(LoadDef.x, LoadDef.y+LINEHEIGHT*i, 24);
 		int x = LoadDef.x;
 		int y = LoadDef.y + LINEHEIGHT*i;
 		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, savegamestrings[i]);
@@ -704,7 +705,9 @@ void M_LoadGame (int choice)
 //
 void M_DrawSave(void)
 {
-	screen->DrawPatchClean ((patch_t *)W_CachePatch("M_SAVEG"), 72, 28);
+	texhandle_t load_texhandle = texturemanager.getHandle("M_SAVEG", Texture::TEX_PATCH);
+	const Texture* load_texture = texturemanager.getTexture(load_texhandle);
+	screen->DrawTextureClean(load_texture, 72, 28);
 
 	for (int i = 0; i < load_end; i++)
 	{
@@ -924,17 +927,22 @@ void M_FinishReadThis(int choice)
 //
 void M_DrawSaveLoadBorder (int x, int y, int len)
 {
-	int i;
+	texhandle_t left_texhandle = texturemanager.getHandle("M_LSLEFT", Texture::TEX_PATCH);
+	const Texture* left_texture = texturemanager.getTexture(left_texhandle);
+	texhandle_t center_texhandle = texturemanager.getHandle("M_LSCNTR", Texture::TEX_PATCH);
+	const Texture* center_texture = texturemanager.getTexture(center_texhandle);
+	texhandle_t right_texhandle = texturemanager.getHandle("M_LSRGHT", Texture::TEX_PATCH);
+	const Texture* right_texture = texturemanager.getTexture(right_texhandle);
 
-	screen->DrawPatchClean (W_CachePatch ("M_LSLEFT"), x-8, y+7);
+	screen->DrawTextureClean(left_texture, x - 8, y + 7);
 
-	for (i = 0; i < len; i++)
+	for (int i = 0; i < len; i++)
 	{
-		screen->DrawPatchClean (W_CachePatch ("M_LSCNTR"), x, y+7);
+		screen->DrawTextureClean(center_texture, x, y + 7);
 		x += 8;
 	}
 
-	screen->DrawPatchClean (W_CachePatch ("M_LSRGHT"), x, y+7);
+	screen->DrawTextureClean(right_texture, x, y + 7);
 }
 
 //
@@ -942,33 +950,30 @@ void M_DrawSaveLoadBorder (int x, int y, int len)
 //
 void M_DrawMainMenu (void)
 {
-	screen->DrawPatchClean (W_CachePatch("M_DOOM"), 94, 2);
+	texhandle_t texhandle = texturemanager.getHandle("M_DOOM", Texture::TEX_PATCH);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	screen->DrawTextureClean(texture, 94, 2);
 }
 
 void M_DrawNewGame(void)
 {
-	screen->DrawPatchClean ((patch_t *)W_CachePatch("M_NEWG"), 96, 14);
-	screen->DrawPatchClean ((patch_t *)W_CachePatch("M_SKILL"), 54, 38);
+	texhandle_t new_texhandle = texturemanager.getHandle("M_NEWG", Texture::TEX_PATCH);
+	const Texture* new_texture = texturemanager.getTexture(new_texhandle);
+	texhandle_t skill_texhandle = texturemanager.getHandle("M_SKILL", Texture::TEX_PATCH);
+	const Texture* skill_texture = texturemanager.getTexture(skill_texhandle);
+
+	screen->DrawTextureClean(new_texture, 96, 14);
+	screen->DrawTextureClean(skill_texture, 54, 38);
 }
 
 void M_NewGame(int choice)
 {
-/*	if (netgame && !demoplayback)
-	{
-		M_StartMessage(NEWGAME,NULL,false);
-		return;
-	}
-*/
 	if (gameinfo.flags & GI_MAPxx)
     {
         if (gamemode == commercial_bfg)
-        {
             M_SetupNextMenu(&ExpDef);
-        }
         else
-        {
             M_SetupNextMenu(&NewDef);
-        }
     }
 	else if (gamemode == retail_chex)			// [ML] Don't show the episode selection in chex mode
     {
@@ -984,7 +989,6 @@ void M_NewGame(int choice)
 		EpiDef.numitems = ep4;
 		M_SetupNextMenu(&EpiDef);
 	}
-
 }
 
 
@@ -995,7 +999,9 @@ int 	epi;
 
 void M_DrawEpisode(void)
 {
-	screen->DrawPatchClean ((patch_t *)W_CachePatch("M_EPISOD"), 54, 38);
+	texhandle_t texhandle = texturemanager.getHandle("M_EPISOD", Texture::TEX_PATCH);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	screen->DrawTextureClean(texture, 54, 38);
 }
 
 void M_VerifyNightmare(int ch)
@@ -1081,28 +1087,40 @@ void M_Expansion (int choice)
 // Read This Menus
 // Had a "quick hack to fix romero bug"
 //
-void M_DrawReadThis1 (void)
+void M_DrawReadThis1(void)
 {
-	patch_t *p = W_CachePatch(gameinfo.info.infoPage[0]);
-	screen->DrawPatchFullScreen(p);
+	Texture::TextureSourceType textype = 
+			(gameinfo.flags & GI_PAGESARERAW) ? Texture::TEX_RAW : Texture::TEX_PATCH;
+
+	texhandle_t texhandle = texturemanager.getHandle(gameinfo.info.infoPage[0], textype);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	screen->DrawTextureFullScreen(texture);
 }
 
 //
 // Read This Menus - optional second page.
 //
-void M_DrawReadThis2 (void)
+void M_DrawReadThis2(void)
 {
-	patch_t *p = W_CachePatch(gameinfo.info.infoPage[1]);
-	screen->DrawPatchFullScreen(p);
+	Texture::TextureSourceType textype = 
+			(gameinfo.flags & GI_PAGESARERAW) ? Texture::TEX_RAW : Texture::TEX_PATCH;
+
+	texhandle_t texhandle = texturemanager.getHandle(gameinfo.info.infoPage[1], textype);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	screen->DrawTextureFullScreen(texture);
 }
 
 //
 // Read This Menus - shareware third page.
 //
-void M_DrawReadThis3 (void)
+void M_DrawReadThis3(void)
 {
-	patch_t *p = W_CachePatch(gameinfo.info.infoPage[2]);
-	screen->DrawPatchFullScreen(p);
+	Texture::TextureSourceType textype = 
+			(gameinfo.flags & GI_PAGESARERAW) ? Texture::TEX_RAW : Texture::TEX_PATCH;
+
+	texhandle_t texhandle = texturemanager.getHandle(gameinfo.info.infoPage[2], textype);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	screen->DrawTextureFullScreen(texture);
 }
 
 //
@@ -1110,12 +1128,13 @@ void M_DrawReadThis3 (void)
 //
 void M_DrawOptions(void)
 {
-	screen->DrawPatchClean (W_CachePatch("M_OPTTTL"), 108, 15);
+	texhandle_t texhandle = texturemanager.getHandle("M_OPTTT", Texture::TEX_PATCH);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	screen->DrawTextureClean(texture, 108, 15);
 }
 
 void M_Options(int choice)
 {
-	//M_SetupNextMenu(&OptionsDef);
 	OptionsActive = M_StartOptionsMenu();
 }
 
@@ -1297,12 +1316,12 @@ static void M_PlayerSetupDrawer (void)
 
 	// Draw title
 	{
-		patch_t *patch = W_CachePatch ("M_PSTTL");
-        screen->DrawPatchClean (patch, 160-patch->width()/2, 10);
+		texhandle_t texhandle = texturemanager.getHandle("M_PSTTL", Texture::TEX_PATCH);
+		const Texture* texture = texturemanager.getTexture(texhandle);
 
-		/*screen->DrawPatchClean (patch,
-			160 - (patch->width() >> 1),
-			PSetupDef.y - (patch->height() * 3));*/
+		int x = 160 - texture->getWidth() / 2;
+		int y = 10;
+		screen->DrawTextureClean(texture, x, y);
 	}
 
 	{
@@ -1435,13 +1454,16 @@ static void M_PlayerSetupDrawer (void)
 		V_ColorMap = translationref_t(translationtables, 0);
 		//V_ColorMap = translationtables + consoleplayer().id * 256;
 
-		screen->DrawTranslatedPatchClean (W_CachePatch (sprframe->lump[0]),
-			320 - 52 - 32, PSetupDef.y + LINEHEIGHT*3 + 46);
+
+		texhandle_t skin_texhandle = texturemanager.getHandle(sprframe->lump[0], Texture::TEX_PATCH);
+		const Texture* skin_texture = texturemanager.getTexture(skin_texhandle);
+		screen->DrawTranslatedTextureClean(skin_texture, 320 - 52 - 32, PSetupDef.y + LINEHEIGHT*3 + 46);
 	}
 
 	// Draw box surrounding fire and player:
-	screen->DrawPatchClean (W_CachePatch ("M_PBOX"),
-		320 - 88 - 32 + 36, PSetupDef.y + LINEHEIGHT*3 + 22);
+	texhandle_t box_texhandle = texturemanager.getHandle("M_PBOX", Texture::TEX_PATCH);
+	const Texture* box_texture = texturemanager.getTexture(box_texhandle);
+	screen->DrawTextureClean(box_texture, 320 - 88 - 32 + 36, PSetupDef.y + LINEHEIGHT*3 + 22);
 
 	// Draw player color sliders
 	//V_DrawTextCleanMove (CR_GREY, PSetupDef.x, PSetupDef.y + LINEHEIGHT, "Color");
@@ -1724,14 +1746,16 @@ static void M_SlidePlayerBlue (int choice)
 //
 void M_DrawEmptyCell (oldmenu_t *menu, int item)
 {
-	screen->DrawPatchClean (W_CachePatch("M_CELL1"),
-		menu->x - 10, menu->y+item*LINEHEIGHT - 1);
+	texhandle_t texhandle = texturemanager.getHandle("M_CELL1", Texture::TEX_PATCH);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	screen->DrawTextureClean(texture, menu->x - 10, menu->y+item*LINEHEIGHT - 1);
 }
 
 void M_DrawSelCell (oldmenu_t *menu, int item)
 {
-	screen->DrawPatchClean (W_CachePatch("M_CELL2"),
-		menu->x - 10, menu->y+item*LINEHEIGHT - 1);
+	texhandle_t texhandle = texturemanager.getHandle("M_CELL2", Texture::TEX_PATCH);
+	const Texture* texture = texturemanager.getTexture(texhandle);
+	screen->DrawTextureClean(texture, menu->x - 10, menu->y+item*LINEHEIGHT - 1);
 }
 
 
@@ -2082,16 +2106,18 @@ void M_Drawer (void)
 	// Horiz. & Vertically center string and print it.
 	if (messageToPrint)
 	{
-		const int rowheight = hud_font->getHeight() / CleanYfac;
-		brokenlines_t *lines = V_BreakLines(hud_font, 320, messageString);
-		y = 100;
+		const int rowheight = doom_font->getHeight();
+		const int width = 320 * CleanXfac;
+		brokenlines_t *lines = V_BreakLines(doom_font, width, messageString);
+		y = 100 * CleanYfac;
 
 		for (i = 0; lines[i].width != -1; i++)
 			y -= rowheight / 2;
 
 		for (i = 0; lines[i].width != -1; i++)
 		{
-			menu_font->printText(screen, M_CleanX(160 - lines[i].width/2), M_CleanY(y), CR_RED, lines[i].string);
+			x = (screen->width - lines[i].width) / 2;
+			doom_font->printText(screen, x, y, CR_RED, lines[i].string);
 			y += rowheight;
 		}
 
@@ -2116,7 +2142,12 @@ void M_Drawer (void)
 			for (i = 0; i < max; i++)
 			{
 				if (currentMenu->menuitems[i].name[0])
-					screen->DrawPatchClean (W_CachePatch(currentMenu->menuitems[i].name), x, y);
+				{
+					texhandle_t item_texhandle =
+							texturemanager.getHandle(currentMenu->menuitems[i].name, Texture::TEX_PATCH);
+					const Texture* item_texture = texturemanager.getTexture(item_texhandle);
+					screen->DrawTextureClean(item_texture, x, y);
+				}
 				y += LINEHEIGHT;
 			}
 
@@ -2124,8 +2155,11 @@ void M_Drawer (void)
 			// DRAW SKULL
 			if (drawSkull)
 			{
-				screen->DrawPatchClean (W_CachePatch(skullName[whichSkull]),
-					x + SKULLXOFF, currentMenu->y - 5 + itemOn*LINEHEIGHT);
+				texhandle_t skull_texhandle =
+						texturemanager.getHandle(skullName[whichSkull], Texture::TEX_PATCH);
+				const Texture* skull_texture = texturemanager.getTexture(skull_texhandle);
+				screen->DrawTextureClean(skull_texture,
+						x + SKULLXOFF, currentMenu->y - 5 + itemOn*LINEHEIGHT);
 			}
 		}
 	}

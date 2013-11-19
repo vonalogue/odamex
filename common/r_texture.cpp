@@ -1137,6 +1137,69 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 
 
 //
+// TextureManager::getRawTextureHandle
+//
+// Returns the handle for the raw image with the given WAD lump number.
+//
+texhandle_t TextureManager::getRawTextureHandle(unsigned int lumpnum)
+{
+	if (lumpnum >= numlumps)
+		return NOT_FOUND_TEXTURE_HANDLE;
+
+	if (W_LumpLength(lumpnum) == 0)
+		return NOT_FOUND_TEXTURE_HANDLE;
+	return (texhandle_t)lumpnum | RAW_HANDLE_MASK;
+}
+
+texhandle_t TextureManager::getRawTextureHandle(const char* name)
+{
+	int lumpnum = W_CheckNumForName(name);
+	if (lumpnum >= 0)
+		return getRawTextureHandle(lumpnum);
+	return NOT_FOUND_TEXTURE_HANDLE;
+}
+
+//
+// TextureManager::cacheRawTexture
+//
+// Converts a linear 320x200 block of pixels into a Texture 
+//
+void TextureManager::cacheRawTexture(texhandle_t handle)
+{
+	const int width = 320;
+	const int height = 200;
+
+	Texture* texture = createTexture(handle, width, height);
+
+	if (clientside)
+	{
+		unsigned int lumpnum = (handle & ~RAW_HANDLE_MASK);
+		unsigned int lumplen = W_LumpLength(lumpnum);
+
+		byte *rawlumpdata = new byte[lumplen];
+		W_ReadLump(lumpnum, rawlumpdata);
+
+		// convert the row-major flat lump to into column-major
+		byte* dest = texture->mData;
+
+		for (int x = 0; x < width; x++)
+		{
+			const byte* source = rawlumpdata + x;
+			
+			for (int y = 0; y < height; y++)
+			{
+				*dest = *source;
+				source += width;
+				dest++;
+			}
+		}
+		
+		delete [] rawlumpdata;
+	}
+}
+	
+
+//
 // TextureManager::getHandle
 //
 // Returns the handle for the texture that matches the supplied name.
@@ -1158,6 +1221,8 @@ texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceTy
 		handle = getPatchHandle(name);
 	else if (type == Texture::TEX_SPRITE)
 		handle = getSpriteHandle(name);
+	else if (type == Texture::TEX_RAW)
+		handle = getRawTextureHandle(name);
 
 	// not found? check elsewhere
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
@@ -1174,12 +1239,12 @@ texhandle_t TextureManager::getHandle(unsigned int lumpnum, Texture::TextureSour
 
 	if (type == Texture::TEX_FLAT)
 		handle = getFlatHandle(lumpnum);
-	else if (type == Texture::TEX_WALLTEXTURE)
-		handle = getWallTextureHandle(lumpnum);
 	else if (type == Texture::TEX_PATCH)
 		handle = getPatchHandle(lumpnum);
 	else if (type == Texture::TEX_SPRITE)
 		handle = getSpriteHandle(lumpnum);
+	else if (type == Texture::TEX_RAW)
+		handle = getRawTextureHandle(lumpnum);
 
 	// not found? check elsewhere
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
@@ -1209,6 +1274,8 @@ const Texture* TextureManager::getTexture(texhandle_t handle)
 			cachePatch(handle);
 		else if (handle & SPRITE_HANDLE_MASK)
 			cacheSprite(handle);
+		else if (handle & RAW_HANDLE_MASK)
+			cacheRawTexture(handle);
 
 		texture = mHandleMap[handle];
 	}
