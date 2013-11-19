@@ -1198,10 +1198,8 @@ void R_SetFuzzDrawFuncs()
 	}
 	else
 	{
-		colfunc = R_DrawFuzzColumn;
+		colfunc = R_DrawColumn;
 		maskedcolfunc = R_DrawFuzzMaskedColumn;
-		spanfunc = R_DrawSpan;
-		spanslopefunc = R_DrawSlopeSpan;
 	}
 }
 
@@ -1217,7 +1215,7 @@ void R_SetLucentDrawFuncs()
 	}
 	else
 	{
-		colfunc = R_DrawTranslucentColumn;
+		colfunc = R_DrawColumn;
 		maskedcolfunc = R_DrawTranslucentMaskedColumn;
 	}
 }
@@ -1251,7 +1249,7 @@ void R_SetTranslatedLucentDrawFuncs()
 	}
 	else
 	{
-		colfunc = R_DrawTranslatedTranslucentColumn;
+		colfunc = R_DrawColumn;
 		maskedcolfunc = R_DrawTranslatedTranslucentMaskedColumn;
 	}
 }

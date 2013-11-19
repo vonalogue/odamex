@@ -89,13 +89,10 @@ void (*R_FillColumn)(drawcolumn_t&);
 void (*R_FillMaskedColumn)(drawcolumn_t&);
 void (*R_DrawColumn)(drawcolumn_t&);
 void (*R_DrawMaskedColumn)(drawcolumn_t&);
-void (*R_DrawFuzzColumn)(drawcolumn_t&);
 void (*R_DrawFuzzMaskedColumn)(drawcolumn_t&);
-void (*R_DrawTranslucentColumn)(drawcolumn_t&);
 void (*R_DrawTranslucentMaskedColumn)(drawcolumn_t&);
 void (*R_DrawTranslatedColumn)(drawcolumn_t&);
 void (*R_DrawTranslatedMaskedColumn)(drawcolumn_t&);
-void (*R_DrawTranslatedTranslucentColumn)(drawcolumn_t&);
 void (*R_DrawTranslatedTranslucentMaskedColumn)(drawcolumn_t&);
 
 void (*R_DrawSpan)(drawspan_t&);
@@ -492,17 +489,16 @@ static forceinline void R_FillMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 
 	const byte* mask = drawcolumn.mask;
 	int color = drawcolumn.color;
-	int pitch = drawcolumn.pitch;
 	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
+	int pitch = drawcolumn.pitch;
 
 	const fixed_t fracstep = drawcolumn.iscale; 
 	fixed_t frac = drawcolumn.texturefrac;
 
 	COLORFUNC colorfunc(drawcolumn);
 
-	do
-	{
-		PIXEL_T tempdest;
+	do {
+		PIXEL_T tempdest = *dest;
 		colorfunc(color, &tempdest);
 
 		// [SL] negating an unsigned number is a quick way to expand 0x01 to 0xFF
@@ -1050,23 +1046,6 @@ void R_DrawMaskedColumnP(drawcolumn_t& drawcolumn)
 }
 
 //
-// R_DrawFuzzColumnP
-//
-// Alters a column in the 8bpp palettized screen buffer using Doom's partial
-// invisibility effect, which shades the column and rearranges the ordering
-// the pixels to create distortion. Shading is performed using colormap 6.
-//
-void R_DrawFuzzColumnP(drawcolumn_t& drawcolumn)
-{
-	// adjust the borders (prevent buffer over/under-reads)
-	dcol.yl = MIN(1, dcol.yl);
-	dcol.yh = MAX(realviewheight - 2, dcol.yh);
-	dcol.dest = R_CalculateDestination(dcol);
-
-	R_FillColumnGeneric<palindex_t, PaletteFuzzyFunc>(drawcolumn);
-}
-
-//
 // R_DrawFuzzMaskedColumnP
 //
 // Alters a column in the 8bpp palettized screen buffer using Doom's partial
@@ -1077,9 +1056,9 @@ void R_DrawFuzzColumnP(drawcolumn_t& drawcolumn)
 void R_DrawFuzzMaskedColumnP(drawcolumn_t& drawcolumn)
 {
 	// adjust the borders (prevent buffer over/under-reads)
-	dcol.yl = MIN(1, dcol.yl);
-	dcol.yh = MAX(realviewheight - 2, dcol.yh);
-	dcol.dest = R_CalculateDestination(dcol);
+	drawcolumn.yl = MAX(1, drawcolumn.yl);
+	drawcolumn.yh = MIN(realviewheight - 2, drawcolumn.yh);
+	drawcolumn.dest = R_CalculateDestination(drawcolumn);
 
 	R_FillMaskedColumnGeneric<palindex_t, PaletteFuzzyFunc>(drawcolumn);
 }
@@ -1413,23 +1392,6 @@ void R_DrawMaskedColumnD(drawcolumn_t& drawcolumn)
 }
 
 //
-// R_DrawFuzzColumnD
-//
-// Alters a column in the 32bpp ARGB8888 screen buffer using Doom's partial
-// invisibility effect, which shades the column and rearranges the ordering
-// the pixels to create distortion. Shading is performed using colormap 6.
-//
-void R_DrawFuzzColumnD(drawcolumn_t& drawcolumn)
-{
-	// adjust the borders (prevent buffer over/under-reads)
-	dcol.yl = MIN(1, dcol.yl);
-	dcol.yh = MAX(realviewheight - 2, dcol.yh);
-	dcol.dest = R_CalculateDestination(dcol);
-
-	R_FillColumnGeneric<argb_t, DirectFuzzyFunc>(drawcolumn);
-}
-
-//
 // R_DrawFuzzMaskedColumnD
 //
 // Alters a column in the 32bpp ARGB8888 screen buffer using Doom's partial
@@ -1440,24 +1402,11 @@ void R_DrawFuzzColumnD(drawcolumn_t& drawcolumn)
 void R_DrawFuzzMaskedColumnD(drawcolumn_t& drawcolumn)
 {
 	// adjust the borders (prevent buffer over/under-reads)
-	dcol.yl = MIN(1, dcol.yl);
-	dcol.yh = MAX(realviewheight - 2, dcol.yh);
-	dcol.dest = R_CalculateDestination(dcol);
+	drawcolumn.yl = MAX(1, drawcolumn.yl);
+	drawcolumn.yh = MIN(realviewheight - 2, drawcolumn.yh);
+	drawcolumn.dest = R_CalculateDestination(drawcolumn);
 
 	R_FillMaskedColumnGeneric<argb_t, DirectFuzzyFunc>(drawcolumn);
-}
-
-//
-// R_DrawTranslucentColumnD
-//
-// Renders a translucent column to the 32bpp ARGB8888 screen buffer from the
-// source buffer dcol.source and scaled by dcol.iscale. The amount of
-// translucency is controlled by dcol.translevel. Shading is performed using
-// dcol.colormap.
-//
-void R_DrawTranslucentColumnD(drawcolumn_t& drawcolumn)
-{
-	R_DrawColumnGeneric<argb_t, DirectTranslucentColormapFunc>(drawcolumn);
 }
 
 //
@@ -1969,42 +1918,36 @@ void R_InitColumnDrawers ()
 
 	if (screen->is8bit())
 	{
-		R_FillColumn					= R_FillColumnP;
-		R_FillMaskedColumn				= R_FillMaskedColumnP;
-		R_DrawColumn					= R_DrawColumnP;
-		R_DrawMaskedColumn				= R_DrawMaskedColumnP;
-		R_DrawFuzzColumn				= R_DrawFuzzColumnP;
-		R_DrawFuzzMaskedColumn			= R_DrawFuzzMaskedColumnP;
-		R_DrawTranslucentColumn			= R_DrawTranslucentColumnP;
-		R_DrawTranslucentMaskedColumn	= R_DrawTranslucentMaskedColumnP;
-		R_DrawTranslatedColumn			= R_DrawTranslatedColumnP;
-		R_DrawTranslatedMaskedColumn	= R_DrawTranslatedMaskedColumnP;
-		R_DrawSlopeSpan					= R_DrawSlopeSpanP;
-		R_DrawSpan						= R_DrawSpanP;
-		R_FillSpan						= R_FillSpanP;
-		R_FillTranslucentSpan			= R_FillTranslucentSpanP;
-		R_DrawTranslatedTranslucentColumn = R_DrawTranslatedTranslucentColumnP;
-		R_DrawTranslatedTranslucentMaskedColumn = R_DrawTranslatedTranslucentMaskedColumnP;
+		R_FillColumn							= R_FillColumnP;
+		R_FillMaskedColumn						= R_FillMaskedColumnP;
+		R_DrawColumn							= R_DrawColumnP;
+		R_DrawMaskedColumn						= R_DrawMaskedColumnP;
+		R_DrawFuzzMaskedColumn					= R_DrawFuzzMaskedColumnP;
+		R_DrawTranslucentMaskedColumn			= R_DrawTranslucentMaskedColumnP;
+		R_DrawTranslatedColumn					= R_DrawTranslatedColumnP;
+		R_DrawTranslatedMaskedColumn			= R_DrawTranslatedMaskedColumnP;
+		R_DrawSlopeSpan							= R_DrawSlopeSpanP;
+		R_DrawSpan								= R_DrawSpanP;
+		R_FillSpan								= R_FillSpanP;
+		R_FillTranslucentSpan					= R_FillTranslucentSpanP;
+		R_DrawTranslatedTranslucentMaskedColumn	= R_DrawTranslatedTranslucentMaskedColumnP;
 	}
 	else
 	{
 		// 32bpp rendering functions:
-		R_FillColumn					= R_FillColumnD;
-		R_FillMaskedColumn				= R_FillMaskedColumnD;
-		R_DrawColumn					= R_DrawColumnD;
-		R_DrawMaskedColumn				= R_DrawMaskedColumnD;
-		R_DrawFuzzColumn				= R_DrawFuzzColumnD;
-		R_DrawFuzzMaskedColumn			= R_DrawFuzzMaskedColumnD;
-		R_DrawTranslucentColumn			= R_DrawTranslucentColumnD;
-		R_DrawTranslucentMaskedColumn	= R_DrawTranslucentMaskedColumnD;
-		R_DrawTranslatedColumn			= R_DrawTranslatedColumnD;
-		R_DrawTranslatedMaskedColumn	= R_DrawTranslatedMaskedColumnD;
-		R_DrawSlopeSpan					= R_DrawSlopeSpanD;
-		R_DrawSpan						= R_DrawSpanD;
-		R_FillSpan						= R_FillSpanD;
-		R_FillTranslucentSpan			= R_FillTranslucentSpanD;
-		R_DrawTranslatedTranslucentColumn = R_DrawTranslatedTranslucentColumnD;
-		R_DrawTranslatedTranslucentMaskedColumn = R_DrawTranslatedTranslucentMaskedColumnD;
+		R_FillColumn							= R_FillColumnD;
+		R_FillMaskedColumn						= R_FillMaskedColumnD;
+		R_DrawColumn							= R_DrawColumnD;
+		R_DrawMaskedColumn						= R_DrawMaskedColumnD;
+		R_DrawFuzzMaskedColumn					= R_DrawFuzzMaskedColumnD;
+		R_DrawTranslucentMaskedColumn			= R_DrawTranslucentMaskedColumnD;
+		R_DrawTranslatedColumn					= R_DrawTranslatedColumnD;
+		R_DrawTranslatedMaskedColumn			= R_DrawTranslatedMaskedColumnD;
+		R_DrawSlopeSpan							= R_DrawSlopeSpanD;
+		R_DrawSpan								= R_DrawSpanD;
+		R_FillSpan								= R_FillSpanD;
+		R_FillTranslucentSpan					= R_FillTranslucentSpanD;
+		R_DrawTranslatedTranslucentMaskedColumn	= R_DrawTranslatedTranslucentMaskedColumnD;
 	}
 }
 

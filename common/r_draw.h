@@ -210,11 +210,9 @@ extern void (*R_DrawColumn)(drawcolumn_t&);
 extern void (*R_DrawMaskedColumn)(drawcolumn_t&);
 
 // The Spectre/Invisibility effect.
-extern void (*R_DrawFuzzColumn)(drawcolumn_t&);
 extern void (*R_DrawFuzzMaskedColumn)(drawcolumn_t&);
 
 // [RH] Draw translucent column;
-extern void (*R_DrawTranslucentColumn)(drawcolumn_t&);
 extern void (*R_DrawTranslucentMaskedColumn)(drawcolumn_t&);
 
 // Draw with color translation tables,
@@ -224,7 +222,6 @@ extern void (*R_DrawTranslatedColumn)(drawcolumn_t&);
 extern void (*R_DrawTranslatedMaskedColumn)(drawcolumn_t&);
 
 // Translated & translucent
-extern void (*R_DrawTranslatedTranslucentColumn)(drawcolumn_t&);
 extern void (*R_DrawTranslatedTranslucentMaskedColumn)(drawcolumn_t&);
 
 // Span blitting for rows, floor/ceiling.
