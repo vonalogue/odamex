@@ -110,9 +110,6 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	__m128i mvfrac = _mm_set_epi32(vfrac+vstep*0, vfrac+vstep*1, vfrac+vstep*2, vfrac+vstep*3);
 	const __m128i mvfracinc = _mm_set1_epi32(vstep*4);
 
-	ufrac += count & ~3;
-	vfrac += count & ~3;
-
 	const int sse_end_count = count & 3;
 	while (count > sse_end_count)
 	{
@@ -149,6 +146,9 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 
 		count -= 4;
 	}
+
+	ufrac = (dsfixed_t)((int*)&mufrac)[0];
+	vfrac = (dsfixed_t)((int*)&mvfrac)[0];
 
 	// blit the remaining 0 - 3 pixels
 	while (count > 0)
