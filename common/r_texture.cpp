@@ -152,6 +152,11 @@ void R_CopySubimage(Texture* dest_texture, const Texture* source_texture,
 	dest_texture->setOffsetY(yoffs);
 }
 
+const Texture* R_LoadTexture(const char* name)
+{
+	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
+	return texturemanager.getTexture(texhandle);
+}
 
 //
 // R_WarpTexture
@@ -265,9 +270,9 @@ void Texture::init(int width, int height)
 const texhandle_t TextureManager::GARBAGE_TEXTURE_HANDLE = TextureManager::WALLTEXTURE_HANDLE_MASK;
 
 TextureManager::TextureManager() :
-	mHandleMap(2049),
+	mHandleMap(2048),
 	mPNameLookup(NULL),
-	mTextureNameTranslationMap(513),
+	mTextureNameTranslationMap(512),
 	mFreeCustomHandlesHead(0),
 	mFreeCustomHandlesTail(TextureManager::MAX_CUSTOM_HANDLES)
 {
@@ -357,31 +362,6 @@ void TextureManager::startup()
 void TextureManager::shutdown()
 {
 	clear();
-}
-
-
-//
-// TextureManager::freeTexture
-//
-void TextureManager::freeTexture(texhandle_t texhandle)
-{
-	if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
-		texhandle == TextureManager::NO_TEXTURE_HANDLE)
-		return;
-
-	HandleMap::iterator it = mHandleMap.find(texhandle);
-	if (it != mHandleMap.end())
-	{
-		const Texture* texture = it->second;
-		if (texture != NULL)
-		{
-			Z_Free((void*)texture);
-			if (texhandle & CUSTOM_HANDLE_MASK)
-				freeCustomHandle(texhandle);
-		}
-		
-		mHandleMap.erase(it);
-	}
 }
 
 //
@@ -867,21 +847,51 @@ void TextureManager::freeCustomHandle(texhandle_t texhandle)
 //
 // TextureManager::createTexture
 //
-// Allocates memory for a new texture and returns a pointer to it.
+// Allocates memory for a new texture and returns a pointer to it. The texture
+// is inserted into mHandlesMap for future retrieval.
 //
-Texture* TextureManager::createTexture(texhandle_t handle, int width, int height)
+Texture* TextureManager::createTexture(texhandle_t texhandle, int width, int height)
 {
 	width = std::min<int>(width, Texture::MAX_TEXTURE_WIDTH);
 	height = std::min<int>(height, Texture::MAX_TEXTURE_HEIGHT);
 
-	Texture** owner = &mHandleMap[handle];
 	// server shouldn't allocate memory for texture data, only the header	
 	size_t texture_size = clientside ?
 			Texture::calculateSize(width, height) : sizeof(Texture);
 	
-	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_CACHE, (void**)owner);
+	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_STATIC, NULL);
 	texture->init(width, height);
+
+	mHandleMap.insert(HandleMapPair(texhandle, texture));
+
 	return texture;
+}
+
+//
+// TextureManager::freeTexture
+//
+// Frees the memory used by the specified texture and removes it
+// from mHandlesMap.
+//
+void TextureManager::freeTexture(texhandle_t texhandle)
+{
+	if (texhandle == TextureManager::NOT_FOUND_TEXTURE_HANDLE ||
+		texhandle == TextureManager::NO_TEXTURE_HANDLE)
+		return;
+
+	HandleMap::iterator it = mHandleMap.find(texhandle);
+	if (it != mHandleMap.end())
+	{
+		const Texture* texture = it->second;
+		if (texture != NULL)
+		{
+			Z_Free((void*)texture);
+			if (texhandle & CUSTOM_HANDLE_MASK)
+				freeCustomHandle(texhandle);
+		}
+		
+		mHandleMap.erase(it);
+	}
 }
 
 

@@ -1154,17 +1154,17 @@ static void M_SlideUIBlue (int val)
 
 void M_OptInit (void)
 {
-	int currval = 0, dummy1, dummy2, i;
-	char name[24];
+	int currval = 0, dummy1, dummy2;
 
-	I_StartModeIterator ();
-		if (I_NextMode (&dummy1, &dummy2))
-		{
-			Depths[currval].value = currval;
-			delete[] Depths[currval].name;
-			Depths[currval].name = copystring (name);
-			currval++;
-		}
+	I_StartModeIterator();
+
+	if (I_NextMode(&dummy1, &dummy2))
+	{
+		Depths[currval].value = currval;
+		delete [] Depths[currval].name;
+		Depths[currval].name = NULL;
+		currval++;
+	}
 
 	switch (I_DisplayType ())
 	{

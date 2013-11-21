@@ -220,7 +220,7 @@ void C_ShutdownConsoleBackground()
 //
 // C_InitConsole
 //
-void C_InitConsole(int width, int height, bool ingame)
+void STACK_ARGS C_InitConsole(int width, int height, bool ingame)
 {
 	int row;
 	byte *zap;

@@ -40,6 +40,8 @@ class TextureManager;
 void R_InitTextureManager();
 void R_ShutdownTextureManager();
 
+const Texture* R_LoadTexture(const char* name);
+
 void R_CopySubimage(Texture* dest_texture, const Texture* source_texture,
 	int dx1, int dy1, int dx2, int dy2,
 	int sx1, int sy1, int sx2, int sy2);
@@ -239,6 +241,7 @@ private:
 
 	// maps texture handles to Texture*
 	typedef OHashTable<texhandle_t, Texture*> HandleMap;
+	typedef std::pair<texhandle_t, Texture*> HandleMapPair;
 	HandleMap					mHandleMap;
 
 	// lookup table to translate flatnum to mTextures index

@@ -651,9 +651,7 @@ void M_ReadSaveStrings(void)
 //
 void M_DrawLoad (void)
 {
-	texhandle_t load_texhandle = texturemanager.getHandle("M_LOADG", Texture::TEX_PATCH);
-	const Texture* load_texture = texturemanager.getTexture(load_texhandle);
-	screen->DrawTextureClean(load_texture, 72, 28);
+	screen->DrawTextureClean(R_LoadTexture("M_LOADG"), 72, 28);
 
 	for (int i = 0; i < load_end; i++)
 	{
@@ -705,9 +703,7 @@ void M_LoadGame (int choice)
 //
 void M_DrawSave(void)
 {
-	texhandle_t load_texhandle = texturemanager.getHandle("M_SAVEG", Texture::TEX_PATCH);
-	const Texture* load_texture = texturemanager.getTexture(load_texhandle);
-	screen->DrawTextureClean(load_texture, 72, 28);
+	screen->DrawTextureClean(R_LoadTexture("M_SAVEG"), 72, 28);
 
 	for (int i = 0; i < load_end; i++)
 	{
@@ -927,12 +923,9 @@ void M_FinishReadThis(int choice)
 //
 void M_DrawSaveLoadBorder (int x, int y, int len)
 {
-	texhandle_t left_texhandle = texturemanager.getHandle("M_LSLEFT", Texture::TEX_PATCH);
-	const Texture* left_texture = texturemanager.getTexture(left_texhandle);
-	texhandle_t center_texhandle = texturemanager.getHandle("M_LSCNTR", Texture::TEX_PATCH);
-	const Texture* center_texture = texturemanager.getTexture(center_texhandle);
-	texhandle_t right_texhandle = texturemanager.getHandle("M_LSRGHT", Texture::TEX_PATCH);
-	const Texture* right_texture = texturemanager.getTexture(right_texhandle);
+	const Texture* left_texture = R_LoadTexture("M_LSLEFT");
+	const Texture* center_texture = R_LoadTexture("M_LSCNTR");
+	const Texture* right_texture = R_LoadTexture("M_LSRGHT");
 
 	screen->DrawTextureClean(left_texture, x - 8, y + 7);
 
@@ -950,20 +943,13 @@ void M_DrawSaveLoadBorder (int x, int y, int len)
 //
 void M_DrawMainMenu (void)
 {
-	texhandle_t texhandle = texturemanager.getHandle("M_DOOM", Texture::TEX_PATCH);
-	const Texture* texture = texturemanager.getTexture(texhandle);
-	screen->DrawTextureClean(texture, 94, 2);
+	screen->DrawTextureClean(R_LoadTexture("M_DOOM"), 94, 2);
 }
 
 void M_DrawNewGame(void)
 {
-	texhandle_t new_texhandle = texturemanager.getHandle("M_NEWG", Texture::TEX_PATCH);
-	const Texture* new_texture = texturemanager.getTexture(new_texhandle);
-	texhandle_t skill_texhandle = texturemanager.getHandle("M_SKILL", Texture::TEX_PATCH);
-	const Texture* skill_texture = texturemanager.getTexture(skill_texhandle);
-
-	screen->DrawTextureClean(new_texture, 96, 14);
-	screen->DrawTextureClean(skill_texture, 54, 38);
+	screen->DrawTextureClean(R_LoadTexture("M_NEWG"), 96, 14);
+	screen->DrawTextureClean(R_LoadTexture("M_SKILL"), 54, 38);
 }
 
 void M_NewGame(int choice)
@@ -999,9 +985,7 @@ int 	epi;
 
 void M_DrawEpisode(void)
 {
-	texhandle_t texhandle = texturemanager.getHandle("M_EPISOD", Texture::TEX_PATCH);
-	const Texture* texture = texturemanager.getTexture(texhandle);
-	screen->DrawTextureClean(texture, 54, 38);
+	screen->DrawTextureClean(R_LoadTexture("M_EIPSOD"), 54, 38);
 }
 
 void M_VerifyNightmare(int ch)
@@ -1128,9 +1112,7 @@ void M_DrawReadThis3(void)
 //
 void M_DrawOptions(void)
 {
-	texhandle_t texhandle = texturemanager.getHandle("M_OPTTT", Texture::TEX_PATCH);
-	const Texture* texture = texturemanager.getTexture(texhandle);
-	screen->DrawTextureClean(texture, 108, 15);
+	screen->DrawTextureClean(R_LoadTexture("M_OPTTT"), 108, 15);
 }
 
 void M_Options(int choice)
@@ -1316,9 +1298,7 @@ static void M_PlayerSetupDrawer (void)
 
 	// Draw title
 	{
-		texhandle_t texhandle = texturemanager.getHandle("M_PSTTL", Texture::TEX_PATCH);
-		const Texture* texture = texturemanager.getTexture(texhandle);
-
+		const Texture* texture = R_LoadTexture("M_PSTTL");
 		int x = 160 - texture->getWidth() / 2;
 		int y = 10;
 		screen->DrawTextureClean(texture, x, y);
@@ -1454,16 +1434,13 @@ static void M_PlayerSetupDrawer (void)
 		V_ColorMap = translationref_t(translationtables, 0);
 		//V_ColorMap = translationtables + consoleplayer().id * 256;
 
-
-		texhandle_t skin_texhandle = texturemanager.getHandle(sprframe->lump[0], Texture::TEX_PATCH);
+		texhandle_t skin_texhandle = texturemanager.getHandle(sprframe->lump[0], Texture::TEX_SPRITE);
 		const Texture* skin_texture = texturemanager.getTexture(skin_texhandle);
 		screen->DrawTranslatedTextureClean(skin_texture, 320 - 52 - 32, PSetupDef.y + LINEHEIGHT*3 + 46);
 	}
 
 	// Draw box surrounding fire and player:
-	texhandle_t box_texhandle = texturemanager.getHandle("M_PBOX", Texture::TEX_PATCH);
-	const Texture* box_texture = texturemanager.getTexture(box_texhandle);
-	screen->DrawTextureClean(box_texture, 320 - 88 - 32 + 36, PSetupDef.y + LINEHEIGHT*3 + 22);
+	screen->DrawTextureClean(R_LoadTexture("M_PBOX"), 320 - 88 - 32 + 36, PSetupDef.y + LINEHEIGHT*3 + 22);
 
 	// Draw player color sliders
 	//V_DrawTextCleanMove (CR_GREY, PSetupDef.x, PSetupDef.y + LINEHEIGHT, "Color");
@@ -1746,16 +1723,12 @@ static void M_SlidePlayerBlue (int choice)
 //
 void M_DrawEmptyCell (oldmenu_t *menu, int item)
 {
-	texhandle_t texhandle = texturemanager.getHandle("M_CELL1", Texture::TEX_PATCH);
-	const Texture* texture = texturemanager.getTexture(texhandle);
-	screen->DrawTextureClean(texture, menu->x - 10, menu->y+item*LINEHEIGHT - 1);
+	screen->DrawTextureClean(R_LoadTexture("M_CELL1"), menu->x - 10, menu->y+item*LINEHEIGHT - 1);
 }
 
 void M_DrawSelCell (oldmenu_t *menu, int item)
 {
-	texhandle_t texhandle = texturemanager.getHandle("M_CELL2", Texture::TEX_PATCH);
-	const Texture* texture = texturemanager.getTexture(texhandle);
-	screen->DrawTextureClean(texture, menu->x - 10, menu->y+item*LINEHEIGHT - 1);
+	screen->DrawTextureClean(R_LoadTexture("M_CELL2"), menu->x - 10, menu->y+item*LINEHEIGHT - 1);
 }
 
 
@@ -2143,9 +2116,7 @@ void M_Drawer (void)
 			{
 				if (currentMenu->menuitems[i].name[0])
 				{
-					texhandle_t item_texhandle =
-							texturemanager.getHandle(currentMenu->menuitems[i].name, Texture::TEX_PATCH);
-					const Texture* item_texture = texturemanager.getTexture(item_texhandle);
+					const Texture* item_texture = R_LoadTexture(currentMenu->menuitems[i].name);
 					screen->DrawTextureClean(item_texture, x, y);
 				}
 				y += LINEHEIGHT;
@@ -2155,10 +2126,7 @@ void M_Drawer (void)
 			// DRAW SKULL
 			if (drawSkull)
 			{
-				texhandle_t skull_texhandle =
-						texturemanager.getHandle(skullName[whichSkull], Texture::TEX_PATCH);
-				const Texture* skull_texture = texturemanager.getTexture(skull_texhandle);
-				screen->DrawTextureClean(skull_texture,
+				screen->DrawTextureClean(R_LoadTexture(skullName[whichSkull]),
 						x + SKULLXOFF, currentMenu->y - 5 + itemOn*LINEHEIGHT);
 			}
 		}

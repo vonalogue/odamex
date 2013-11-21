@@ -689,7 +689,7 @@ void D_Init()
 // Called to shutdown subsystems when unloading a set of WAD resource files.
 // Should be called prior to D_Init when loading a new set of WADs.
 //
-void D_Shutdown()
+void STACK_ARGS D_Shutdown()
 {
 	ST_Shutdown();
 

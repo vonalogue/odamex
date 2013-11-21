@@ -1251,8 +1251,8 @@ public:
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
-		argb_t work = dest[fuzzoffset[fuzzpos] >> 2];
-		*dest = work - ((work >> 2) & 0x3f3f3f);
+		argb_t work = dest[fuzzoffset[fuzzpos]];
+		*dest = work - (work & 0x3f3f3f);
 		fuzzpos = (fuzzpos + 1) & (FUZZTABLE - 1);
 	}
 };
