@@ -118,34 +118,33 @@ void (*r_dimpatchD)(const DCanvas *const cvs, argb_t color, int alpha, int x1, i
 //
 // ============================================================================
 
-#define FUZZTABLE	64		// [RH] FUZZTABLE changed from 50 to 64
-#define FUZZOFF		(screen->pitch)
+static const unsigned int FUZZTABLESIZE = 64;	// [RH] FUZZTABLE changed from 50 to 64
+static unsigned int fuzzpos;
 
-static int fuzzoffset[FUZZTABLE];
-static int fuzzpos = 0;
+static int fuzzoffset[FUZZTABLESIZE];
 
-static const signed char fuzzinit[FUZZTABLE] = {
-	1,-1, 1,-1, 1, 1,-1, 1,
-	1,-1, 1, 1, 1,-1, 1, 1,
-	1,-1,-1,-1,-1, 1,-1,-1,
-	1, 1, 1, 1,-1, 1,-1, 1,
-	1,-1,-1, 1, 1,-1,-1,-1,
-   -1, 1, 1, 1, 1,-1, 1, 1,
-   -1, 1, 1, 1,-1, 1, 1, 1,
-   -1, 1, 1,-1, 1, 1,-1, 1
-};
-
-void R_InitFuzzTable (void)
+void R_InitFuzzTable()
 {
-	int i;
-	int fuzzoff;
+	static const signed char fuzzinit[FUZZTABLESIZE] = {
+		1,-1, 1,-1, 1, 1,-1, 1,
+		1,-1, 1, 1, 1,-1, 1, 1,
+		1,-1,-1,-1,-1, 1,-1,-1,
+		1, 1, 1, 1,-1, 1,-1, 1,
+		1,-1,-1, 1, 1,-1,-1,-1,
+	   -1, 1, 1, 1, 1,-1, 1, 1,
+	   -1, 1, 1, 1,-1, 1, 1, 1,
+	   -1, 1, 1,-1, 1, 1,-1, 1
+	};
 
-	screen->Lock ();
-	fuzzoff = FUZZOFF << detailyshift;
-	screen->Unlock ();
+	screen->Lock();
+	int bytesperpixel = screen->is8bit() ? 1 : 4;
+	int offset = (screen->pitch << detailyshift) / bytesperpixel;
+	screen->Unlock();
 
-	for (i = 0; i < FUZZTABLE; i++)
-		fuzzoffset[i] = fuzzinit[i] * fuzzoff;
+	for (unsigned int i = 0; i < FUZZTABLESIZE; i++)
+		fuzzoffset[i] = fuzzinit[i] * offset;
+
+	fuzzpos = 0;
 }
 
 
@@ -498,15 +497,8 @@ static forceinline void R_FillMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 	COLORFUNC colorfunc(drawcolumn);
 
 	do {
-		PIXEL_T tempdest = *dest;
-		colorfunc(color, &tempdest);
-
-		// [SL] negating an unsigned number is a quick way to expand 0x01 to 0xFF
-		PIXEL_T sourcemask = -mask[frac >> FRACBITS];
-		PIXEL_T destmask = ~sourcemask;
-		// [SL] perform masking without branching
-		*dest = (*dest & destmask) | (tempdest & sourcemask);
-
+		if (mask[frac >> FRACBITS])
+			colorfunc(color, dest);
 		dest += pitch; frac += fracstep;
 	} while (--count);
 }
@@ -615,15 +607,8 @@ static forceinline void R_DrawMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 	COLORFUNC colorfunc(drawcolumn);
 
 	do {
-		PIXEL_T tempdest = *dest;
-		colorfunc(source[frac >> FRACBITS], &tempdest);
-
-		// [SL] negating an unsigned number is a quick way to expand 0x01 to 0xFF
-		PIXEL_T sourcemask = -mask[frac >> FRACBITS];
-		PIXEL_T destmask = ~sourcemask;
-		// [SL] perform masking without branching
-		*dest = (*dest & destmask) | (tempdest & sourcemask);
-
+		if (mask[frac >> FRACBITS])
+			colorfunc(source[frac >> FRACBITS], dest);
 		dest += pitch; frac += fracstep;
 	} while (--count);
 }
@@ -902,8 +887,9 @@ public:
 
 	forceinline void operator()(byte c, palindex_t* dest) const
 	{
-		*dest = colormap.index(dest[fuzzoffset[fuzzpos]]);
-		fuzzpos = (fuzzpos + 1) & (FUZZTABLE - 1);
+		palindex_t source = *(dest + fuzzoffset[fuzzpos]);
+		*dest = colormap.index(source);
+		fuzzpos = (fuzzpos + 1) & (FUZZTABLESIZE - 1);
 	}
 
 private:
@@ -1251,9 +1237,9 @@ public:
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
-		argb_t work = dest[fuzzoffset[fuzzpos]];
-		*dest = work - (work & 0x3f3f3f);
-		fuzzpos = (fuzzpos + 1) & (FUZZTABLE - 1);
+		argb_t pixel = *(dest + fuzzoffset[fuzzpos]);
+		*dest = pixel - ((pixel >> 2) & 0x003F3F3F);
+		fuzzpos = (fuzzpos + 1) & (FUZZTABLESIZE - 1);
 	}
 };
 
