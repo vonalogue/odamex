@@ -473,14 +473,13 @@ struct drawseg_s
 	int				x1;
 	int				x2;
 
-	fixed_t			scale1;
+	fixed_t			uinvz1;			// u / z for texture mapping
+	fixed_t			uinvz2;
+	fixed_t			uinvzstep;
+
+	fixed_t			scale1;			// FocalLengthY / z
 	fixed_t			scale2;
 	fixed_t			scalestep;
-
-	fixed_t			length;
-	fixed_t			lengthstep;
-
-	fixed_t			textureoffset;
 
 	fixed_t			light;
 	fixed_t			lightstep;

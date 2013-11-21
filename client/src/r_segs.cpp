@@ -94,17 +94,18 @@ static drawseg_t rw;
 // as it will yield evenly spaced texels instead of correct perspective (taking depth Z into account).
 // We also can not linearly interpolate Z, but we can linearly interpolate 1/Z (scale), so we linearly
 // interpolate the texture coordinates u / Z and then divide by 1/Z to get the correct u for each column.
-
 //
 class SegTextureMapper
 {
 public:
-	SegTextureMapper(const drawseg_t* ds, const Texture* texture) :
-		mScale(ds->scale1), mUInvZ(0), mOffset(ds->textureoffset)
+	SegTextureMapper(const drawseg_t* ds, const Texture* texture)
 	{
-		const int width = ds->x2 - ds->x1 + 1;
-		mScaleStep = (ds->scale2 - ds->scale1) / width;
-		mUInvZStep = (int64_t(ds->length) * int64_t(ds->scale2) / width) >> FRACBITS;
+		mScale = ds->scale1;
+		mScaleStep = ds->scalestep;
+
+		mUInvZ = ds->uinvz1;
+		mUInvZStep = ds->uinvzstep;
+
 		mIScale = invert(mScale);
 
 		mHeight = texture->getHeight();
@@ -119,12 +120,13 @@ public:
 		mUInvZ += mUInvZStep;
 		mScale += mScaleStep;
 		mIScale = invert(mScale);
+		mU = FixedMul(FixedMul(mUInvZ, mIScale), FocalLengthY);
 	}
 
 	inline const byte* getData() const
 	{
 		// TODO: take texture x-scaling into account
-		return mData + mHeight * (((mOffset + FixedMul(mUInvZ, mIScale)) >> FRACBITS) & mWidthMask);
+		return mData + mHeight * ((mU >> FRACBITS) & mWidthMask);
 	}
 
 	inline fixed_t getIScale() const
@@ -144,7 +146,8 @@ private:
 	fixed_t			mIScale;
 	fixed_t			mUInvZ;
 	fixed_t			mUInvZStep;
-	fixed_t			mOffset;
+
+	fixed_t			mU;
 
 	unsigned int	mHeight;
 	unsigned int	mWidthMask;
@@ -504,9 +507,12 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 	rw.scale1 = FLOAT2FIXED(scale1);
 	rw.scale2 = FLOAT2FIXED(scale2);
 	rw.scalestep = (rw.scale2 - rw.scale1) / width;
-	rw.length = R_LineLength(px1, py1, px2, py2);
-	rw.lengthstep = rw.length / width;
-	rw.textureoffset = R_LineLength(v1->x, v1->y, px1, py1) + rw.curline->sidedef->textureoffset;
+
+	fixed_t length = R_LineLength(px1, py1, px2, py2);
+	fixed_t textureoffset = R_LineLength(v1->x, v1->y, px1, py1) + rw.curline->sidedef->textureoffset;
+	rw.uinvz1 = FixedDiv(textureoffset, dist1);
+	rw.uinvz2 = FixedDiv(textureoffset + length, dist2);
+	rw.uinvzstep = (rw.uinvz2 - rw.uinvz1) / width;
 
 	// get the z coordinates of the line's vertices on each side of the line
 	rw_frontcz1 = P_CeilingHeight(px1, py1, frontsector);
@@ -565,8 +571,8 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 		I_FatalError ("Bad R_StoreWallRange: %i to %i", start , stop);
 #endif
 
-	int count = stop - start + 1;
-	if (count <= 0)
+	int width = stop - start + 1;
+	if (width <= 0)
 		return;
 
 	sidedef = rw.curline->sidedef;
@@ -580,17 +586,19 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 	ds->x1 = start;
 	ds->x2 = stop;
 
-	// calculate scale at both ends and step
-	ds->scale1 = rw.scale1 + (ds->x1 - rw.x1) * rw.scalestep;
-	ds->scale2 = rw.scale1 + (ds->x2 - rw.x1) * rw.scalestep;
-	ds->scalestep = rw.scalestep;
+	int clipx1 = ds->x1 - rw.x1;
+	int clipx2 = rw.x2 - ds->x2;
+	
+	ds->scale1 = rw.scale1 + clipx1 * rw.scalestep;
+	ds->scale2 = rw.scale2 - clipx2 * rw.scalestep;
+	ds->scalestep = (ds->scale2 - ds->scale1) / width;
 
 	ds->light = ds->scale1 * lightscalexmul;
  	ds->lightstep = ds->scalestep * lightscalexmul;
 
-	ds->length = count * rw.lengthstep;
-	ds->lengthstep = rw.lengthstep;
-	ds->textureoffset = rw.textureoffset + (start - rw.x1) * rw.lengthstep;
+	ds->uinvz1 = rw.uinvz1 + clipx1 * rw.uinvzstep;
+	ds->uinvz2 = rw.uinvz2 - clipx2 * rw.uinvzstep;
+	ds->uinvzstep = (ds->uinvz2 - ds->uinvz1) / width; 
 
 	// calculate texture boundaries
 	//	and decide if floor / ceiling marks are needed
@@ -821,20 +829,20 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
     // save sprite & masked seg clipping info
 	if ((ds->silhouette & SIL_TOP) && ds->sprtopclip == NULL)
 	{
-		ds->sprtopclip = openings.alloc<int>(count) - start;
-		memcpy(ds->sprtopclip + start, ceilingclip + start, count * sizeof(*ds->sprtopclip));
+		ds->sprtopclip = openings.alloc<int>(width) - start;
+		memcpy(ds->sprtopclip + start, ceilingclip + start, width * sizeof(*ds->sprtopclip));
 	}
 
 	if ((ds->silhouette & SIL_BOTTOM) && ds->sprbottomclip == NULL)
 	{
-		ds->sprbottomclip = openings.alloc<int>(count) - start;
-		memcpy(ds->sprbottomclip + start, floorclip + start, count * sizeof(*ds->sprbottomclip));
+		ds->sprbottomclip = openings.alloc<int>(width) - start;
+		memcpy(ds->sprbottomclip + start, floorclip + start, width * sizeof(*ds->sprbottomclip));
 	}
 
 	if (maskedmidtexture)
 	{
-		ds->maskedcoldrawn = openings.alloc<byte>(count) - start;
-		memset(ds->maskedcoldrawn + start, 0, count * sizeof(*ds->maskedcoldrawn));
+		ds->maskedcoldrawn = openings.alloc<byte>(width) - start;
+		memset(ds->maskedcoldrawn + start, 0, width * sizeof(*ds->maskedcoldrawn));
 	}
 }
 
