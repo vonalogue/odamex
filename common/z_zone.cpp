@@ -71,8 +71,8 @@ void Z_Init (void)
 	memblock_t *block;
 
 	// denis - allow reinitiation of entire memory system
-	if(!mainzone)
-		mainzone = (memzone_t *)I_ZoneBase (&zonesize);
+	if (!mainzone)
+		mainzone = (memzone_t *)I_ZoneBase(&zonesize);
 
 	// set the entire zone to one free block
 	mainzone->size = zonesize;
@@ -90,16 +90,6 @@ void Z_Init (void)
 	block->user = NULL;
 	
 	block->size = mainzone->size - sizeof(memzone_t);
-
-	// denis - allow multiple memory inits with only a single atterm
-	{
-		static bool once = false;
-		
-		if(!once)
-			atterm (Z_Close);
-		 
-		once = true;
-	}
 }
 
 
