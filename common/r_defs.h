@@ -477,6 +477,10 @@ struct drawseg_s
 	fixed_t			uinvz2;
 	fixed_t			uinvzstep;
 
+	fixed_t			invz1;			// 1 / z
+	fixed_t			invz2;
+	fixed_t			invzstep;
+
 	fixed_t			scale1;			// FocalLengthY / z
 	fixed_t			scale2;
 	fixed_t			scalestep;

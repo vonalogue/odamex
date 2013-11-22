@@ -74,7 +74,7 @@ inline fixed_t INT2FIXED(int x)
 
 
 //
-// Fixed Point Multiplication for 16.16 precision
+// Fixed-point multiplication for 16.16 precision
 //
 inline static fixed_t FixedMul(fixed_t a, fixed_t b)
 {
@@ -82,12 +82,53 @@ inline static fixed_t FixedMul(fixed_t a, fixed_t b)
 }
 
 //
-// Fixed Point Division for 16.16 precision
+// Fixed-point division for 16.16 precision
 //
 inline static fixed_t FixedDiv(fixed_t a, fixed_t b)
 {
 	return (abs(a) >> 14) >= abs(b) ? ((a ^ b) >> 31) ^ MAXINT :
 		(fixed_t)(((int64_t)a << FRACBITS) / b);
+}
+
+//
+// Fixed-point inversion for 16.16 precision
+//
+inline static fixed_t FixedInvert(fixed_t a)
+{
+	return (fixed_t)(0xFFFFFFFFu / uint32_t(a));
+}
+
+
+//
+// Arbitrary fixed-point multiplication
+//
+// The bits_a and bits_b parameters indicate how many bits of precision
+// for the fractional part of a and b respectively. The bits_res parameter
+// indicates how many fractional bits of precision for the result.
+//
+static inline int32_t FixedMul(int32_t a, int bits_a, int32_t b, int bits_b, int bits_res)
+{
+	int shift = bits_res - bits_a - bits_b;
+	if (shift >= 0)
+		return (int32_t)((int64_t(a) * b) << shift);
+	else
+		return (int32_t)((int64_t(a) * b) >> -shift);
+}
+
+//
+// Arbitrary fixed-point division
+//
+// The bits_a and bits_b parameters indicate how many bits of precision
+// for the fractional part of a and b respectively. The bits_res parameter
+// indicates how many fractional bits of precision for the result.
+//
+static inline int32_t FixedDiv(int32_t a, int bits_a, int32_t b, int bits_b, int bits_res)
+{
+	int shift = bits_res - bits_a + bits_b;
+	if (shift >= 0)
+		return (int32_t)((int64_t(a) << shift) / b);
+	else 
+		return (int32_t)((int64_t(a) >> -shift) / b);
 }
 
 //
@@ -285,6 +326,40 @@ static inline int32_t FixedDiv31(int32_t a, int32_t b)
 
 static inline int32_t FixedDiv32(int32_t a, int32_t b)
 {	return (int32_t)(((int64_t)a << 32) / b);	}
+
+
+#define FRACUNIT1	(1 << 1)
+#define FRACUNIT2	(1 << 2)
+#define FRACUNIT3	(1 << 3)
+#define FRACUNIT4	(1 << 4)
+#define FRACUNIT5	(1 << 5)
+#define FRACUNIT6	(1 << 6)
+#define FRACUNIT7	(1 << 7)
+#define FRACUNIT8	(1 << 8)
+#define FRACUNIT9	(1 << 9)
+#define FRACUNIT10	(1 << 10)
+#define FRACUNIT11	(1 << 11)
+#define FRACUNIT12	(1 << 12)
+#define FRACUNIT13	(1 << 13)
+#define FRACUNIT14	(1 << 14)
+#define FRACUNIT15	(1 << 15)
+#define FRACUNIT16	(1 << 16)
+#define FRACUNIT17	(1 << 17)
+#define FRACUNIT18	(1 << 18)
+#define FRACUNIT19	(1 << 19)
+#define FRACUNIT20	(1 << 20)
+#define FRACUNIT21	(1 << 21)
+#define FRACUNIT22	(1 << 22)
+#define FRACUNIT23	(1 << 23)
+#define FRACUNIT24	(1 << 24)
+#define FRACUNIT25	(1 << 25)
+#define FRACUNIT26	(1 << 26)
+#define FRACUNIT27	(1 << 27)
+#define FRACUNIT28	(1 << 28)
+#define FRACUNIT29	(1 << 29)
+#define FRACUNIT30	(1 << 30)
+#define FRACUNIT31	(1 << 31)
+#define FRACUNIT32	(1 << 32)
 
 #endif	// __M_FIXED_H__
 

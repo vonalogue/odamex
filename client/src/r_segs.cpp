@@ -102,25 +102,29 @@ public:
 	{
 		mScale = ds->scale1;
 		mScaleStep = ds->scalestep;
+		mIScale = FixedInvert(mScale);
+
+		mInvZ = ds->invz1;
+		mInvZStep = ds->invzstep;
 
 		mUInvZ = ds->uinvz1;
 		mUInvZStep = ds->uinvzstep;
-
-		mIScale = invert(mScale);
+		mU = FixedDiv(mUInvZ, 16, mInvZ, 26, 16);	
 
 		mHeight = texture->getHeight();
 		mData = texture->getData();
 
-		// calculate mask to tile texture horizontally
 		mWidthMask = texture->getWidth() - 1; 
 	}
 
 	inline void next()
 	{
+		mInvZ += mInvZStep;
 		mUInvZ += mUInvZStep;
+		mU = FixedDiv(mUInvZ, 16, mInvZ, 26, 16);	
+
 		mScale += mScaleStep;
-		mIScale = invert(mScale);
-		mU = FixedMul(FixedMul(mUInvZ, mIScale), FocalLengthY);
+		mIScale = FixedInvert(mScale);
 	}
 
 	inline const byte* getData() const
@@ -136,18 +140,15 @@ public:
 	}
 
 private:
-	inline fixed_t invert(fixed_t val) const
-	{
-		return 0xffffffffu / unsigned(val);
-	}
-
 	fixed_t			mScale;
 	fixed_t			mScaleStep;
-	fixed_t			mIScale;
+	fixed_t			mInvZ;
+	fixed_t			mInvZStep;
 	fixed_t			mUInvZ;
 	fixed_t			mUInvZStep;
 
 	fixed_t			mU;
+	fixed_t			mIScale;
 
 	unsigned int	mHeight;
 	unsigned int	mWidthMask;
@@ -504,9 +505,16 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 	rw.curline = curline;
 	rw.x1 = start;
 	rw.x2 = stop;
+
 	rw.scale1 = FLOAT2FIXED(scale1);
 	rw.scale2 = FLOAT2FIXED(scale2);
 	rw.scalestep = (rw.scale2 - rw.scale1) / width;
+
+	// use 6.26 fixed-point format for 1 / z
+	rw.invz1 = FixedDiv(FRACUNIT26, 26, dist1, 16, 26);
+	rw.invz2 = FixedDiv(FRACUNIT26, 26, dist2, 16, 26);
+
+	rw.invzstep = (rw.invz2 - rw.invz1) / width;
 
 	fixed_t length = R_LineLength(px1, py1, px2, py2);
 	fixed_t textureoffset = R_LineLength(v1->x, v1->y, px1, py1) + rw.curline->sidedef->textureoffset;
@@ -595,6 +603,10 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 
 	ds->light = ds->scale1 * lightscalexmul;
  	ds->lightstep = ds->scalestep * lightscalexmul;
+
+	ds->invz1 = rw.invz1 + clipx1 * rw.invzstep;
+	ds->invz2 = rw.invz2 - clipx2 * rw.invzstep;
+	ds->invzstep = (ds->invz2 - ds->invz1) / width; 
 
 	ds->uinvz1 = rw.uinvz1 + clipx1 * rw.uinvzstep;
 	ds->uinvz2 = rw.uinvz2 - clipx2 * rw.uinvzstep;
