@@ -98,33 +98,24 @@ static drawseg_t rw;
 class SegTextureMapper
 {
 public:
-	SegTextureMapper(const drawseg_t* ds, const Texture* texture)
+	SegTextureMapper(const drawseg_t* ds, const Texture* texture) :
+		mInvZ(ds->invz1), mInvZStep(ds->invzstep), mUInvZ(ds->uinvz1), mUInvZStep(ds->uinvzstep)
 	{
-		mScale = ds->scale1;
-		mScaleStep = ds->scalestep;
-		mIScale = FixedInvert(mScale);
-
-		mInvZ = ds->invz1;
-		mInvZStep = ds->invzstep;
-
-		mUInvZ = ds->uinvz1;
-		mUInvZStep = ds->uinvzstep;
-		mU = FixedDiv(mUInvZ, 16, mInvZ, 26, 16);	
+		// use 6.26 fixed-point format for mInvFocY
+		mInvFocY = FixedDiv(1, 0, FocalLengthY, 16, 26);
 
 		mHeight = texture->getHeight();
+		mWidthMask = texture->getWidth() - 1; 
 		mData = texture->getData();
 
-		mWidthMask = texture->getWidth() - 1; 
+		calc();
 	}
 
 	inline void next()
 	{
 		mInvZ += mInvZStep;
 		mUInvZ += mUInvZStep;
-		mU = FixedDiv(mUInvZ, 16, mInvZ, 26, 16);	
-
-		mScale += mScaleStep;
-		mIScale = FixedInvert(mScale);
+		calc();
 	}
 
 	inline const byte* getData() const
@@ -140,12 +131,21 @@ public:
 	}
 
 private:
-	fixed_t			mScale;
-	fixed_t			mScaleStep;
-	fixed_t			mInvZ;
-	fixed_t			mInvZStep;
+	inline void calc()
+	{
+		// use 16.16 fixed-point format for z
+		int32_t z = FixedDiv(1, 0, mInvZ, 26, 16);
+
+		mU = FixedMul(mUInvZ, z);
+		mIScale = FixedMul(z, 16, mInvFocY, 26, 16);
+	}
+
+	int32_t			mInvZ;
+	int32_t			mInvZStep;
 	fixed_t			mUInvZ;
 	fixed_t			mUInvZStep;
+
+	int32_t			mInvFocY;
 
 	fixed_t			mU;
 	fixed_t			mIScale;
@@ -511,8 +511,8 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 	rw.scalestep = (rw.scale2 - rw.scale1) / width;
 
 	// use 6.26 fixed-point format for 1 / z
-	rw.invz1 = FixedDiv(FRACUNIT26, 26, dist1, 16, 26);
-	rw.invz2 = FixedDiv(FRACUNIT26, 26, dist2, 16, 26);
+	rw.invz1 = FixedDiv(1, 0, dist1, 16, 26);
+	rw.invz2 = FixedDiv(1, 0, dist2, 16, 26);
 
 	rw.invzstep = (rw.invz2 - rw.invz1) / width;
 
