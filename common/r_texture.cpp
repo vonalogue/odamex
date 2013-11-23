@@ -52,23 +52,24 @@ void R_ShutdownTextureManager()
 //
 // R_DrawPatchIntoTexture
 //
-// Draws a patch_t into a Texture at the given offset.
+// Draws a lump in patch_t format into a Texture at the given offset.
 //
-void R_DrawPatchIntoTexture(Texture* texture, const patch_t* patch, int xoffs, int yoffs)
+static void R_DrawPatchIntoTexture(Texture* texture, const byte* lumpdata, int xoffs, int yoffs)
 {
 	int texwidth = texture->getWidth();
 	int texheight = texture->getHeight();
+	int patchwidth = LESHORT(*(short*)(lumpdata + 0));
 
-	const int* colofs = (int*)((byte*)patch + 8);
+	const int* colofs = (int*)(lumpdata + 8);
 
 	int x1 = MAX(xoffs, 0);
-	int x2 = MIN(xoffs + patch->width() - 1, texwidth - 1);
+	int x2 = MIN(xoffs + patchwidth - 1, texwidth - 1);
 
 	for (int x = x1; x <= x2; x++)
 	{
 		int abstopdelta = 0;
 
-		post_t* post = (post_t*)((byte*)patch + colofs[x - xoffs]);
+		post_t* post = (post_t*)(lumpdata + colofs[x - xoffs]);
 		while (post->topdelta != 0xFF)
 		{
 			// handle DeePsea tall patches where topdelta is treated as a relative
@@ -589,10 +590,10 @@ void TextureManager::readAnimatedLump()
 	if (lumplen == 0)
 		return;
 
-	byte* rawlumpdata = new byte[lumplen];
-	W_ReadLump(lumpnum, rawlumpdata);
+	byte* lumpdata = new byte[lumplen];
+	W_ReadLump(lumpnum, lumpdata);
 
-	for (byte* ptr = rawlumpdata; *ptr != 255; ptr += 23)
+	for (byte* ptr = lumpdata; *ptr != 255; ptr += 23)
 	{
 		anim_t anim;
 
@@ -632,7 +633,7 @@ void TextureManager::readAnimatedLump()
 		mAnimDefs.push_back(anim);
 	}
 
-	delete [] rawlumpdata;
+	delete [] lumpdata;
 }
 
 
@@ -772,18 +773,18 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 	if (lumplen == 0)
 		return;
 
-	byte* rawlumpdata = new byte[lumplen];
-	W_ReadLump(lumpnum, rawlumpdata);
+	byte* lumpdata = new byte[lumplen];
+	W_ReadLump(lumpnum, lumpdata);
 
-	int* texoffs = (int*)(rawlumpdata + 4);
+	int* texoffs = (int*)(lumpdata + 4);
 
 	// keep track of the number of texture errors
 	int errors = 0;
 
-	int count = LELONG(*((int*)(rawlumpdata + 0)));
+	int count = LELONG(*((int*)(lumpdata + 0)));
 	for (int i = 0; i < count; i++)
 	{
-		maptexture_t* mtexdef = (maptexture_t*)((byte*)rawlumpdata + LELONG(texoffs[i]));
+		maptexture_t* mtexdef = (maptexture_t*)((byte*)lumpdata + LELONG(texoffs[i]));
 		
 		size_t texdefsize = sizeof(texdef_t) + sizeof(texdefpatch_t) * (SAFESHORT(mtexdef->patchcount) - 1);
 		texdef_t* texdef = (texdef_t*)(new byte[texdefsize]); 	
@@ -818,7 +819,7 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 		mTextureNameTranslationMap[uname] = mTextureDefinitions.size() - 1;
 	}
 
-	delete [] rawlumpdata;
+	delete [] lumpdata;
 }
 
 
@@ -928,17 +929,17 @@ void TextureManager::cachePatch(texhandle_t handle)
 	unsigned int lumpnum = handle & ~(PATCH_HANDLE_MASK | SPRITE_HANDLE_MASK);
 
 	unsigned int lumplen = W_LumpLength(lumpnum);
-	byte* rawlumpdata = new byte[lumplen];
-	W_ReadLump(lumpnum, rawlumpdata);
+	byte* lumpdata = new byte[lumplen];
+	W_ReadLump(lumpnum, lumpdata);
 
-	const patch_t* patch = (patch_t*)rawlumpdata;
-
-	int width = patch->width();
-	int height = patch->height();
+	int width = LESHORT(*(short*)(lumpdata + 0));
+	int height = LESHORT(*(short*)(lumpdata + 2));
+	int offsetx = LESHORT(*(short*)(lumpdata + 4));
+	int offsety = LESHORT(*(short*)(lumpdata + 6));
 
 	Texture* texture = createTexture(handle, width, height);
-	texture->mOffsetX = patch->leftoffset();
-	texture->mOffsetY = patch->topoffset();
+	texture->mOffsetX = offsetx;
+	texture->mOffsetY = offsety;
 
 	if (clientside)
 	{
@@ -948,11 +949,11 @@ void TextureManager::cachePatch(texhandle_t handle)
 		// initialize the mask to entirely transparent 
 		memset(texture->mMask, 0, width * height);
 
-		R_DrawPatchIntoTexture(texture, patch, 0, 0);
+		R_DrawPatchIntoTexture(texture, lumpdata, 0, 0);
 		texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
 	}
 
-	delete [] rawlumpdata;
+	delete [] lumpdata;
 
 }
 
@@ -1050,15 +1051,15 @@ void TextureManager::cacheFlat(texhandle_t handle)
 
 	if (clientside)
 	{
-		byte *rawlumpdata = new byte[lumplen];
-		W_ReadLump(lumpnum, rawlumpdata);
+		byte *lumpdata = new byte[lumplen];
+		W_ReadLump(lumpnum, lumpdata);
 
 		// convert the row-major flat lump to into column-major
 		byte* dest = texture->mData;
 
 		for (int x = 0; x < width; x++)
 		{
-			const byte* source = rawlumpdata + x;
+			const byte* source = lumpdata + x;
 			
 			for (int y = 0; y < height; y++)
 			{
@@ -1068,7 +1069,7 @@ void TextureManager::cacheFlat(texhandle_t handle)
 			}
 		}
 		
-		delete [] rawlumpdata;
+		delete [] lumpdata;
 	}
 }
 
@@ -1132,13 +1133,11 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 			texdefpatch_t* texdefpatch = &texdef->patches[i];
 
 			unsigned int lumplen = W_LumpLength(texdefpatch->patch);
-			byte* rawlumpdata = new byte[lumplen];
-			W_ReadLump(texdefpatch->patch, rawlumpdata);
+			byte* lumpdata = new byte[lumplen];
+			W_ReadLump(texdefpatch->patch, lumpdata);
+			R_DrawPatchIntoTexture(texture, lumpdata, texdefpatch->originx, texdefpatch->originy);
 
-			const patch_t* patch = (patch_t*)rawlumpdata;
-			R_DrawPatchIntoTexture(texture, patch, texdefpatch->originx, texdefpatch->originy);
-
-			delete [] rawlumpdata;
+			delete [] lumpdata;
 		}
 
 		texture->mHasMask = (memchr(texture->mMask, 0, width * height) != NULL);
@@ -1186,15 +1185,15 @@ void TextureManager::cacheRawTexture(texhandle_t handle)
 		unsigned int lumpnum = (handle & ~RAW_HANDLE_MASK);
 		unsigned int lumplen = W_LumpLength(lumpnum);
 
-		byte *rawlumpdata = new byte[lumplen];
-		W_ReadLump(lumpnum, rawlumpdata);
+		byte *lumpdata = new byte[lumplen];
+		W_ReadLump(lumpnum, lumpdata);
 
 		// convert the row-major flat lump to into column-major
 		byte* dest = texture->mData;
 
 		for (int x = 0; x < width; x++)
 		{
-			const byte* source = rawlumpdata + x;
+			const byte* source = lumpdata + x;
 			
 			for (int y = 0; y < height; y++)
 			{
@@ -1204,7 +1203,7 @@ void TextureManager::cacheRawTexture(texhandle_t handle)
 			}
 		}
 		
-		delete [] rawlumpdata;
+		delete [] lumpdata;
 	}
 }
 	
