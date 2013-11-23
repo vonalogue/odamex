@@ -575,13 +575,13 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
 	int width = ds->x2 - ds->x1 + 1;
 
 	// invert t1.y (Z) and store it using 2.30 fixed-point format
-	ds->invz1 = FixedDiv<0, PREC, 30>(1, t1.y);
-	ds->invz2 = FixedDiv<0, PREC, 30>(1, t2.y);
+	ds->invz1 = FixedDiv<0, PREC, 28>(1, t1.y);
+	ds->invz2 = FixedDiv<0, PREC, 28>(1, t2.y);
 	ds->invzstep = (ds->invz2 - ds->invz1) / width;
 
 	// calculate scale values (FocalLengthY / Z)
-	ds->scale1 = FixedMul<16, 30, 16>(FocalLengthY, ds->invz1);
-	ds->scale2 = FixedMul<16, 30, 16>(FocalLengthY, ds->invz2);
+	ds->scale1 = FixedMul<16, 28, 16>(FocalLengthY, ds->invz1);
+	ds->scale2 = FixedMul<16, 28, 16>(FocalLengthY, ds->invz2);
 	ds->scalestep = (ds->scale2 - ds->scale1) / width;
 
 	// clip the line seg endpoints in world-space
@@ -602,8 +602,8 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
 
 	// calculate column texture mapping values (U / Z)
 	// we can later retrieve U with U = Z * (U / Z)
-	ds->uinvz1 = FixedMul<16, 30, 20>(textureoffset, ds->invz1);
-	ds->uinvz2 = FixedMul<16, 30, 20>(textureoffset + length, ds->invz2);
+	ds->uinvz1 = FixedMul<16, 28, 20>(textureoffset, ds->invz1);
+	ds->uinvz2 = FixedMul<16, 28, 20>(textureoffset + length, ds->invz2);
 	ds->uinvzstep = (ds->uinvz2 - ds->uinvz1) / width;
 
 	gx1 = w1.x;

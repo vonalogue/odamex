@@ -213,7 +213,6 @@ void P_LoadSegs (int lump)
 
 		li->angle = (LESHORT(ml->angle))<<16;
 
-		li->offset = (LESHORT(ml->offset))<<16;
 		linedef = LESHORT(ml->linedef);
 
 		if(linedef < 0 || linedef >= numlines)
@@ -238,20 +237,6 @@ void P_LoadSegs (int lump)
 			li->backsector = 0;
 			ldef->flags &= ~ML_TWOSIDED;
 		}
-	
-		// recalculate seg offsets. values in wads are untrustworthy.
-		vertex_t *from = (side == 0)
-			? ldef->v1			// right side: offset is from start of linedef
-			: ldef->v2;			// left side: offset is from end of linedef
-		vertex_t *to = li->v1;	// end point is start of seg, in both cases
-
-		float dx = FIXED2FLOAT(to->x - from->x);
-		float dy = FIXED2FLOAT(to->y - from->y);
-		li->offset = FLOAT2FIXED(sqrt(dx * dx + dy * dy));
-
-		dx = FIXED2FLOAT(li->v2->x - li->v1->x);
-		dy = FIXED2FLOAT(li->v2->y - li->v1->y);
-		li->length = FLOAT2FIXED(sqrt(dx * dx + dy* dy));
 	}
 
 	Z_Free (data);

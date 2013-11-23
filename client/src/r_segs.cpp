@@ -134,7 +134,7 @@ private:
 	inline void calc()
 	{
 		// use 16.16 fixed-point format for z
-		int32_t z = FixedDiv<0, 30, 16>(1, mInvZ);
+		int32_t z = FixedDiv<0, 28, 16>(1, mInvZ);
 		mU = FixedMul<20, 16, 16>(mUInvZ, z);
 		mIScale = FixedMul<16, 30, 16>(z, mInvFocY);
 	}

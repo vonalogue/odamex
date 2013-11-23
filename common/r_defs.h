@@ -366,8 +366,6 @@ struct seg_s
 	vertex_t*	v1;
 	vertex_t*	v2;
 
-	fixed_t 	offset;
-
 	angle_t 	angle;
 
 	side_t* 	sidedef;
@@ -377,8 +375,6 @@ struct seg_s
 	// Could be retrieved from linedef, too.
 	sector_t*	frontsector;
 	sector_t*	backsector;		// NULL for one-sided lines
-
-	fixed_t		length;
 };
 typedef struct seg_s seg_t;
 

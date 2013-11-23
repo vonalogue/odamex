@@ -176,6 +176,92 @@ static inline int32_t FixedDiv(int32_t a, int32_t b)
 #define FRACUNIT31	(1 << 31)
 #define FRACUNIT32	(1 << 32)
 
+template <int bits = 16>
+class fixed_generic_t
+{
+public:
+	fixed_generic_t() { }
+	inline fixed_generic_t(int32_t v) : value(v) { }
+	inline fixed_generic_t<bits>& operator=(int32_t v) { value = v; return *this; }
+	inline fixed_generic_t<bits>& operator=(const fixed_generic_t<bits>& other) { value = other.value; return *this; }
+	inline operator int32_t() { return value; }
+	
+private:
+	int32_t		value;
+		
+	template <int dest_bits, int a_bits, int b_bits>
+	friend fixed_generic_t<dest_bits> FixedMul(fixed_generic_t<a_bits> a, fixed_generic_t<b_bits> b);
+
+	template <int dest_bits, int a_bits, int b_bits>
+	friend fixed_generic_t<dest_bits> FixedDiv(fixed_generic_t<a_bits> a, fixed_generic_t<b_bits> b);
+};
+
+template <int dest_bits, int a_bits, int b_bits>
+inline fixed_generic_t<dest_bits> FixedMul(fixed_generic_t<a_bits> a, fixed_generic_t<b_bits> b)
+{
+	int shift = dest_bits - a_bits - b_bits;
+	if (shift >= 0)
+		return fixed_generic_t<dest_bits>((int32_t)((int64_t(a.value) * b.value) << shift));
+	else
+		return fixed_generic_t<dest_bits>((int32_t)((int64_t(a.value) * b.value) >> -shift));
+}
+
+template <int dest_bits, int a_bits, int b_bits>
+inline fixed_generic_t<dest_bits> FixedDiv(fixed_generic_t<a_bits> a, fixed_generic_t<b_bits> b)
+{
+	int shift = dest_bits - a_bits + b_bits;
+	if (shift >= 0)
+		return fixed_generic_t<dest_bits>((int32_t)((int64_t(a.value) << shift) / b.value));
+	else
+		return fixed_generic_t<dest_bits>((int32_t)((int64_t(a.value) >> -shift) / b.value));
+}
+
+template <int a_bits, int b_bits>
+inline fixed_generic_t<16> FixedMul(fixed_generic_t<a_bits> a, fixed_generic_t<b_bits> b)
+{
+	return FixedMul<16>(a, b);
+}
+
+template <int a_bits, int b_bits>
+inline fixed_generic_t<16> FixedDiv(fixed_generic_t<a_bits> a, fixed_generic_t<b_bits> b)
+{
+	return FixedDiv<16>(a, b);
+}
+
+
+typedef fixed_generic_t<1>		fixed1_t;
+typedef fixed_generic_t<2>		fixed2_t;
+typedef fixed_generic_t<3>		fixed3_t;
+typedef fixed_generic_t<4>		fixed4_t;
+typedef fixed_generic_t<5>		fixed5_t;
+typedef fixed_generic_t<6>		fixed6_t;
+typedef fixed_generic_t<7>		fixed7_t;
+typedef fixed_generic_t<8>		fixed8_t;
+typedef fixed_generic_t<9>		fixed9_t;
+typedef fixed_generic_t<10>		fixed10_t;
+typedef fixed_generic_t<11>		fixed11_t;
+typedef fixed_generic_t<12>		fixed12_t;
+typedef fixed_generic_t<13>		fixed13_t;
+typedef fixed_generic_t<14>		fixed14_t;
+typedef fixed_generic_t<15>		fixed15_t;
+typedef fixed_generic_t<16>		fixed16_t;
+typedef fixed_generic_t<17>		fixed17_t;
+typedef fixed_generic_t<18>		fixed18_t;
+typedef fixed_generic_t<19>		fixed19_t;
+typedef fixed_generic_t<20>		fixed20_t;
+typedef fixed_generic_t<21>		fixed21_t;
+typedef fixed_generic_t<22>		fixed22_t;
+typedef fixed_generic_t<23>		fixed23_t;
+typedef fixed_generic_t<24>		fixed24_t;
+typedef fixed_generic_t<25>		fixed25_t;
+typedef fixed_generic_t<26>		fixed26_t;
+typedef fixed_generic_t<27>		fixed27_t;
+typedef fixed_generic_t<28>		fixed28_t;
+typedef fixed_generic_t<29>		fixed29_t;
+typedef fixed_generic_t<30>		fixed30_t;
+typedef fixed_generic_t<31>		fixed31_t;
+typedef fixed_generic_t<32>		fixed32_t;
+
 #endif	// __M_FIXED_H__
 
 
