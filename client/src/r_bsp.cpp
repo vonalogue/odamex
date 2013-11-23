@@ -446,46 +446,23 @@ sector_t *R_FakeFlat(sector_t *sec, sector_t *tempsec,
 void R_AddLine (seg_t *line)
 {
 	curline = line;
-
-	// skip this line if it's not facing the camera
-	if (R_PointOnSegSide(viewx, viewy, line) != 0)
-		return;
-
 	dcol.color = ((line - segs) & 31) * 4;	// [RH] Color if not texturing line
 
-	// translate the line seg endpoints from world-space to camera-space
-	// and store in (t1.x, t1.y) and (t2.x, t2.y)
-	v2fixed_t t1, t2;
-	R_RotatePoint(line->v1->x - viewx, line->v1->y - viewy, ANG90 - viewangle, t1.x, t1.y);
-	R_RotatePoint(line->v2->x - viewx, line->v2->y - viewy, ANG90 - viewangle, t2.x, t2.y);
-
-	// Clip the line seg to the viewing window
-	int32_t lclip, rclip;
-	if (!R_ClipLineToFrustum(&t1, &t2, NEARCLIP, lclip, rclip))
-		return;
-
-	// apply the view frustum clipping to t1 & t2
-	R_ClipLine(&t1, &t2, lclip, rclip, &t1, &t2);
-
-	// project the line endpoints to determine which columns the line seg occupies
-	int x1 = R_ProjectPointX(t1.x, t1.y);
-	int x2 = R_ProjectPointX(t2.x, t2.y) - 1;
-	if (!R_CheckProjectionX(x1, x2))
-		return;
-
-	rw_start = x1;
-	rw_stop = x2;
-
-	// clip the line seg endpoints in world-space
-	// and store in (w1.x, w1.y) and (w2.x, w2.y)
+	drawseg_t ds;
 	v2fixed_t w1, w2;
-	R_ClipLine(line->v1, line->v2, lclip, rclip, &w1, &w2);
+	bool val = R_ProjectSeg(line, &ds, NEARCLIP, w1.x, w1.y, w2.x, w2.y);
+
+	if (val == false)
+		return;
+
+	rw_start = ds.x1;
+	rw_stop = ds.x2;
 
 	// killough 3/8/98, 4/4/98: hack for invisible ceilings / deep water
 	static sector_t tempsec;
 	backsector = line->backsector ? R_FakeFlat(line->backsector, &tempsec, NULL, NULL, true) : NULL;
 
-	R_PrepWall(w1.x, w1.y, w2.x, w2.y, t1.y, t2.y, x1, x2);
+	R_PrepWall(&ds, w1.x, w1.y, w2.x, w2.y);
 
 	// [SL] Check for single-sided line, closed doors or other scenarios that
 	// would make this line seg solid.
@@ -511,7 +488,7 @@ void R_AddLine (seg_t *line)
 		(backsector->ceiling_texhandle !=sky1flathandle || frontsector->ceiling_texhandle != sky1flathandle)))
 	{
 		doorclosed = true;
-		R_ClipWallSegment(x1, x2, true);
+		R_ClipWallSegment(ds.x1, ds.x2, true);
 		return;
 	}
 
@@ -554,7 +531,7 @@ void R_AddLine (seg_t *line)
 	}
 
 	doorclosed = false;
-	R_ClipWallSegment(x1, x2, false);
+	R_ClipWallSegment(ds.x1, ds.x2, false);
 }
 
 

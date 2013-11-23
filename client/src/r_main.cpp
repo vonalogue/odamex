@@ -316,10 +316,10 @@ void R_ClipLine(const v2fixed_t* in1, const v2fixed_t* in2,
 	const fixed_t dy = in2->y - in1->y;
 	const fixed_t x = in1->x;
 	const fixed_t y = in1->y;
-	out1->x = x + FixedMul30(lclip, dx);
-	out2->x = x + FixedMul30(rclip, dx);
-	out1->y = y + FixedMul30(lclip, dy);
-	out2->y = y + FixedMul30(rclip, dy);
+	out1->x = x + FixedMul<30, 16, 16>(lclip, dx);
+	out2->x = x + FixedMul<30, 16, 16>(rclip, dx);
+	out1->y = y + FixedMul<30, 16, 16>(lclip, dy);
+	out2->y = y + FixedMul<30, 16, 16>(rclip, dy);
 }
 
 void R_ClipLine(const vertex_t* in1, const vertex_t* in2,
@@ -358,13 +358,13 @@ bool R_ClipLineToFrustum(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipd
 			return false;
 
 		// clip the line at the point where p1.y == clipdist
-		lclip = FixedDiv30(clipdist - p1.y, p2.y - p1.y);
+		lclip = FixedDiv<16, 16, 30>(clipdist - p1.y, p2.y - p1.y);
 	}
 
 	if (p2.y < clipdist)
 	{
 		// clip the line at the point where p2.y == clipdist
-		rclip = FixedDiv30(clipdist - p1.y, p2.y - p1.y);
+		rclip = FixedDiv<16, 16, 30>(clipdist - p1.y, p2.y - p1.y);
 	}
 
 	int32_t unclipped_amount = rclip - lclip;
@@ -393,8 +393,8 @@ bool R_ClipLineToFrustum(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipd
 		if (den == 0)
 			return false;
 
-		int32_t t = FixedDiv30(-yc1 - p1.x, den);
-		lclip += FixedMul30(t, unclipped_amount);
+		int32_t t = FixedDiv<16, 16, 30>(-yc1 - p1.x, den);
+		lclip += FixedMul<30, 30, 30>(t, unclipped_amount);
 	}
 
 	// is the right vertex off the right side of the screen?
@@ -405,8 +405,8 @@ bool R_ClipLineToFrustum(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipd
 		if (den == 0)
 			return false;
 
-		int32_t t = FixedDiv30(yc1 - p1.x, den);
-		rclip -= FixedMul30(CLIPUNIT - t, unclipped_amount);
+		int32_t t = FixedDiv<16, 16, 30>(yc1 - p1.x, den);
+		rclip -= FixedMul<30, 30, 30>(CLIPUNIT - t, unclipped_amount);
 	}
 
 	if (lclip > rclip)
@@ -414,6 +414,208 @@ bool R_ClipLineToFrustum(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipd
 
 	return true;
 }
+
+
+// bits of precision for translated seg_t vertices in R_ProjectSeg
+static const int PREC = 16;
+
+
+static void R_ClipLine2(const v2fixed_t* in1, const v2fixed_t* in2, 
+				int32_t lclip, int32_t rclip,
+				v2fixed_t* out1, v2fixed_t* out2)
+{
+	const fixed_t dx = in2->x - in1->x;
+	const fixed_t dy = in2->y - in1->y;
+	const fixed_t x = in1->x;
+	const fixed_t y = in1->y;
+	out1->x = x + FixedMul<30, PREC, PREC>(lclip, dx);
+	out2->x = x + FixedMul<30, PREC, PREC>(rclip, dx);
+	out1->y = y + FixedMul<30, PREC, PREC>(lclip, dy);
+	out2->y = y + FixedMul<30, PREC, PREC>(rclip, dy);
+}
+
+static void R_ClipLine2(const vertex_t* in1, const vertex_t* in2,
+				int32_t lclip, int32_t rclip,
+				v2fixed_t* out1, v2fixed_t* out2)
+{
+	R_ClipLine2((const v2fixed_t*)in1, (const v2fixed_t*)in2, lclip, rclip, out1, out2);
+}
+
+static bool R_ClipLineToFrustum2(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipdist, int32_t& lclip, int32_t& rclip)
+{
+	static const int32_t CLIPUNIT = FRACUNIT30;
+	v2fixed_t p1 = *v1, p2 = *v2;
+
+	lclip = 0;
+	rclip = CLIPUNIT; 
+
+	// Clip portions of the line that are behind the view plane
+	if (p1.y < clipdist)
+	{      
+		// reject the line entirely if the whole thing is behind the view plane.
+		if (p2.y < clipdist)
+			return false;
+
+		// clip the line at the point where p1.y == clipdist
+		lclip = FixedDiv<PREC, PREC, 30>(clipdist - p1.y, p2.y - p1.y);
+	}
+
+	if (p2.y < clipdist)
+	{
+		// clip the line at the point where p2.y == clipdist
+		rclip = FixedDiv<PREC, PREC, 30>(clipdist - p1.y, p2.y - p1.y);
+	}
+
+	int32_t unclipped_amount = rclip - lclip;
+
+	// apply the clipping against the 'y = clipdist' plane to p1 & p2
+	R_ClipLine2(v1, v2, lclip, rclip, &p1, &p2);
+
+	// [SL] A note on clipping to the screen edges:
+	// With a 90-degree FOV, if p1.x < -p1.y, then the left point
+	// is off the left side of the screen. Similarly, if p2.x > p2.y,
+	// then the right point is off the right side of the screen.
+	// We use yc1 and yc2 instead of p1.y and p2.y because they are
+	// adjusted to work with the current FOV rather than just 90-degrees.
+	fixed_t yc1 = FixedMul<16, PREC, PREC>(fovtan, p1.y);
+	fixed_t yc2 = FixedMul<16, PREC, PREC>(fovtan, p2.y);
+
+	// is the entire line off the left side or the right side of the screen?
+	if ((p1.x < -yc1 && p2.x < -yc2) || (p1.x > yc1 && p2.x > yc2))
+		return false;
+
+	// is the left vertex off the left side of the screen?
+	if (p1.x < -yc1)
+	{
+		// clip line at left edge of the screen
+		fixed_t den = p2.x - p1.x + yc2 - yc1;
+		if (den == 0)
+			return false;
+
+		int32_t t = FixedDiv<PREC, PREC, 30>(-yc1 - p1.x, den);
+		lclip += FixedMul<30, 30, 30>(t, unclipped_amount);
+	}
+
+	// is the right vertex off the right side of the screen?
+	if (p2.x > yc2)
+	{
+		// clip line at right edge of the screen
+		fixed_t den = p2.x - p1.x - yc2 + yc1;	
+		if (den == 0)
+			return false;
+
+		int32_t t = FixedDiv<PREC, PREC, 30>(yc1 - p1.x, den);
+		rclip -= FixedMul<30, 30, 30>(CLIPUNIT - t, unclipped_amount);
+	}
+
+	if (lclip > rclip)
+		return false;
+
+	return true;
+}
+
+static fixed_t R_LineLength(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2)
+{
+	float dx = FIXED2FLOAT(px2 - px1);
+	float dy = FIXED2FLOAT(py2 - py1);
+	return FLOAT2FIXED(sqrt(dx*dx + dy*dy));
+}
+
+//
+// R_ProjectSeg
+//
+// Projects a seg_t to the screen, clipping to the view frustum, and saves
+// the projection to the drawseg_t ds. The clipped vertices are saved
+// as gx1, gy1 and gx2, gy2 respectively.
+//
+// Returns false if the entire seg_t is clipped (not in the viewable area).
+//
+bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
+	fixed_t& gx1, fixed_t& gy1, fixed_t& gx2, fixed_t& gy2)
+{
+	//TODO: don't hard-code this
+	clipdist = (1 << PREC) / 4;
+
+	const v2fixed_t pt1 = { segline->v1->x, segline->v1->y };
+	const v2fixed_t pt2 = { segline->v2->x, segline->v2->y };
+
+	int32_t lclip, rclip;
+	unsigned int ang_index = (ANG90 - viewangle) >> ANGLETOFINESHIFT;
+
+	// skip this line if it's not facing the camera
+	if (R_PointOnSide(viewx, viewy, pt1.x, pt1.y, pt2.x, pt2.y) != 0)
+		return false;
+
+	// translate pt1 & pt2 into camera coordinates and store into t1 & t2
+	v2fixed_t t1, t2;
+	t1.x =	FixedMul<16, 16, PREC>(pt1.x - viewx, finecosine[ang_index]) -
+			FixedMul<16, 16, PREC>(pt1.y - viewy, finesine[ang_index]);
+	t1.y =	FixedMul<16, 16, PREC>(pt1.x - viewx, finesine[ang_index]) +
+			FixedMul<16, 16, PREC>(pt1.y - viewy, finecosine[ang_index]);
+	t2.x =	FixedMul<16, 16, PREC>(pt2.x - viewx, finecosine[ang_index]) -
+			FixedMul<16, 16, PREC>(pt2.y - viewy, finesine[ang_index]);
+	t2.y =	FixedMul<16, 16, PREC>(pt2.x - viewx, finesine[ang_index]) +
+			FixedMul<16, 16, PREC>(pt2.y - viewy, finecosine[ang_index]);
+
+	// clip the line seg to the viewing window
+	if (!R_ClipLineToFrustum2(&t1, &t2, clipdist, lclip, rclip))
+		return false;
+
+	// apply the view frustum clipping to t1 & t2
+	R_ClipLine2(&t1, &t2, lclip, rclip, &t1, &t2);
+
+	ds->curline = segline;
+
+	// project the line endpoints to determine which screen columns the line occupies
+	ds->x1 = R_ProjectPointX(t1.x, t1.y);
+	ds->x2 = R_ProjectPointX(t2.x, t2.y) - 1;
+	if (!R_CheckProjectionX(ds->x1, ds->x2))
+		return false;
+
+	int width = ds->x2 - ds->x1 + 1;
+
+	// invert t1.y (Z) and store it using 2.30 fixed-point format
+	ds->invz1 = FixedDiv<0, PREC, 30>(1, t1.y);
+	ds->invz2 = FixedDiv<0, PREC, 30>(1, t2.y);
+	ds->invzstep = (ds->invz2 - ds->invz1) / width;
+
+	// calculate scale values (FocalLengthY / Z)
+	ds->scale1 = FixedMul<16, 30, 16>(FocalLengthY, ds->invz1);
+	ds->scale2 = FixedMul<16, 30, 16>(FocalLengthY, ds->invz2);
+	ds->scalestep = (ds->scale2 - ds->scale1) / width;
+
+	// clip the line seg endpoints in world-space
+	// and store in (w1.x, w1.y) and (w2.x, w2.y)
+	v2fixed_t w1, w2;
+	R_ClipLine(&pt1, &pt2, lclip, rclip, &w1, &w2);
+
+	// determine which vertex of the linedef should be used for texture alignment
+	vertex_t *v1;
+	if (segline->linedef->sidenum[0] == segline->sidedef - sides)
+		v1 = segline->linedef->v1;
+	else
+		v1 = segline->linedef->v2;
+
+	// calculate seg length and texture offset
+	fixed_t length = R_LineLength(w1.x, w1.y, w2.x, w2.y);
+	fixed_t textureoffset = R_LineLength(v1->x, v1->y, w1.x, w1.y) + segline->sidedef->textureoffset;
+
+	// calculate column texture mapping values (U / Z)
+	// we can later retrieve U with U = Z * (U / Z)
+	ds->uinvz1 = FixedMul<16, 30, 20>(textureoffset, ds->invz1);
+	ds->uinvz2 = FixedMul<16, 30, 20>(textureoffset + length, ds->invz2);
+	ds->uinvzstep = (ds->uinvz2 - ds->uinvz1) / width;
+
+	gx1 = w1.x;
+	gy1 = w1.y; 
+	gx2 = w2.x; 
+	gy2 = w2.y;
+
+	return true;
+}
+
+
+
 
 
 //

@@ -101,8 +101,8 @@ public:
 	SegTextureMapper(const drawseg_t* ds, const Texture* texture) :
 		mInvZ(ds->invz1), mInvZStep(ds->invzstep), mUInvZ(ds->uinvz1), mUInvZStep(ds->uinvzstep)
 	{
-		// use 6.26 fixed-point format for mInvFocY
-		mInvFocY = FixedDiv(1, 0, FocalLengthY, 16, 26);
+		// use 2.30 fixed-point format for mInvFocY
+		mInvFocY = FixedDiv<0, 16, 30>(1, FocalLengthY);
 
 		mHeight = texture->getHeight();
 		mWidthMask = texture->getWidth() - 1; 
@@ -134,10 +134,9 @@ private:
 	inline void calc()
 	{
 		// use 16.16 fixed-point format for z
-		int32_t z = FixedDiv(1, 0, mInvZ, 26, 16);
-
-		mU = FixedMul(mUInvZ, z);
-		mIScale = FixedMul(z, 16, mInvFocY, 26, 16);
+		int32_t z = FixedDiv<0, 30, 16>(1, mInvZ);
+		mU = FixedMul<20, 16, 16>(mUInvZ, z);
+		mIScale = FixedMul<16, 30, 16>(z, mInvFocY);
 	}
 
 	int32_t			mInvZ;
@@ -464,15 +463,6 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 }
 
 
-static fixed_t R_LineLength(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2)
-{
-	float dx = FIXED2FLOAT(px2 - px1);
-	float dy = FIXED2FLOAT(py2 - py1);
-
-	return FLOAT2FIXED(sqrt(dx*dx + dy*dy));
-}
-
-
 //
 // R_PrepWall
 //
@@ -480,47 +470,28 @@ static fixed_t R_LineLength(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2)
 // walltopb, and wallbottomb arrays with the top and bottom pixel heights
 // of the wall for the span from start to stop.
 //
-void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist1, fixed_t dist2, int start, int stop)
+void R_PrepWall(const drawseg_t* ds, fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2)
 {
-	int width = stop - start + 1;
+	int width = ds->x2 - ds->x1 + 1;
 	if (width <= 0)
 		return;
 
-	// determine which vertex of the linedef should be used for texture alignment
-	vertex_t *v1;
-	if (curline->linedef->sidenum[0] == curline->sidedef - sides)
-		v1 = curline->linedef->v1;
-	else
-		v1 = curline->linedef->v2;
-
-	const fixed_t mindist = NEARCLIP;
-	const fixed_t maxdist = 16384*FRACUNIT;
-	dist1 = clamp(dist1, mindist, maxdist);
-	dist2 = clamp(dist2, mindist, maxdist);
-
 	// calculate texture coordinates at the line's endpoints
-	float scale1 = yfoc / FIXED2FLOAT(dist1);
-	float scale2 = yfoc / FIXED2FLOAT(dist2);
+	float scale1 = FIXED2FLOAT(ds->scale1);
+	float scale2 = FIXED2FLOAT(ds->scale2);
 
-	rw.curline = curline;
-	rw.x1 = start;
-	rw.x2 = stop;
-
-	rw.scale1 = FLOAT2FIXED(scale1);
-	rw.scale2 = FLOAT2FIXED(scale2);
-	rw.scalestep = (rw.scale2 - rw.scale1) / width;
-
-	// use 6.26 fixed-point format for 1 / z
-	rw.invz1 = FixedDiv(1, 0, dist1, 16, 26);
-	rw.invz2 = FixedDiv(1, 0, dist2, 16, 26);
-
-	rw.invzstep = (rw.invz2 - rw.invz1) / width;
-
-	fixed_t length = R_LineLength(px1, py1, px2, py2);
-	fixed_t textureoffset = R_LineLength(v1->x, v1->y, px1, py1) + rw.curline->sidedef->textureoffset;
-	rw.uinvz1 = FixedDiv(textureoffset, dist1);
-	rw.uinvz2 = FixedDiv(textureoffset + length, dist2);
-	rw.uinvzstep = (rw.uinvz2 - rw.uinvz1) / width;
+	rw.curline = ds->curline;
+	rw.x1 = ds->x1;
+	rw.x2 = ds->x2;
+	rw.invz1 = ds->invz1;	
+	rw.invz2 = ds->invz2;	
+	rw.invzstep = ds->invzstep;	
+	rw.uinvz1 = ds->uinvz1;	
+	rw.uinvz2 = ds->uinvz2;	
+	rw.uinvzstep = ds->uinvzstep;	
+	rw.scale1 = ds->scale1;
+	rw.scale2 = ds->scale2;
+	rw.scalestep = ds->scalestep;
 
 	// get the z coordinates of the line's vertices on each side of the line
 	rw_frontcz1 = P_CeilingHeight(px1, py1, frontsector);
@@ -529,8 +500,8 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 	rw_frontfz2 = P_FloorHeight(px2, py2, frontsector);
 
 	// calculate the upper and lower heights of the walls in the front
-	R_FillWallHeightArray(walltopf, start, stop, rw_frontcz1, rw_frontcz2, scale1, scale2);
-	R_FillWallHeightArray(wallbottomf, start, stop, rw_frontfz1, rw_frontfz2, scale1, scale2);
+	R_FillWallHeightArray(walltopf, ds->x1, ds->x2, rw_frontcz1, rw_frontcz2, scale1, scale2);
+	R_FillWallHeightArray(wallbottomf, ds->x1, ds->x2, rw_frontfz1, rw_frontfz2, scale1, scale2);
 
 	rw_hashigh = rw_haslow = false;
 
@@ -542,8 +513,8 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 		rw_backfz2 = P_FloorHeight(px2, py2, backsector);
 
 		// calculate the upper and lower heights of the walls in the back
-		R_FillWallHeightArray(walltopb, start, stop, rw_backcz1, rw_backcz2, scale1, scale2);
-		R_FillWallHeightArray(wallbottomb, start, stop, rw_backfz1, rw_backfz2, scale1, scale2);
+		R_FillWallHeightArray(walltopb, ds->x1, ds->x2, rw_backcz1, rw_backcz2, scale1, scale2);
+		R_FillWallHeightArray(wallbottomb, ds->x1, ds->x2, rw_backfz1, rw_backfz2, scale1, scale2);
 	
 		const fixed_t tolerance = FRACUNIT/2;
 
@@ -563,7 +534,7 @@ void R_PrepWall(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2, fixed_t dist
 		// copy back ceiling height array to front ceiling height array
 		if (frontsector->ceiling_texhandle == sky1flathandle && 
 			backsector->ceiling_texhandle == sky1flathandle)
-			memcpy(walltopf+start, walltopb+start, width*sizeof(*walltopb));
+			memcpy(walltopf+ds->x1, walltopb+ds->x1, width*sizeof(*walltopb));
 	}
 }
 
@@ -597,20 +568,20 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 	int clipx1 = ds->x1 - rw.x1;
 	int clipx2 = rw.x2 - ds->x2;
 	
-	ds->scale1 = rw.scale1 + clipx1 * rw.scalestep;
-	ds->scale2 = rw.scale2 - clipx2 * rw.scalestep;
-	ds->scalestep = (ds->scale2 - ds->scale1) / width;
-
-	ds->light = ds->scale1 * lightscalexmul;
- 	ds->lightstep = ds->scalestep * lightscalexmul;
-
 	ds->invz1 = rw.invz1 + clipx1 * rw.invzstep;
 	ds->invz2 = rw.invz2 - clipx2 * rw.invzstep;
 	ds->invzstep = (ds->invz2 - ds->invz1) / width; 
 
+	ds->scale1 = rw.scale1 + clipx1 * rw.scalestep;
+	ds->scale2 = rw.scale2 - clipx2 * rw.scalestep;
+	ds->scalestep = (ds->scale2 - ds->scale1) / width;
+
 	ds->uinvz1 = rw.uinvz1 + clipx1 * rw.uinvzstep;
 	ds->uinvz2 = rw.uinvz2 - clipx2 * rw.uinvzstep;
 	ds->uinvzstep = (ds->uinvz2 - ds->uinvz1) / width; 
+
+	ds->light = ds->scale1 * lightscalexmul;
+ 	ds->lightstep = ds->scalestep * lightscalexmul;
 
 	// calculate texture boundaries
 	//	and decide if floor / ceiling marks are needed
