@@ -69,7 +69,7 @@ static void R_DrawPatchIntoTexture(Texture* texture, const byte* lumpdata, int x
 	{
 		int abstopdelta = 0;
 
-		post_t* post = (post_t*)(lumpdata + colofs[x - xoffs]);
+		post_t* post = (post_t*)(lumpdata + LELONG(colofs[x - xoffs]));
 		while (post->topdelta != 0xFF)
 		{
 			// handle DeePsea tall patches where topdelta is treated as a relative
