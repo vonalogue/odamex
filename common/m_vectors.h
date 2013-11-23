@@ -37,6 +37,166 @@
 
 class AActor;
 
+struct v2fixed1_t
+{
+	fixed1_t x, y;
+};
+
+struct v2fixed2_t
+{
+	fixed2_t x, y;
+};
+
+struct v2fixed3_t
+{
+	fixed3_t x, y;
+};
+
+struct v2fixed4_t
+{
+	fixed4_t x, y;
+};
+
+struct v2fixed5_t
+{
+	fixed5_t x, y;
+};
+
+struct v2fixed6_t
+{
+	fixed6_t x, y;
+};
+
+struct v2fixed7_t
+{
+	fixed7_t x, y;
+};
+
+struct v2fixed8_t
+{
+	fixed8_t x, y;
+};
+
+struct v2fixed9_t
+{
+	fixed9_t x, y;
+};
+
+struct v2fixed10_t
+{
+	fixed10_t x, y;
+};
+
+struct v2fixed11_t
+{
+	fixed11_t x, y;
+};
+
+struct v2fixed12_t
+{
+	fixed12_t x, y;
+};
+
+struct v2fixed13_t
+{
+	fixed13_t x, y;
+};
+
+struct v2fixed14_t
+{
+	fixed14_t x, y;
+};
+
+struct v2fixed15_t
+{
+	fixed15_t x, y;
+};
+
+struct v2fixed16_t
+{
+	fixed16_t x, y;
+};
+
+struct v2fixed17_t
+{
+	fixed17_t x, y;
+};
+
+struct v2fixed18_t
+{
+	fixed18_t x, y;
+};
+
+struct v2fixed19_t
+{
+	fixed19_t x, y;
+};
+
+struct v2fixed20_t
+{
+	fixed20_t x, y;
+};
+
+struct v2fixed21_t
+{
+	fixed21_t x, y;
+};
+
+struct v2fixed22_t
+{
+	fixed22_t x, y;
+};
+
+struct v2fixed23_t
+{
+	fixed23_t x, y;
+};
+
+struct v2fixed24_t
+{
+	fixed24_t x, y;
+};
+
+struct v2fixed25_t
+{
+	fixed25_t x, y;
+};
+
+struct v2fixed26_t
+{
+	fixed26_t x, y;
+};
+
+struct v2fixed27_t
+{
+	fixed27_t x, y;
+};
+
+struct v2fixed28_t
+{
+	fixed28_t x, y;
+};
+
+struct v2fixed29_t
+{
+	fixed29_t x, y;
+};
+
+struct v2fixed30_t
+{
+	fixed30_t x, y;
+};
+
+struct v2fixed31_t
+{
+	fixed31_t x, y;
+};
+
+struct v2fixed32_t
+{
+	fixed32_t x, y;
+};
+
 struct v2fixed_t
 {
    fixed_t x, y;
