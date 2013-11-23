@@ -69,24 +69,27 @@ static void R_DrawPatchIntoTexture(Texture* texture, const byte* lumpdata, int x
 	{
 		int abstopdelta = 0;
 
-		post_t* post = (post_t*)(lumpdata + LELONG(colofs[x - xoffs]));
-		while (post->topdelta != 0xFF)
+		const byte* post = lumpdata + LELONG(colofs[x - xoffs]);
+		while (*post != 0xFF)
 		{
+			int posttopdelta = *(post + 0);
+			int postlength = *(post + 1);
+
 			// handle DeePsea tall patches where topdelta is treated as a relative
 			// offset instead of an absolute offset
-			if (post->topdelta <= abstopdelta)
-				abstopdelta += post->topdelta;
+			if (posttopdelta <= abstopdelta)
+				abstopdelta += posttopdelta;
 			else
-				abstopdelta = post->topdelta;
+				abstopdelta = posttopdelta;
 
 			int topoffset = yoffs + abstopdelta;
 			int y1 = MAX(topoffset, 0);
-			int y2 = MIN(topoffset + post->length - 1, texheight - 1);
+			int y2 = MIN(topoffset + postlength - 1, texheight - 1);
 
 			if (y1 <= y2)
 			{
 				byte* dest = texture->getData() + texheight * x + y1;
-				const byte* source = (byte*)post + 3;
+				const byte* source = post + 3;
 				memcpy(dest, source, y2 - y1 + 1);
 
 				// set up the mask
@@ -94,7 +97,7 @@ static void R_DrawPatchIntoTexture(Texture* texture, const byte* lumpdata, int x
 				memset(mask, 1, y2 - y1 + 1);	
 			}
 			
-			post = (post_t*)((byte*)post + post->length + 4);
+			post += postlength + 4;
 		}
 	}
 }
