@@ -32,6 +32,8 @@
 class OFont
 {
 public:
+	virtual ~OFont() { }
+
 	virtual int getHeight() const = 0;
 	int getTextWidth(char c) const;
 	int getTextWidth(const char* str) const;
@@ -52,7 +54,7 @@ class ConCharsFont : public OFont
 {
 public:
 	ConCharsFont(fixed_t scale);
-	~ConCharsFont();
+	virtual ~ConCharsFont();
 
 	virtual int getHeight() const
 	{
@@ -70,7 +72,7 @@ class SmallDoomFont : public OFont
 {
 public:
 	SmallDoomFont(fixed_t scale);
-	~SmallDoomFont();
+	virtual ~SmallDoomFont();
 
 	virtual int getHeight() const
 	{
@@ -85,7 +87,7 @@ class LargeDoomFont : public OFont
 {
 public:
 	LargeDoomFont(fixed_t scale);
-	~LargeDoomFont();
+	virtual ~LargeDoomFont();
 
 	virtual int getHeight() const
 	{
@@ -108,7 +110,7 @@ public:
 	};
 
 	TrueTypeFont(const char* filename, int size, unsigned int stylemask);
-	~TrueTypeFont();
+	virtual ~TrueTypeFont();
 
 	virtual int getHeight() const
 	{

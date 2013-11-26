@@ -229,7 +229,7 @@ void F_TextWrite (void)
 		if (cx + charwidth > x2)
 			break;
 		
-		char dummy_str[2] = { c, 0 };
+		char dummy_str[2] = { char(c), 0 };
 		doom_font->printText(screen, cx, cy, CR_RED, dummy_str);
 		cx += charwidth;
 	}

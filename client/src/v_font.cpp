@@ -415,7 +415,7 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 
 	for (int charnum = ' '; charnum < '~'; charnum++)
 	{
-		const char str[2] = { charnum, 0 };
+		const char str[2] = { char(charnum), 0 };
 		SDL_Surface* surface = TTF_RenderText_Solid(font, str, font_color);
 
 		if (surface == NULL)
