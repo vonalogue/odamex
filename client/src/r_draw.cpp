@@ -449,8 +449,6 @@ static forceinline void R_FillColumnGeneric(drawcolumn_t& drawcolumn)
 #endif
 
 	int count = drawcolumn.yh - drawcolumn.yl + 1;
-	if (count <= 0)
-		return;
 
 	int color = drawcolumn.color;
 	int pitch = drawcolumn.pitch;
@@ -458,10 +456,11 @@ static forceinline void R_FillColumnGeneric(drawcolumn_t& drawcolumn)
 
 	COLORFUNC colorfunc(drawcolumn);
 
-	do {
-		colorfunc(color, dest);
+	while (count--)
+	{
+		*dest = colorfunc(color, dest);
 		dest += pitch;
-	} while (--count);
+	}
 } 
 
 //
@@ -483,8 +482,6 @@ static forceinline void R_FillMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 #endif
 
 	int count = drawcolumn.yh - drawcolumn.yl + 1;
-	if (count <= 0)
-		return;
 
 	const byte* mask = drawcolumn.mask;
 	int color = drawcolumn.color;
@@ -496,11 +493,12 @@ static forceinline void R_FillMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 
 	COLORFUNC colorfunc(drawcolumn);
 
-	do {
+	while (count--)
+	{
 		if (mask[frac >> FRACBITS])
-			colorfunc(color, dest);
+			*dest = colorfunc(color, dest);
 		dest += pitch; frac += fracstep;
-	} while (--count);
+	}
 }
 
 //
@@ -528,8 +526,6 @@ static forceinline void R_DrawColumnGeneric(drawcolumn_t& drawcolumn)
 #endif
 
 	int count = drawcolumn.yh - drawcolumn.yl + 1;
-	if (count <= 0)
-		return;
 
 	const palindex_t* source = drawcolumn.source;
 	PIXEL_T* dest = (PIXEL_T*)drawcolumn.dest;
@@ -556,20 +552,22 @@ static forceinline void R_DrawColumnGeneric(drawcolumn_t& drawcolumn)
 			while (frac >= texheight)
 				frac -= texheight;
 
-		do {
-			colorfunc(source[frac >> FRACBITS], dest);
+		while (count--)
+		{
+			*dest = colorfunc(source[frac >> FRACBITS], dest);
 			dest += pitch;
 			if ((frac += fracstep) >= texheight)
 				frac -= texheight;
-		} while (--count);
+		}
 	}
 	else
 	{
 		// texture height is a power-of-2
-		do {
-			colorfunc(source[(frac >> FRACBITS) & mask], dest);
+		while (count--)
+		{
+			*dest = colorfunc(source[(frac >> FRACBITS) & mask], dest);
 			dest += pitch; frac += fracstep;
-		} while (--count);
+		}
 	}
 }
 
@@ -593,8 +591,6 @@ static forceinline void R_DrawMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 #endif
 
 	int count = drawcolumn.yh - drawcolumn.yl + 1;
-	if (count <= 0)
-		return;
 
 	const byte* mask = drawcolumn.mask;
 	const palindex_t* source = drawcolumn.source;
@@ -606,11 +602,12 @@ static forceinline void R_DrawMaskedColumnGeneric(drawcolumn_t& drawcolumn)
 
 	COLORFUNC colorfunc(drawcolumn);
 
-	do {
+	while (count--)
+	{
 		if (mask[frac >> FRACBITS])
-			colorfunc(source[frac >> FRACBITS], dest);
+			*dest = colorfunc(source[frac >> FRACBITS], dest);
 		dest += pitch; frac += fracstep;
-	} while (--count);
+	}
 }
 
 
@@ -635,8 +632,6 @@ static forceinline void R_FillSpanGeneric(drawspan_t& drawspan)
 #endif
 
 	int count = drawspan.x2 - drawspan.x1 + 1;
-	if (count <= 0)
-		return;
 
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
 	int color = drawspan.color;
@@ -644,10 +639,11 @@ static forceinline void R_FillSpanGeneric(drawspan_t& drawspan)
 
 	COLORFUNC colorfunc(drawspan);
 
-	do {
-		colorfunc(color, dest);
+	while (count--)
+	{
+		*dest = colorfunc(color, dest);
 		dest += colsize;
-	} while (--count);
+	}
 }
 
 
@@ -671,8 +667,6 @@ static forceinline void R_DrawLevelSpanGeneric(drawspan_t& drawspan)
 #endif
 
 	int count = drawspan.x2 - drawspan.x1 + 1;
-	if (count <= 0)
-		return;
 
 	const palindex_t* source = drawspan.source;
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
@@ -693,19 +687,20 @@ static forceinline void R_DrawLevelSpanGeneric(drawspan_t& drawspan)
 	const int ushift = FRACBITS - drawspan.textureheightbits; 
 	const int vshift = FRACBITS;
  
-	do {
+	while (count--)
+	{
 		// Current texture index in u,v.
 		const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 
 		// Lookup pixel from flat texture tile,
 		//  re-index using light/colormap.
-		colorfunc(source[spot], dest);
+		*dest = colorfunc(source[spot], dest);
 		dest += colsize;
 
 		// Next step in u,v.
 		ufrac += ustep;
 		vfrac += vstep;
-	} while (--count);
+	}
 }
 
 
@@ -740,7 +735,6 @@ static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 	const palindex_t* source = drawspan.source;
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
 	int colsize = drawspan.colsize;
-
 
 	// [SL] Note that the texture orientation differs from typical Doom span
 	// drawers since flats are stored in column major format now. The roles
@@ -786,7 +780,7 @@ static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 			colormap = drawspan.slopelighting[ltindex++];
 
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
-			colorfunc(source[spot], dest);
+			*dest = colorfunc(source[spot], dest);
 			dest += colsize;
 			ufrac += ustep;
 			vfrac += vstep;
@@ -822,7 +816,7 @@ static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 			colormap = drawspan.slopelighting[ltindex++];
 
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
-			colorfunc(source[spot], dest);
+			*dest = colorfunc(source[spot], dest);
 			dest += colsize;
 			ufrac += ustep;
 			vfrac += vstep;
@@ -856,9 +850,9 @@ public:
 	PaletteFunc(const drawcolumn_t& drawcolumn) { }
 	PaletteFunc(const drawspan_t& drawspan) { }
 
-	forceinline void operator()(byte c, palindex_t* dest) const
+	forceinline palindex_t operator()(byte c, palindex_t* dest) const
 	{
-		*dest = c;
+		return c;
 	}
 };
 
@@ -870,9 +864,9 @@ public:
 	PaletteColormapFunc(const drawspan_t& drawspan) :
 			colormap(drawspan.colormap) { }
 
-	forceinline void operator()(byte c, palindex_t* dest) const
+	forceinline palindex_t operator()(byte c, palindex_t* dest) const
 	{
-		*dest = colormap.index(c);
+		return colormap.index(c);
 	}
 
 private:
@@ -885,11 +879,11 @@ public:
 	PaletteFuzzyFunc(const drawcolumn_t& drawcolum) :
 			colormap(&GetDefaultPalette()->maps, 6) { }
 
-	forceinline void operator()(byte c, palindex_t* dest) const
+	forceinline palindex_t operator()(byte c, palindex_t* dest) const
 	{
 		palindex_t source = *(dest + fuzzoffset[fuzzpos]);
-		*dest = colormap.index(source);
 		fuzzpos = (fuzzpos + 1) & (FUZZTABLESIZE - 1);
+		return colormap.index(source);
 	}
 
 private:
@@ -911,12 +905,11 @@ public:
 		calculate_alpha(drawspan.translevel);
 	}
 
-	forceinline void operator()(byte c, palindex_t* dest) const
+	forceinline palindex_t operator()(byte c, palindex_t* dest) const
 	{
 		const palindex_t fg = colormap.index(c);
 		const palindex_t bg = *dest;
-				
-		*dest = rt_blend2<palindex_t>(bg, bga, fg, fga);
+		return rt_blend2<palindex_t>(bg, bga, fg, fga);
 	}
 
 private:
@@ -936,9 +929,9 @@ public:
 	PaletteTranslatedColormapFunc(const drawcolumn_t& drawcolumn) : 
 			colormap(drawcolumn.colormap), translation(drawcolumn.translation) { }
 
-	forceinline void operator()(byte c, palindex_t* dest) const
+	forceinline palindex_t operator()(byte c, palindex_t* dest) const
 	{
-		*dest = colormap.index(translation.tlate(c));
+		return colormap.index(translation.tlate(c));
 	}
 
 private:
@@ -952,9 +945,9 @@ public:
 	PaletteTranslatedTranslucentColormapFunc(const drawcolumn_t& drawcolumn) :
 			tlatefunc(drawcolumn), translation(drawcolumn.translation) { }
 
-	forceinline void operator()(byte c, palindex_t* dest) const
+	forceinline palindex_t operator()(byte c, palindex_t* dest) const
 	{
-		tlatefunc(translation.tlate(c), dest);
+		return tlatefunc(translation.tlate(c), dest);
 	}
 
 private:
@@ -968,10 +961,9 @@ public:
 	PaletteSlopeColormapFunc(const drawspan_t& drawspan) :
 			colormap(drawspan.slopelighting) { }
 
-	forceinline void operator()(byte c, palindex_t* dest)
+	forceinline palindex_t operator()(byte c, palindex_t* dest)
 	{
-		*dest = colormap->index(c);
-		colormap++;
+		return (colormap++)->index(c);
 	}
 
 private:
@@ -1207,9 +1199,9 @@ public:
 	DirectFunc(const drawcolumn_t& drawcolumn) { }
 	DirectFunc(const drawspan_t& drawspan) { }
 
-	forceinline void operator()(byte c, argb_t* dest) const
+	forceinline argb_t operator()(byte c, argb_t* dest) const
 	{
-		*dest = basecolormap.shade(c);
+		return basecolormap.shade(c);
 	}
 };
 
@@ -1221,9 +1213,9 @@ public:
 	DirectColormapFunc(const drawspan_t& drawspan) :
 			colormap(drawspan.colormap) { }
 
-	forceinline void operator()(byte c, argb_t* dest) const
+	forceinline argb_t operator()(byte c, argb_t* dest) const
 	{
-		*dest = colormap.shade(c);
+		return colormap.shade(c);
 	}
 
 private:
@@ -1235,11 +1227,11 @@ class DirectFuzzyFunc
 public:
 	DirectFuzzyFunc(const drawcolumn_t& drawcolumn) { }
 
-	forceinline void operator()(byte c, argb_t* dest) const
+	forceinline argb_t operator()(byte c, argb_t* dest) const
 	{
-		argb_t pixel = *(dest + fuzzoffset[fuzzpos]);
-		*dest = pixel - ((pixel >> 2) & 0x003F3F3F);
+		argb_t source = *(dest + fuzzoffset[fuzzpos]);
 		fuzzpos = (fuzzpos + 1) & (FUZZTABLESIZE - 1);
+		return source - ((source >> 2) & 0x003F3F3F);
 	}
 };
 
@@ -1258,11 +1250,11 @@ public:
 		calculate_alpha(drawspan.translevel);
 	}
 
-	forceinline void operator()(byte c, argb_t* dest) const
+	forceinline argb_t operator()(byte c, argb_t* dest) const
 	{
 		argb_t fg = colormap.shade(c);
 		argb_t bg = *dest;
-		*dest = alphablend2a(bg, bga, fg, fga);	
+		return alphablend2a(bg, bga, fg, fga);	
 	}
 
 private:
@@ -1282,9 +1274,9 @@ public:
 	DirectTranslatedColormapFunc(const drawcolumn_t& drawcolumn) :
 			colormap(drawcolumn.colormap), translation(drawcolumn.translation) { }
 
-	forceinline void operator()(byte c, argb_t* dest) const
+	forceinline argb_t operator()(byte c, argb_t* dest) const
 	{
-		*dest = colormap.tlate(translation, c);
+		return colormap.tlate(translation, c);
 	}
 
 private:
@@ -1298,9 +1290,9 @@ public:
 	DirectTranslatedTranslucentColormapFunc(const drawcolumn_t& drawcolumn) :
 			tlatefunc(drawcolumn), translation(drawcolumn.translation) { }
 
-	forceinline void operator()(byte c, argb_t* dest) const
+	forceinline argb_t operator()(byte c, argb_t* dest) const
 	{
-		tlatefunc(translation.tlate(c), dest);
+		return tlatefunc(translation.tlate(c), dest);
 	}
 
 private:
@@ -1314,10 +1306,9 @@ public:
 	DirectSlopeColormapFunc(const drawspan_t& drawspan) :
 			colormap(drawspan.slopelighting) { }
 
-	forceinline void operator()(byte c, argb_t* dest)
+	forceinline argb_t operator()(byte c, argb_t* dest)
 	{
-		*dest = colormap->shade(c);
-		colormap++;
+		return (colormap++)->shade(c);
 	}
 
 private:
