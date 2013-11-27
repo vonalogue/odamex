@@ -62,6 +62,8 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	}
 #endif
 
+	const int width = drawspan.x2 - drawspan.x1 + 1;
+
 	dsfixed_t ufrac = drawspan.xfrac;
 	dsfixed_t vfrac = drawspan.yfrac;
 	dsfixed_t ustep = drawspan.xstep;
@@ -72,9 +74,6 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	shaderef_t colormap = drawspan.colormap;
 	int colsize = drawspan.colsize;
 	
-	// We do not check for zero spans here?
-	int count = drawspan.x2 - drawspan.x1 + 1;
-
 	// [SL] Note that the texture orientation differs from typical Doom span
 	// drawers since flats are stored in column major format now. The roles
 	// of ufrac and vfrac have been reversed to accomodate this.
@@ -83,8 +82,12 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	const int ushift = FRACBITS - drawspan.textureheightbits; 
 	const int vshift = FRACBITS;
 
+	int align = ((16 - (uintptr_t(dest) & 15)) & 15) / sizeof(argb_t);
+	int batches = (width - align) / 4;
+	int remainder = (width - align) & 3;
+
 	// Blit until we align ourselves with a 16-byte offset for SSE2:
-	while (((uintptr_t)dest) & 15)
+	while (align--)
 	{
 		// Current texture index in u,v.
 		const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
@@ -97,8 +100,6 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		// Next step in u,v.
 		ufrac += ustep;
 		vfrac += vstep;
-
-		--count;
 	}
 
 	// SSE2 optimized and aligned stores for quicker memory writes:
@@ -110,8 +111,7 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	__m128i mvfrac = _mm_set_epi32(vfrac+vstep*0, vfrac+vstep*1, vfrac+vstep*2, vfrac+vstep*3);
 	const __m128i mvfracinc = _mm_set1_epi32(vstep*4);
 
-	const int sse_end_count = count & 3;
-	while (count > sse_end_count)
+	while (batches--)
 	{
 //		[SL] The below SSE2 intrinsics are equivalent to the following block:
 //		const int spot0 = (((ufrac + ustep*0) >> ushift) & umask) | (((vfrac + vstep*0) >> vshift) & vmask); 
@@ -143,15 +143,13 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 
 		mufrac = _mm_add_epi32(mufrac, mufracinc);
 		mvfrac = _mm_add_epi32(mvfrac, mvfracinc);
-
-		count -= 4;
 	}
 
 	ufrac = (dsfixed_t)((int*)&mufrac)[0];
 	vfrac = (dsfixed_t)((int*)&mvfrac)[0];
 
 	// blit the remaining 0 - 3 pixels
-	while (count > 0)
+	while (remainder--)
 	{
 		// Current texture index in u,v.
 		const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
@@ -164,7 +162,6 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		// Next step in u,v.
 		ufrac += ustep;
 		vfrac += vstep;
-		count--;
 	}
 }
 
@@ -331,14 +328,6 @@ void r_dimpatchD_SSE2(const DCanvas *const canvas, argb_t color, int alpha, int 
 	int line_inc = pitch - w;
 	argb_t* dest = (argb_t *)canvas->buffer + y1 * pitch + x1;
 
-	// [SL] Calculate how many pixels of each row need to be drawn before dest is
-	// aligned to a 16-byte boundary. Note that Odamex ensures the frame buffer's
-	// pitch is always a multiple of 16 so the value of align doesn't change
-	// for each row.
-	const int align = (int)((uintptr_t)dest - ((uintptr_t)dest & ~15)) / sizeof(argb_t);
-	const int batches = (w - align) / 4;
-	const int remainder = (w - align) & 3;
-
 	// SSE2 temporaries:
 	const __m128i upper8mask = _mm_set_epi16(	0, 0xff, 0xff, 0xff,
 												0, 0xff, 0xff, 0xff);
@@ -350,17 +339,23 @@ void r_dimpatchD_SSE2(const DCanvas *const canvas, argb_t color, int alpha, int 
 												0, RPART(color), GPART(color), BPART(color));
 	const __m128i blendMult = _mm_mullo_epi16(	blendColor, blendAlpha);
 
-	for (int y = 0; y < h; y++)
+	for (int rowcount = h; rowcount > 0; --rowcount)
 	{
+		// [SL] Calculate how many pixels of each row need to be drawn before dest is
+		// aligned to a 16-byte boundary.
+		int align = ((16 - (uintptr_t(dest) & 15)) & 15) / sizeof(argb_t);
+		int batches = (w - align) / 4;
+		int remainder = (w - align) & 3;
+
 		// align the destination buffer to 16-byte boundary
-		for (int i = 0; i < align; i++)
+		while (align--)
 		{
 			*dest = alphablend1a(*dest, color, alpha);
 			dest++;
 		}
 
 		// SSE2 optimize the bulk in batches of 4 colors:
-		for (int i = 0; i < batches; i++)
+		while (batches--)
 		{
 			const __m128i input = _mm_load_si128((__m128i*)dest);
 	
@@ -382,7 +377,7 @@ void r_dimpatchD_SSE2(const DCanvas *const canvas, argb_t color, int alpha, int 
 		}
 
 		// Pick up the remainder:
-		for (int i = 0; i < remainder; i++)
+		while (remainder--)
 		{
 			*dest = alphablend1a(*dest, color, alpha);
 			dest++;
