@@ -104,8 +104,8 @@ fixed_t 		viewz;
 
 angle_t 		viewangle;
 
-fixed_t 		viewcos;
-fixed_t 		viewsin;
+int32_t 		viewcos;
+int32_t 		viewsin;
 
 AActor			*camera;	// [RH] camera to draw from. doesn't have to be a player
 
@@ -291,12 +291,15 @@ fixed_t R_PointToDist2(fixed_t dx, fixed_t dy)
 }
 
 
-void R_RotatePoint(fixed_t x, fixed_t y, angle_t ang, fixed_t &tx, fixed_t &ty)
+//
+// R_RotatePoint
+//
+// Rotates a point x, y by viewangle and stores the result in tx, ty
+//
+void R_RotatePoint(fixed_t x, fixed_t y, fixed_t &tx, fixed_t &ty)
 {
-	int index = ang >> ANGLETOFINESHIFT;
-	
-	tx = FixedMul(x, finecosine[index]) - FixedMul(y, finesine[index]);
-	ty = FixedMul(x, finesine[index]) + FixedMul(y, finecosine[index]);
+	tx = FixedMul<16, 30, 16>(x, viewcos) - FixedMul<16, 30, 16>(y, viewsin);
+	ty = FixedMul<16, 30, 16>(x, viewsin) + FixedMul<16, 30, 16>(y, viewcos);
 }
 
 //
@@ -540,7 +543,6 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
 	const v2fixed_t pt2 = { segline->v2->x, segline->v2->y };
 
 	int32_t lclip, rclip;
-	unsigned int ang_index = (ANG90 - viewangle) >> ANGLETOFINESHIFT;
 
 	// skip this line if it's not facing the camera
 	if (R_PointOnSide(viewx, viewy, pt1.x, pt1.y, pt2.x, pt2.y) != 0)
@@ -548,14 +550,14 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
 
 	// translate pt1 & pt2 into camera coordinates and store into t1 & t2
 	v2fixed_t t1, t2;
-	t1.x =	FixedMul<16, 16, PREC>(pt1.x - viewx, finecosine[ang_index]) -
-			FixedMul<16, 16, PREC>(pt1.y - viewy, finesine[ang_index]);
-	t1.y =	FixedMul<16, 16, PREC>(pt1.x - viewx, finesine[ang_index]) +
-			FixedMul<16, 16, PREC>(pt1.y - viewy, finecosine[ang_index]);
-	t2.x =	FixedMul<16, 16, PREC>(pt2.x - viewx, finecosine[ang_index]) -
-			FixedMul<16, 16, PREC>(pt2.y - viewy, finesine[ang_index]);
-	t2.y =	FixedMul<16, 16, PREC>(pt2.x - viewx, finesine[ang_index]) +
-			FixedMul<16, 16, PREC>(pt2.y - viewy, finecosine[ang_index]);
+	t1.x =	FixedMul<16, 30, PREC>(pt1.x - viewx, viewcos) -
+			FixedMul<16, 30, PREC>(pt1.y - viewy, viewsin);
+	t1.y =	FixedMul<16, 30, PREC>(pt1.x - viewx, viewsin) +
+			FixedMul<16, 30, PREC>(pt1.y - viewy, viewcos);
+	t2.x =	FixedMul<16, 30, PREC>(pt2.x - viewx, viewcos) -
+			FixedMul<16, 30, PREC>(pt2.y - viewy, viewsin);
+	t2.y =	FixedMul<16, 30, PREC>(pt2.x - viewx, viewsin) +
+			FixedMul<16, 30, PREC>(pt2.y - viewy, viewcos);
 
 	// clip the line seg to the viewing window
 	if (!R_ClipLineToFrustum2(&t1, &t2, clipdist, lclip, rclip))
@@ -689,8 +691,8 @@ void R_DrawLine(const v3fixed_t* inpt1, const v3fixed_t* inpt2, byte color)
 {
 	// convert from world-space to camera-space
 	v3fixed_t pt1, pt2;
-	R_RotatePoint(inpt1->x - viewx, inpt1->y - viewy, ANG90 - viewangle, pt1.x, pt1.y);
-	R_RotatePoint(inpt2->x - viewx, inpt2->y - viewy, ANG90 - viewangle, pt2.x, pt2.y);
+	R_RotatePoint(inpt1->x - viewx, inpt1->y - viewy, pt1.x, pt1.y);
+	R_RotatePoint(inpt2->x - viewx, inpt2->y - viewy, pt2.x, pt2.y);
 	pt1.z = inpt1->z - viewz;
 	pt2.z = inpt2->z - viewz;
 
@@ -1257,8 +1259,8 @@ void R_SetupFrame (player_t *player)
 
 	extralight = camera == player->mo ? player->extralight : 0;
 
-	viewsin = finesine[viewangle>>ANGLETOFINESHIFT];
-	viewcos = finecosine[viewangle>>ANGLETOFINESHIFT];
+	viewsin = finesine30[(ANG90 - viewangle) >> ANGLETOFINESHIFT];
+	viewcos = finecosine30[(ANG90 - viewangle) >> ANGLETOFINESHIFT];
 
 	// killough 3/20/98, 4/4/98: select colormap based on player status
 	// [RH] Can also select a blend

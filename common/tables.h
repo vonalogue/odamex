@@ -58,6 +58,10 @@ extern const fixed_t*		finecosine;
 // Effective size is 4096.
 extern const fixed_t		finetangent[FINEANGLES/2];
 
+// sine/cosine tables with 30 bits of fractional accuracy 
+extern int32_t		finesine30[5*FINEANGLES/4];
+extern int32_t*		finecosine30;
+
 // Binary Angle Measument, BAM.
 #define ANG45			0x20000000
 #define ANG90			0x40000000
@@ -82,8 +86,8 @@ extern angle_t tantoangle_acc[2049];
 
 extern const angle_t *p_tantoangle;
 
-void Table_InitTanToAngle(void);
 void Table_SetTanToAngle(int version);
+void Table_InitTables();
 
 unsigned int Log2(unsigned int value);
 

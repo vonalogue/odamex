@@ -44,8 +44,8 @@ extern int viewheightarray[MAXWIDTH];
 //
 // POV related.
 //
-extern fixed_t			viewcos;
-extern fixed_t			viewsin;
+extern int32_t			viewcos;
+extern int32_t			viewsin;
 
 extern int				viewwidth;
 extern int				viewheight;
@@ -142,7 +142,7 @@ int R_ProjectPointY(fixed_t z, fixed_t y);
 bool R_CheckProjectionX(int &x1, int &x2);
 bool R_CheckProjectionY(int &y1, int &y2);
 
-void R_RotatePoint(fixed_t x, fixed_t y, angle_t ang, fixed_t &tx, fixed_t &ty);
+void R_RotatePoint(fixed_t x, fixed_t y, fixed_t &tx, fixed_t &ty);
 bool R_ClipLineToFrustum(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipdist, int32_t& lclip, int32_t& rclip);
 
 void R_ClipLine(const v2fixed_t* in1, const v2fixed_t* in2, 

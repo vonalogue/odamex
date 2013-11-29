@@ -798,7 +798,7 @@ static vissprite_t* R_GenerateVisSprite(const sector_t* sector, int fakeside,
 	// translate the sprite edges from world-space to camera-space
 	// and store in t1 & t2
 	fixed_t tx, ty, t1xold;
-	R_RotatePoint(x - viewx, y - viewy, ANG90 - viewangle, tx, ty);
+	R_RotatePoint(x - viewx, y - viewy, tx, ty);
 	
 	v2fixed_t t1, t2;
 	t1.x = t1xold = tx - sideoffs;

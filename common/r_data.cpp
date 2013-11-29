@@ -400,8 +400,7 @@ void R_InitData (void)
 	R_InitFlats ();
 	R_InitSpriteLumps ();
 
-	// haleyjd 01/28/10: also initialize tantoangle_acc table
-	Table_InitTanToAngle ();
+	Table_InitTables();
 }
 
 //

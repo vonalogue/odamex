@@ -36,6 +36,7 @@
 //-----------------------------------------------------------------------------
 
 #include <math.h>
+#include <cstring>
 #include "tables.h"
 
 const int finetangent[4096] =
@@ -2102,24 +2103,8 @@ angle_t tantoangle_acc[2049]; // haleyjd 01/28/10: calculated at runtime
 
 const angle_t *p_tantoangle = tantoangle;
 
-//
-// Table_InitTanToAngle
-//
-// haleyjd 01/28/2010:
-// Initializes a more accurate tantoangle table for use outside of old demos and
-// unconditionally within the renderer using the atan2 function.
-//
-void Table_InitTanToAngle(void)
-{
-   int i;
-
-   for(i = 0; i <= SLOPERANGE; ++i)
-   {
-      double angle = atan2((double)i, (double)SLOPERANGE) / 6.28318530718;
-
-      tantoangle_acc[i] = (angle_t)(angle * ANG360);
-   }
-}
+int32_t finesine30[10240];
+int32_t* finecosine30;
 
 //
 // Table_SetTanToAngle
@@ -2134,6 +2119,33 @@ void Table_SetTanToAngle(int version)
    else
       p_tantoangle = tantoangle_acc; // newer versions use the more accurate one
 }
+
+void Table_InitTables()
+{
+	// haleyjd 01/28/2010:
+	// Initializes a more accurate tantoangle table for use outside of old demos and
+	// unconditionally within the renderer using the atan2 function.
+	for (int i = 0; i <= SLOPERANGE; ++i)
+	{
+		double angle = atan2((double)i, (double)SLOPERANGE) / 6.28318530718;
+		tantoangle_acc[i] = (angle_t)(angle * ANG360);
+	}
+
+	p_tantoangle = tantoangle_acc;
+
+	// [SL] 2013-11-29 - Initialize sine / cosine lookup tables with 30 bits of
+	// fractional precision for the renderer
+	const double factor = double(PI) / ANG180;
+
+	for (int i = 0; i < FINEANGLES; i++)
+		finesine30[i] = (int32_t)(FRACUNIT30 * sin((i << ANGLETOFINESHIFT) * factor));
+
+	// finesine30 includes an extra pi/2 so that it can also be used for finecosine30
+	memcpy((byte*)(finesine30 + FINEANGLES), (byte*)finesine30, sizeof(*finesine30) * FINEANGLES/4);
+	
+	finecosine30 = finesine30 + (ANG90 >> ANGLETOFINESHIFT);
+}
+
 
 //
 // Log2
@@ -2161,6 +2173,8 @@ unsigned int Log2(unsigned int value)
 	else 
 		return (t = value >> 8) ? 8 + LogTable256[t] : LogTable256[value];
 }
+
+
 
 VERSION_CONTROL (tables_cpp, "$Id$")
 

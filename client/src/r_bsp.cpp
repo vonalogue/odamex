@@ -580,8 +580,8 @@ static bool R_CheckBBox(const fixed_t *bspcoord)
 
 	// translate the bounding box vertices from world-space to camera-space
 	// and store in (t1.x, t1.y) and (t2.x, t2.y)
-	R_RotatePoint(xl - viewx, yl - viewy, ANG90 - viewangle, t1.x, t1.y);
-	R_RotatePoint(xh - viewx, yh - viewy, ANG90 - viewangle, t2.x, t2.y);
+	R_RotatePoint(xl - viewx, yl - viewy, t1.x, t1.y);
+	R_RotatePoint(xh - viewx, yh - viewy, t2.x, t2.y);
 
 	v2fixed_t box_pts[4][2] = {
 		{	{t1.x, t1.y},	{t2.x, t1.y}	},	// top line of box
