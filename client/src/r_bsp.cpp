@@ -446,56 +446,16 @@ sector_t *R_FakeFlat(sector_t *sec, sector_t *tempsec,
 void R_AddLine (seg_t *line)
 {
 	curline = line;
-	dcol.color = ((line - segs) & 31) * 4;	// [RH] Color if not texturing line
-
-	drawseg_t ds;
-	v2fixed_t w1, w2;
-	bool val = R_ProjectSeg(line, &ds, NEARCLIP, w1.x, w1.y, w2.x, w2.y);
-
-	if (val == false)
-		return;
-
-	rw_start = ds.x1;
-	rw_stop = ds.x2;
 
 	// killough 3/8/98, 4/4/98: hack for invisible ceilings / deep water
 	static sector_t tempsec;
 	backsector = line->backsector ? R_FakeFlat(line->backsector, &tempsec, NULL, NULL, true) : NULL;
 
-	R_PrepWall(&ds, w1.x, w1.y, w2.x, w2.y);
-
-	// [SL] Check for single-sided line, closed doors or other scenarios that
-	// would make this line seg solid.
-	//
-	// This fixes the automap floor height bug -- killough 1/18/98:
-	// killough 4/7/98: optimize: save result in doorclosed for use in r_segs.c
-
-	if (!backsector || !(line->linedef->flags & ML_TWOSIDED) ||
-		(rw_backcz1 <= rw_frontfz1 && rw_backcz2 <= rw_frontfz2) ||
-		(rw_backfz1 >= rw_frontcz1 && rw_backfz2 >= rw_frontcz2) ||
-
-		// if door is closed because back is shut:
-		((rw_backcz1 <= rw_backfz1 && rw_backcz2 <= rw_backfz2) &&
-		
-		// preserve a kind of transparent door/lift special effect:
-		((rw_backcz1 >= rw_frontcz1 && rw_backcz2 >= rw_frontcz2) ||
-		 line->sidedef->toptexture != TextureManager::NO_TEXTURE_HANDLE) &&
-		
-		((rw_backfz1 <= rw_frontfz1 && rw_backfz2 <= rw_frontfz2) ||
-		 line->sidedef->bottomtexture != TextureManager::NO_TEXTURE_HANDLE) &&
-
-		// properly render skies (consider door "open" if both ceilings are sky):
-		(backsector->ceiling_texhandle !=sky1flathandle || frontsector->ceiling_texhandle != sky1flathandle)))
-	{
-		doorclosed = true;
-		R_ClipWallSegment(ds.x1, ds.x2, true);
-		return;
-	}
-
 	// Reject empty lines used for triggers and special events.
 	// Identical floor and ceiling on both sides,
 	// identical light levels on both sides, and no middle texture.
-	if (P_IdenticalPlanes(&frontsector->ceilingplane, &backsector->ceilingplane)
+	if (backsector
+		&& P_IdenticalPlanes(&frontsector->ceilingplane, &backsector->ceilingplane)
 		&& P_IdenticalPlanes(&frontsector->floorplane, &backsector->floorplane)
 		&& backsector->lightlevel == frontsector->lightlevel
 		&& backsector->floor_texhandle == frontsector->floor_texhandle
@@ -530,8 +490,51 @@ void R_AddLine (seg_t *line)
 		return;
 	}
 
-	doorclosed = false;
-	R_ClipWallSegment(ds.x1, ds.x2, false);
+	dcol.color = ((line - segs) & 31) * 4;	// [RH] Color if not texturing line
+
+	drawseg_t ds;
+	v2fixed_t w1, w2;
+	bool val = R_ProjectSeg(line, &ds, NEARCLIP, w1.x, w1.y, w2.x, w2.y);
+
+	if (val == false)
+		return;
+
+	rw_start = ds.x1;
+	rw_stop = ds.x2;
+
+	R_PrepWall(&ds, w1.x, w1.y, w2.x, w2.y);
+
+	// [SL] Check for single-sided line, closed doors or other scenarios that
+	// would make this line seg solid.
+	//
+	// This fixes the automap floor height bug -- killough 1/18/98:
+	// killough 4/7/98: optimize: save result in doorclosed for use in r_segs.c
+
+	if (!backsector || !(line->linedef->flags & ML_TWOSIDED) ||
+		(rw_backcz1 <= rw_frontfz1 && rw_backcz2 <= rw_frontfz2) ||
+		(rw_backfz1 >= rw_frontcz1 && rw_backfz2 >= rw_frontcz2) ||
+
+		// if door is closed because back is shut:
+		((rw_backcz1 <= rw_backfz1 && rw_backcz2 <= rw_backfz2) &&
+		
+		// preserve a kind of transparent door/lift special effect:
+		((rw_backcz1 >= rw_frontcz1 && rw_backcz2 >= rw_frontcz2) ||
+		 line->sidedef->toptexture != TextureManager::NO_TEXTURE_HANDLE) &&
+		
+		((rw_backfz1 <= rw_frontfz1 && rw_backfz2 <= rw_frontfz2) ||
+		 line->sidedef->bottomtexture != TextureManager::NO_TEXTURE_HANDLE) &&
+
+		// properly render skies (consider door "open" if both ceilings are sky):
+		(backsector->ceiling_texhandle !=sky1flathandle || frontsector->ceiling_texhandle != sky1flathandle)))
+	{
+		doorclosed = true;
+		R_ClipWallSegment(ds.x1, ds.x2, true);
+	}
+	else
+	{
+		doorclosed = false;
+		R_ClipWallSegment(ds.x1, ds.x2, false);
+	}
 }
 
 

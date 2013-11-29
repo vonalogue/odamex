@@ -567,18 +567,51 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 
 	int clipx1 = ds->x1 - rw.x1;
 	int clipx2 = rw.x2 - ds->x2;
-	
-	ds->invz1 = rw.invz1 + clipx1 * rw.invzstep;
-	ds->invz2 = rw.invz2 - clipx2 * rw.invzstep;
-	ds->invzstep = (ds->invz2 - ds->invz1) / width; 
 
-	ds->scale1 = rw.scale1 + clipx1 * rw.scalestep;
-	ds->scale2 = rw.scale2 - clipx2 * rw.scalestep;
-	ds->scalestep = (ds->scale2 - ds->scale1) / width;
+	if (clipx1 || clipx2)
+	{
+		if (ds->x2 > ds->x1)
+		{
+			const int32_t stepfactor = FixedDiv<0, 0, 30>(1, ds->x2 - ds->x1);
 
-	ds->uinvz1 = rw.uinvz1 + clipx1 * rw.uinvzstep;
-	ds->uinvz2 = rw.uinvz2 - clipx2 * rw.uinvzstep;
-	ds->uinvzstep = (ds->uinvz2 - ds->uinvz1) / width; 
+			ds->invz1 = rw.invz1 + clipx1 * rw.invzstep;
+			ds->invz2 = rw.invz2 - clipx2 * rw.invzstep;
+			ds->invzstep = FixedMul<28, 30, 28>(ds->invz2 - ds->invz1, stepfactor); 
+
+			ds->scale1 = rw.scale1 + clipx1 * rw.scalestep;
+			ds->scale2 = rw.scale2 - clipx2 * rw.scalestep;
+			ds->scalestep = FixedMul<16, 30, 16>(ds->scale2 - ds->scale1, stepfactor);
+
+			ds->uinvz1 = rw.uinvz1 + clipx1 * rw.uinvzstep;
+			ds->uinvz2 = rw.uinvz2 - clipx2 * rw.uinvzstep;
+			ds->uinvzstep = FixedMul<20, 30, 20>(ds->uinvz2 - ds->uinvz1, stepfactor); 
+		}
+		else
+		{
+			ds->invz1 = ds->invz2 = rw.invz1 + clipx1 * rw.invzstep;
+			ds->invzstep = 0;
+
+			ds->scale1 = ds->scale2 = rw.scale1 + clipx1 * rw.scalestep;
+			rw.scalestep = 0;
+
+			ds->uinvz1 = ds->uinvz2 = rw.uinvz1 + clipx1 * rw.uinvzstep;
+			ds->uinvzstep = 0;
+		}
+	}
+	else
+	{
+		ds->invz1 = rw.invz1;
+		ds->invz2 = rw.invz2;
+		ds->invzstep = rw.invzstep;
+
+		ds->scale1 = rw.scale1;
+		ds->scale2 = rw.scale2;
+		ds->scalestep = rw.scalestep;
+
+		ds->uinvz1 = rw.uinvz1;
+		ds->uinvz2 = rw.uinvz2;
+		ds->uinvzstep = rw.uinvzstep;
+	}
 
 	ds->light = ds->scale1 * lightscalexmul;
  	ds->lightstep = ds->scalestep * lightscalexmul;

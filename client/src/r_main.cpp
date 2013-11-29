@@ -574,18 +574,6 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
 	if (!R_CheckProjectionX(ds->x1, ds->x2))
 		return false;
 
-	int width = ds->x2 - ds->x1 + 1;
-
-	// invert t1.y (Z) and store it using 2.30 fixed-point format
-	ds->invz1 = FixedDiv<0, PREC, 28>(1, t1.y);
-	ds->invz2 = FixedDiv<0, PREC, 28>(1, t2.y);
-	ds->invzstep = (ds->invz2 - ds->invz1) / width;
-
-	// calculate scale values (FocalLengthY / Z)
-	ds->scale1 = FixedMul<16, 28, 16>(FocalLengthY, ds->invz1);
-	ds->scale2 = FixedMul<16, 28, 16>(FocalLengthY, ds->invz2);
-	ds->scalestep = (ds->scale2 - ds->scale1) / width;
-
 	// clip the line seg endpoints in world-space
 	// and store in (w1.x, w1.y) and (w2.x, w2.y)
 	v2fixed_t w1, w2;
@@ -602,12 +590,39 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
 	fixed_t length = R_LineLength(w1.x, w1.y, w2.x, w2.y);
 	fixed_t textureoffset = R_LineLength(v1->x, v1->y, w1.x, w1.y) + segline->sidedef->textureoffset;
 
-	// calculate column texture mapping values (U / Z)
-	// we can later retrieve U with U = Z * (U / Z)
-	ds->uinvz1 = FixedMul<16, 28, 20>(textureoffset, ds->invz1);
-	ds->uinvz2 = FixedMul<16, 28, 20>(textureoffset + length, ds->invz2);
-	ds->uinvzstep = (ds->uinvz2 - ds->uinvz1) / width;
+	// calculate the texture mapping step values
+	if (ds->x2 > ds->x1)
+	{
+		const int32_t stepfactor = FixedDiv<0, 0, 30>(1, ds->x2 - ds->x1);
+	
+		// invert t1.y (Z) and store it using 2.30 fixed-point format
+		ds->invz1 = FixedDiv<0, PREC, 28>(1, t1.y);
+		ds->invz2 = FixedDiv<0, PREC, 28>(1, t2.y);
+		ds->invzstep = FixedMul<28, 30, 28>(ds->invz2 - ds->invz1, stepfactor);
 
+		// calculate scale values (FocalLengthY / Z)
+		ds->scale1 = FixedMul<16, 28, 16>(FocalLengthY, ds->invz1);
+		ds->scale2 = FixedMul<16, 28, 16>(FocalLengthY, ds->invz2);
+		ds->scalestep = FixedMul<16, 30, 16>(ds->scale2 - ds->scale1, stepfactor);
+
+		// calculate column texture mapping values (U / Z)
+		// we can later retrieve U with U = Z * (U / Z)
+		ds->uinvz1 = FixedMul<16, 28, 20>(textureoffset, ds->invz1);
+		ds->uinvz2 = FixedMul<16, 28, 20>(textureoffset + length, ds->invz2);
+		ds->uinvzstep = FixedMul<20, 30, 20>(ds->uinvz2 - ds->uinvz1, stepfactor);
+	}
+	else
+	{
+		ds->invz1 = ds->invz2 = FixedDiv<0, PREC, 28>(1, t1.y);
+		ds->invzstep = 0;
+
+		ds->scale1 = ds->scale2 = FixedMul<16, 28, 16>(FocalLengthY, ds->invz1);
+		ds->scalestep = 0;
+
+		ds->uinvz1 = ds->uinvz2 = FixedMul<16, 28, 20>(textureoffset, ds->invz1);
+		ds->uinvzstep = 0;
+	}
+	
 	gx1 = w1.x;
 	gy1 = w1.y; 
 	gx2 = w2.x; 
