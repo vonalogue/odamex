@@ -574,14 +574,11 @@ void WI_updateAnimatedBack (void)
 
 void WI_drawAnimatedBack (void)
 {
-	int i;
-	anim_t *a;
-
 	if (gamemode != commercial && gamemode != commercial_bfg && wbs->epsd <= 2)
 	{
-		for (i = 0; i < NUMANIMS[wbs->epsd]; i++)
+		for (int i = 0; i < NUMANIMS[wbs->epsd]; i++)
 		{
-			a = &anims[wbs->epsd][i];
+			anim_t* a = &anims[wbs->epsd][i];
 
 			if (a->ctr >= 0)
 			{
@@ -589,8 +586,13 @@ void WI_drawAnimatedBack (void)
 				int width = source_texture->getWidth();
 				int height = source_texture->getHeight();
 
+				int destx1 = a->loc.x;
+				int destx2 = a->loc.x + width - 1;
+				int desty1 = a->loc.y;
+				int desty2 = a->loc.y + height - 1;
+
 				R_CopySubimage(background_texture, source_texture,
-						a->loc.x, a->loc.y, a->loc.x + width - 1, a->loc.y + height - 1,
+						destx1, desty1, destx2, desty2,
 						0, 0, width - 1, height - 1); 
 			}
 		}

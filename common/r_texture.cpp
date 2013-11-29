@@ -126,25 +126,27 @@ void R_CopySubimage(Texture* dest_texture, const Texture* source_texture,
 	const fixed_t xstep = FixedDiv(sourcewidth << FRACBITS, destwidth << FRACBITS) + 1;
 	const fixed_t ystep = FixedDiv(sourceheight << FRACBITS, destheight << FRACBITS) + 1;
 
-	byte* dest = dest_texture->getData();
-	byte* dest_mask = dest_texture->getMaskData();
-
-	memset(dest_mask, 1, sizeof(*dest_mask) * destwidth * destheight);
+	int dest_offset = dx1 * dest_texture->getHeight() + dy1;
+	byte* dest = dest_texture->getData() + dest_offset; 
+	byte* dest_mask = dest_texture->getMaskData() + dest_offset; 
 
 	fixed_t xfrac = 0;
-	for (int x = dx1; x <= dx2; x++)
+	for (int xcount = destwidth; xcount > 0; xcount--)
 	{
-		int offset = (sx1 + (xfrac >> FRACBITS)) * source_texture->getHeight() + sy1;
-		const byte* source = source_texture->getData() + offset;
-		const byte* source_mask = source_texture->getMaskData() + offset;
+		int source_offset = (sx1 + (xfrac >> FRACBITS)) * source_texture->getHeight() + sy1;
+		const byte* source = source_texture->getData() + source_offset;
+		const byte* source_mask = source_texture->getMaskData() + source_offset;
 
 		fixed_t yfrac = 0;
-		for (int y = dy1; y <= dy2; y++)
+		for (int ycount = destheight; ycount > 0; ycount--)
 		{
 			*dest++ = source[yfrac >> FRACBITS];	
 			*dest_mask++ = source_mask[yfrac >> FRACBITS];	
 			yfrac += ystep;
 		}
+
+		dest += dest_texture->getHeight() - destheight;
+		dest_mask += dest_texture->getHeight() - destheight; 
 
 		xfrac += xstep;
 	}
