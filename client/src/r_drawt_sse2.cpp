@@ -50,15 +50,22 @@
 #include "r_things.h"
 #include "v_video.h"
 
+static inline int R_GetBytesUntilAligned(void* data, int alignment)
+{
+	int mask = alignment - 1;
+	return (alignment - ((uintptr_t)data & mask)) & mask;
+}
 
 // Direct rendering (32-bit) functions for SSE2 optimization:
 
 void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 {
 #ifdef RANGECHECK
-	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= screen->width || drawspan.y > screen->height)
+	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= viewwidth ||
+		drawspan.y >= viewheight || drawspan.y < 0)
 	{
-		I_Error ("R_DrawSpan: %i to %i at %i", drawspan.x1, drawspan.x2, drawspan.y);
+		Printf(PRINT_HIGH, "R_DrawLevelSpan: %i to %i at %i", drawspan.x1, drawspan.x2, drawspan.y);
+		return;
 	}
 #endif
 
@@ -71,6 +78,7 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 
 	const byte* source = drawspan.source;
 	argb_t* dest = (argb_t*)drawspan.dest;
+
 	shaderef_t colormap = drawspan.colormap;
 	int colsize = drawspan.colsize;
 	
@@ -82,7 +90,10 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	const int ushift = FRACBITS - drawspan.textureheightbits; 
 	const int vshift = FRACBITS;
 
-	int align = ((16 - (uintptr_t(dest) & 15)) & 15) / sizeof(argb_t);
+	int align = R_GetBytesUntilAligned(dest, 16) / sizeof(argb_t);
+	if (align > width)
+		align = width;
+
 	int batches = (width - align) / 4;
 	int remainder = (width - align) & 3;
 
@@ -139,14 +150,14 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		_mm_store_si128((__m128i*)dest, finalColors);
 
 		// [SL] TODO: does this break with r_detail != 0?
-		dest += 4;
+		dest += 4*colsize;
 
 		mufrac = _mm_add_epi32(mufrac, mufracinc);
 		mvfrac = _mm_add_epi32(mvfrac, mvfracinc);
 	}
 
-	ufrac = (dsfixed_t)((int*)&mufrac)[0];
-	vfrac = (dsfixed_t)((int*)&mvfrac)[0];
+	ufrac = (dsfixed_t)((int*)&mufrac)[3];
+	vfrac = (dsfixed_t)((int*)&mvfrac)[3];
 
 	// blit the remaining 0 - 3 pixels
 	while (remainder--)
@@ -343,7 +354,10 @@ void r_dimpatchD_SSE2(const DCanvas *const canvas, argb_t color, int alpha, int 
 	{
 		// [SL] Calculate how many pixels of each row need to be drawn before dest is
 		// aligned to a 16-byte boundary.
-		int align = ((16 - (uintptr_t(dest) & 15)) & 15) / sizeof(argb_t);
+		int align = R_GetBytesUntilAligned(dest, 16) / sizeof(argb_t);
+		if (align > w)
+			align = w;
+
 		int batches = (w - align) / 4;
 		int remainder = (w - align) & 3;
 
