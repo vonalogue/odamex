@@ -70,8 +70,10 @@ typedef struct
 	int					x2;
 	int					colsize;
 
-	fixed_t				textureheightbits;
-	fixed_t				texturewidthbits;
+	int					umask;
+	int					vmask;
+	int					ushift;
+	int					vshift;
 
 	dsfixed_t			xfrac;
 	dsfixed_t			yfrac;

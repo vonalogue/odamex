@@ -82,13 +82,10 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	shaderef_t colormap = drawspan.colormap;
 	int colsize = drawspan.colsize;
 	
-	// [SL] Note that the texture orientation differs from typical Doom span
-	// drawers since flats are stored in column major format now. The roles
-	// of ufrac and vfrac have been reversed to accomodate this.
-	const int umask = ((1 << drawspan.texturewidthbits) - 1) << drawspan.textureheightbits;
-	const int vmask = (1 << drawspan.textureheightbits) - 1;
-	const int ushift = FRACBITS - drawspan.textureheightbits; 
-	const int vshift = FRACBITS;
+	const int umask = drawspan.umask; 
+	const int vmask = drawspan.vmask; 
+	const int ushift = drawspan.ushift; 
+	const int vshift = drawspan.vshift;
 
 	int align = R_GetBytesUntilAligned(dest, 16) / sizeof(argb_t);
 	if (align > width)
@@ -178,37 +175,34 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 
 void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 {
-	int count = dspan.x2 - dspan.x1 + 1;
+	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
 
 #ifdef RANGECHECK 
-	if (dspan.x2 < dspan.x1 || dspan.x1 < 0 || dspan.x2 >= screen->width || dspan.y > screen->height)
+	if (drawspan.x2 < drawspan.x1 || drawspan.x1 < 0 || drawspan.x2 >= screen->width || drawspan.y > screen->height)
 	{
-		I_Error ("R_DrawSlopeSpan: %i to %i at %i", dspan.x1, dspan.x2, dspan.y);
+		I_Error ("R_DrawSlopeSpan: %i to %i at %i", drawspan.x1, drawspan.x2, drawspan.y);
 	}
 #endif
 
-	// [SL] Note that the texture orientation differs from typical Doom span
-	// drawers since flats are stored in column major format now. The roles
-	// of ufrac and vfrac have been reversed to accomodate this.
-	const int umask = ((1 << dspan.texturewidthbits) - 1) << dspan.textureheightbits;
-	const int vmask = (1 << dspan.textureheightbits) - 1;
-	const int ushift = FRACBITS - dspan.textureheightbits; 
-	const int vshift = FRACBITS;
+	const int umask = drawspan.umask; 
+	const int vmask = drawspan.vmask; 
+	const int ushift = drawspan.ushift; 
+	const int vshift = drawspan.vshift;
 
-	float iu = dspan.iu, iv = dspan.iv;
-	float ius = dspan.iustep, ivs = dspan.ivstep;
-	float id = dspan.id, ids = dspan.idstep;
+	float iu = drawspan.iu, iv = drawspan.iv;
+	float ius = drawspan.iustep, ivs = drawspan.ivstep;
+	float id = drawspan.id, ids = drawspan.idstep;
 	
 	// framebuffer	
 	argb_t *dest = (argb_t *)drawspan.dest;
 	
 	// texture data
-	byte *src = (byte *)dspan.source;
+	byte *src = (byte *)drawspan.source;
 
-	assert (dspan.colsize == 1);
-	const int colsize = dspan.colsize;
+	assert (drawspan.colsize == 1);
+	const int colsize = drawspan.colsize;
 	int ltindex = 0;		// index into the lighting table
 
 	// Blit the bulk in batches of SPANJUMP columns:
@@ -238,7 +232,7 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 		// Blit up to the first 16-byte aligned position:
 		while ((((uintptr_t)dest) & 15) && (incount > 0))
 		{
-			const shaderef_t &colormap = dspan.slopelighting[ltindex++];
+			const shaderef_t &colormap = drawspan.slopelighting[ltindex++];
 	
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			*dest = colormap.shade(src[spot]);
@@ -262,10 +256,10 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 					const int spot3 = (((ufrac + ustep*3) >> ushift) & umask) | (((vfrac + vstep*3) >> vshift) & vmask); 
 
 					const __m128i finalColors = _mm_setr_epi32(
-						dspan.slopelighting[ltindex+0].shade(src[spot0]),
-						dspan.slopelighting[ltindex+1].shade(src[spot1]),
-						dspan.slopelighting[ltindex+2].shade(src[spot2]),
-						dspan.slopelighting[ltindex+3].shade(src[spot3])
+						drawspan.slopelighting[ltindex+0].shade(src[spot0]),
+						drawspan.slopelighting[ltindex+1].shade(src[spot1]),
+						drawspan.slopelighting[ltindex+2].shade(src[spot2]),
+						drawspan.slopelighting[ltindex+3].shade(src[spot3])
 					);
 					_mm_store_si128((__m128i *)dest, finalColors);
 
@@ -282,7 +276,7 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 		{
 			while(incount--)
 			{
-				const shaderef_t &colormap = dspan.slopelighting[ltindex++];
+				const shaderef_t &colormap = drawspan.slopelighting[ltindex++];
 				const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 				*dest = colormap.shade(src[spot]);
 				dest += colsize;
@@ -321,7 +315,7 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 		int incount = count;
 		while (incount--)
 		{
-			const shaderef_t &colormap = dspan.slopelighting[ltindex++];
+			const shaderef_t &colormap = drawspan.slopelighting[ltindex++];
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			*dest = colormap.shade(src[spot]);
 			dest += colsize;

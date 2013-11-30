@@ -677,15 +677,12 @@ static forceinline void R_DrawLevelSpanGeneric(drawspan_t& drawspan)
 	const dsfixed_t ustep = dspan.xstep;
 	const dsfixed_t vstep = dspan.ystep;
 
-	COLORFUNC colorfunc(drawspan);
+	const int umask = drawspan.umask; 
+	const int vmask = drawspan.vmask; 
+	const int ushift = drawspan.ushift; 
+	const int vshift = drawspan.vshift;
 
-	// [SL] Note that the texture orientation differs from typical Doom span
-	// drawers since flats are stored in column major format now. The roles
-	// of ufrac and vfrac have been reversed to accomodate this.
-	const int umask = ((1 << drawspan.texturewidthbits) - 1) << drawspan.textureheightbits;
-	const int vmask = (1 << drawspan.textureheightbits) - 1;
-	const int ushift = FRACBITS - drawspan.textureheightbits; 
-	const int vshift = FRACBITS;
+	COLORFUNC colorfunc(drawspan);
  
 	while (count--)
 	{
@@ -736,13 +733,10 @@ static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
 	int colsize = drawspan.colsize;
 
-	// [SL] Note that the texture orientation differs from typical Doom span
-	// drawers since flats are stored in column major format now. The roles
-	// of xfrac and yfrac have been reversed to accomodate this.
-	const int umask = ((1 << drawspan.texturewidthbits) - 1) << drawspan.textureheightbits;
-	const int vmask = (1 << drawspan.textureheightbits) - 1;
-	const int ushift = FRACBITS - drawspan.textureheightbits; 
-	const int vshift = FRACBITS;
+	const int umask = drawspan.umask; 
+	const int vmask = drawspan.vmask; 
+	const int ushift = drawspan.ushift; 
+	const int vshift = drawspan.vshift;
  
 	float iu = drawspan.iu, iv = drawspan.iv;
 	const float ius = drawspan.iustep, ivs = drawspan.ivstep;

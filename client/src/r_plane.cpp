@@ -618,8 +618,14 @@ void R_DrawPlanes (void)
 				dspan.color += 4;	// [RH] color if r_drawflat is 1
 				const Texture* texture = texturemanager.getTexture(pl->texhandle);
 				dspan.source = texture->getData(); 
-				dspan.texturewidthbits = texture->getWidthBits();
-				dspan.textureheightbits = texture->getHeightBits();
+
+				// [SL] Note that the texture orientation differs from typical Doom span
+				// drawers since flats are stored in column major format now. The roles
+				// of ufrac and vfrac have been reversed to accomodate this.
+				dspan.umask = ((1 << texture->getWidthBits()) - 1) << texture->getHeightBits();
+				dspan.vmask = (1 << texture->getHeightBits()) - 1;
+				dspan.ushift = FRACBITS - texture->getHeightBits(); 
+				dspan.vshift = FRACBITS;
 				
 				pl->top[pl->maxx+1] = viewheight;
 				pl->top[pl->minx-1] = viewheight;
