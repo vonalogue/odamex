@@ -401,10 +401,13 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 		R_ResetDrawFuncs();
 	}
 
+	side_t* sidedef = ds->curline->sidedef;
+	line_t* linedef = ds->curline->linedef;
+
 	frontsector = ds->curline->frontsector;
 	backsector = ds->curline->backsector;
 
-	const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->midtexture);
+	const Texture* texture = texturemanager.getTexture(sidedef->midtexture);
 	fixed_t texheight = texture->getHeight() << FRACBITS;
 
 	fixed_t scalefrac = ds->scale1;
@@ -413,10 +416,10 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 	static int top[MAXWIDTH];
 	static int bottom[MAXWIDTH];
 
-	if (ds->curline->linedef->flags & ML_DONTPEGBOTTOM)
+	if (linedef->flags & ML_DONTPEGBOTTOM)
 	{
 		dcol.texturemid = MAX(P_FloorHeight(frontsector), P_FloorHeight(backsector))
-						+ texheight - viewz + ds->curline->sidedef->rowoffset;
+						+ texheight - viewz + sidedef->rowoffset;
 
 		for (int x = start; x <= stop; x++)
 		{
@@ -432,7 +435,7 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 	else
 	{
 		dcol.texturemid = MIN(P_CeilingHeight(frontsector), P_CeilingHeight(backsector))
-						- viewz + ds->curline->sidedef->rowoffset;
+						- viewz + sidedef->rowoffset;
 
 		for (int x = start; x <= stop; x++)
 		{
@@ -480,18 +483,7 @@ void R_PrepWall(const drawseg_t* ds, fixed_t px1, fixed_t py1, fixed_t px2, fixe
 	float scale1 = FIXED2FLOAT(ds->scale1);
 	float scale2 = FIXED2FLOAT(ds->scale2);
 
-	rw.curline = ds->curline;
-	rw.x1 = ds->x1;
-	rw.x2 = ds->x2;
-	rw.invz1 = ds->invz1;	
-	rw.invz2 = ds->invz2;	
-	rw.invzstep = ds->invzstep;	
-	rw.uinvz1 = ds->uinvz1;	
-	rw.uinvz2 = ds->uinvz2;	
-	rw.uinvzstep = ds->uinvzstep;	
-	rw.scale1 = ds->scale1;
-	rw.scale2 = ds->scale2;
-	rw.scalestep = ds->scalestep;
+	rw = *ds;
 
 	// get the z coordinates of the line's vertices on each side of the line
 	rw_frontcz1 = P_CeilingHeight(px1, py1, frontsector);
@@ -519,16 +511,16 @@ void R_PrepWall(const drawseg_t* ds, fixed_t px1, fixed_t py1, fixed_t px2, fixe
 		const fixed_t tolerance = FRACUNIT/2;
 
 		// determine if an upper texture is showing
-		rw_hashigh	= (P_CeilingHeight(curline->v1->x, curline->v1->y, frontsector) - tolerance >
-					   P_CeilingHeight(curline->v1->x, curline->v1->y, backsector)) ||
-					  (P_CeilingHeight(curline->v2->x, curline->v2->y, frontsector) - tolerance>
-					   P_CeilingHeight(curline->v2->x, curline->v2->y, backsector));
+		rw_hashigh	= (P_CeilingHeight(ds->curline->v1->x, ds->curline->v1->y, frontsector) - tolerance >
+					   P_CeilingHeight(ds->curline->v1->x, ds->curline->v1->y, backsector)) ||
+					  (P_CeilingHeight(ds->curline->v2->x, ds->curline->v2->y, frontsector) - tolerance>
+					   P_CeilingHeight(ds->curline->v2->x, ds->curline->v2->y, backsector));
 
 		// determine if a lower texture is showing
-		rw_haslow	= (P_FloorHeight(curline->v1->x, curline->v1->y, frontsector) + tolerance <
-					   P_FloorHeight(curline->v1->x, curline->v1->y, backsector)) ||
-					  (P_FloorHeight(curline->v2->x, curline->v2->y, frontsector) + tolerance <
-					   P_FloorHeight(curline->v2->x, curline->v2->y, backsector));
+		rw_haslow	= (P_FloorHeight(ds->curline->v1->x, ds->curline->v1->y, frontsector) + tolerance <
+					   P_FloorHeight(ds->curline->v1->x, ds->curline->v1->y, backsector)) ||
+					  (P_FloorHeight(ds->curline->v2->x, ds->curline->v2->y, frontsector) + tolerance <
+					   P_FloorHeight(ds->curline->v2->x, ds->curline->v2->y, backsector));
 
 		// hack to allow height changes in outdoor areas (sky hack)
 		// copy back ceiling height array to front ceiling height array
@@ -554,8 +546,8 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 	if (width <= 0)
 		return;
 
-	sidedef = rw.curline->sidedef;
-	linedef = rw.curline->linedef;
+	side_t* sidedef = rw.curline->sidedef;
+	line_t* linedef = rw.curline->linedef;
 
 	// mark the segment as visible for auto map
 	linedef->flags |= ML_MAPPED;
