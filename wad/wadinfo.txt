@@ -230,8 +230,3 @@ RDWNA0	17	44
 BDWNA0	17	44
 RCARA0	4	68
 
-# List of Floors and Ceilings
-[flats]
--NOFLAT-
-
-
