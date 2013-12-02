@@ -33,6 +33,7 @@
 // Some more or less basic data types
 // we depend on.
 #include "m_fixed.h"
+#include "m_vectors.h"
 #include "m_swap.h"
 
 // We rely on the thinker data struct
@@ -462,9 +463,21 @@ typedef struct tallpost_s tallpost_t;
 // OTHER TYPES
 //
 
+struct wall_t
+{
+	v3fixed_t		frontc1, frontc2;
+	v3fixed_t		frontf1, frontf2;
+	v3fixed_t		backc1, backc2;
+	v3fixed_t		backf1, backf2;
+	bool			twosided;
+};
+
+
 struct drawseg_s
 {
 	const seg_t*	curline;
+	sector_t*		frontsector;
+	sector_t*		backsector;
 
 	int				x1;
 	int				x2;

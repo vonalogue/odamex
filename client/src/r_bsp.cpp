@@ -51,14 +51,6 @@ bool			doorclosed;
 bool			r_fakingunderwater;
 bool			r_underwater;
 
-// Floor and ceiling heights at the end points of a seg_t
-fixed_t			rw_backcz1, rw_backcz2;
-fixed_t			rw_backfz1, rw_backfz2;
-fixed_t			rw_frontcz1, rw_frontcz2;
-fixed_t			rw_frontfz1, rw_frontfz2;
-
-int rw_start, rw_stop;
-
 static BYTE		FakeSide;
 
 const fixed_t NEARCLIP = FRACUNIT/4;
@@ -183,6 +175,7 @@ bool CopyPlaneIfValid (plane_t *dest, const plane_t *source, const plane_t *opp)
 	return copy;
 }
 
+
 //
 // killough 3/7/98: Hack floor/ceiling heights for deep water etc.
 //
@@ -195,8 +188,10 @@ bool CopyPlaneIfValid (plane_t *dest, const plane_t *source, const plane_t *opp)
 //
 // killough 4/11/98, 4/13/98: fix bugs, add 'back' parameter
 //
-
-sector_t *R_FakeFlat(const seg_t* segline, sector_t *sec, sector_t *tempsec,
+// [SL] 2013-12-02 - added ds parameter to determine underwater check
+// without using globals. Note: if back == false, ds can be NULL.
+//
+sector_t *R_FakeFlat(const drawseg_t* ds, sector_t *sec, sector_t *tempsec,
 					 int *floorlightlevel, int *ceilinglightlevel,
 					 bool back)
 {
@@ -292,17 +287,17 @@ sector_t *R_FakeFlat(const seg_t* segline, sector_t *sec, sector_t *tempsec,
 	// Only works if you cannot see the top surface of any deep water
 	// sectors at the same time.
 
-	if (back && !r_fakingunderwater && segline && segline->frontsector->heightsec == NULL)
+	if (back && !r_fakingunderwater && ds && ds->curline->frontsector->heightsec == NULL)
 	{
-		fixed_t fcz1 = P_CeilingHeight(segline->v1->x, segline->v1->y, frontsector);
-		fixed_t fcz2 = P_CeilingHeight(segline->v2->x, segline->v2->y, frontsector);
+		fixed_t fcz1 = P_CeilingHeight(ds->curline->v1->x, ds->curline->v1->y, frontsector);
+		fixed_t fcz2 = P_CeilingHeight(ds->curline->v2->x, ds->curline->v2->y, frontsector);
 
-		if (fcz1 <= P_FloorHeight(segline->v1->x, segline->v1->y, s) &&
-			fcz2 <= P_FloorHeight(segline->v2->x, segline->v2->y, s))
+		if (fcz1 <= P_FloorHeight(ds->curline->v1->x, ds->curline->v1->y, s) &&
+			fcz2 <= P_FloorHeight(ds->curline->v2->x, ds->curline->v2->y, s))
 		{
 			// will any columns of this window be visible or will they be blocked
 			// by 1s lines and closed doors?
-			if (memchr(solidcol + rw_start, 0, rw_stop - rw_start + 1) != NULL)
+			if (memchr(solidcol + ds->x1, 0, ds->x2 - ds->x1 + 1) != NULL)
 			{	
 				doorunderwater = true;
 				r_fakingunderwater = true;
@@ -323,7 +318,7 @@ sector_t *R_FakeFlat(const seg_t* segline, sector_t *sec, sector_t *tempsec,
 	// killough 11/98: prevent sudden light changes from non-water sectors:
 	if ((underwater && !back) || doorunderwater)
 	{					// head-below-floor hack
-		tempsec->floor_texhandle			= diffTex ? sec->floor_texhandle : s->floor_texhandle;
+		tempsec->floor_texhandle	= diffTex ? sec->floor_texhandle : s->floor_texhandle;
 		tempsec->floor_xoffs		= s->floor_xoffs;
 		tempsec->floor_yoffs		= s->floor_yoffs;
 		tempsec->floor_xscale		= s->floor_xscale;
@@ -391,7 +386,7 @@ sector_t *R_FakeFlat(const seg_t* segline, sector_t *sec, sector_t *tempsec,
 		tempsec->floorcolormap		= s->floorcolormap;
 
 		tempsec->ceiling_texhandle = diffTex ? sec->ceiling_texhandle : s->ceiling_texhandle;
-		tempsec->floor_texhandle											= s->ceiling_texhandle;
+		tempsec->floor_texhandle									= s->ceiling_texhandle;
 		tempsec->floor_xoffs		= tempsec->ceiling_xoffs		= s->ceiling_xoffs;
 		tempsec->floor_yoffs		= tempsec->ceiling_yoffs		= s->ceiling_yoffs;
 		tempsec->floor_xscale		= tempsec->ceiling_xscale		= s->ceiling_xscale;
@@ -402,13 +397,13 @@ sector_t *R_FakeFlat(const seg_t* segline, sector_t *sec, sector_t *tempsec,
 
 		if (s->floor_texhandle != sky1flathandle)
 		{
-			tempsec->ceilingplane	= sec->ceilingplane;
-			tempsec->floor_texhandle		= s->floor_texhandle;
-			tempsec->floor_xoffs	= s->floor_xoffs;
-			tempsec->floor_yoffs	= s->floor_yoffs;
-			tempsec->floor_xscale	= s->floor_xscale;
-			tempsec->floor_yscale	= s->floor_yscale;
-			tempsec->floor_angle	= s->floor_angle;
+			tempsec->ceilingplane		= sec->ceilingplane;
+			tempsec->floor_texhandle	= s->floor_texhandle;
+			tempsec->floor_xoffs		= s->floor_xoffs;
+			tempsec->floor_yoffs		= s->floor_yoffs;
+			tempsec->floor_xscale		= s->floor_xscale;
+			tempsec->floor_yscale		= s->floor_yscale;
+			tempsec->floor_angle		= s->floor_angle;
 		}
 
 		if (!(s->MoreFlags & SECF_NOFAKELIGHT))
@@ -444,24 +439,26 @@ sector_t *R_FakeFlat(const seg_t* segline, sector_t *sec, sector_t *tempsec,
 // This fixes the automap floor height bug -- killough 1/18/98:
 // killough 4/7/98: optimize: save result in doorclosed for use in r_segs.c
 //
-static bool R_SolidLineSeg(const seg_t* segline, const sector_t* frontsector, const sector_t* backsector)
+static bool R_SolidLineSeg(const seg_t* segline, const wall_t* wall)
 {
+	// TODO: remove use of global frontsector & backsector
 	return !backsector
 		|| !(segline->linedef->flags & ML_TWOSIDED)
-		|| (rw_backcz1 <= rw_frontfz1 && rw_backcz2 <= rw_frontfz2)
-		|| (rw_backfz1 >= rw_frontcz1 && rw_backfz2 >= rw_frontcz2)
+		|| (wall->backc1.z <= wall->frontf1.z && wall->backc2.z <= wall->frontf2.z)
+		|| (wall->backf1.z >= wall->frontc1.z && wall->backf2.z >= wall->frontc2.z)
 
 		// if door is closed because back is shut:
-		|| ((rw_backcz1 <= rw_backfz1 && rw_backcz2 <= rw_backfz2) &&
+		|| ((wall->backc1.z <= wall->backf1.z && wall->backc2.z <= wall->backf2.z) &&
 			// preserve a kind of transparent door/lift special effect:
-			((rw_backcz1 >= rw_frontcz1 && rw_backcz2 >= rw_frontcz2) ||
-			 segline->sidedef->toptexture != TextureManager::NO_TEXTURE_HANDLE) &&
+			((wall->backc1.z >= wall->frontc1.z && wall->backc2.z >= wall->frontc2.z) ||
+			  segline->sidedef->toptexture != TextureManager::NO_TEXTURE_HANDLE) &&
 		
-			((rw_backfz1 <= rw_frontfz1 && rw_backfz2 <= rw_frontfz2) ||
-			 segline->sidedef->bottomtexture != TextureManager::NO_TEXTURE_HANDLE) &&
+			((wall->backf1.z <= wall->frontf1.z && wall->backf2.z <= wall->frontf2.z) ||
+			  segline->sidedef->bottomtexture != TextureManager::NO_TEXTURE_HANDLE) &&
 
 			// properly render skies (consider door "open" if both ceilings are sky):
-			(backsector->ceiling_texhandle !=sky1flathandle || frontsector->ceiling_texhandle != sky1flathandle));
+			(backsector->ceiling_texhandle !=sky1flathandle ||
+			 frontsector->ceiling_texhandle != sky1flathandle));
 }
 
 
@@ -472,8 +469,9 @@ static bool R_SolidLineSeg(const seg_t* segline, const sector_t* frontsector, co
 // Identical floor and ceiling on both sides,
 // identical light levels on both sides, and no middle texture.
 //
-static bool R_EmptyLineSeg(const seg_t* segline, const sector_t* frontsector, const sector_t* backsector)
+static bool R_EmptyLineSeg(const seg_t* segline, const wall_t* wall) 
 {
+	// TODO: remove use of global frontsector & backsector
 	return segline->sidedef->midtexture == TextureManager::NO_TEXTURE_HANDLE 
 		&& backsector->ceiling_texhandle == frontsector->ceiling_texhandle
 		&& backsector->floor_texhandle == frontsector->floor_texhandle
@@ -521,25 +519,19 @@ static void R_AddLine(const seg_t* segline)
 	dcol.color = ((segline - segs) & 31) * 4;	// [RH] Color if not texturing line
 
 	drawseg_t ds;
-	v2fixed_t w1, w2;
-	if (!R_ProjectSeg(segline, &ds, NEARCLIP, w1.x, w1.y, w2.x, w2.y))
+	wall_t wall;
+
+	if (!R_ProjectSeg(segline, &ds, &wall, NEARCLIP))
 		return;
 
-	rw_start = ds.x1;
-	rw_stop = ds.x2;
+	R_PrepWall(&ds, &wall);
 
-	// killough 3/8/98, 4/4/98: hack for invisible ceilings / deep water
-	static sector_t tempsec;
-	backsector = segline->backsector ? R_FakeFlat(segline, segline->backsector, &tempsec, NULL, NULL, true) : NULL;
-
-	R_PrepWall(&ds, w1.x, w1.y, w2.x, w2.y);
-
-	if (R_SolidLineSeg(segline, frontsector, backsector))
+	if (R_SolidLineSeg(segline, &wall))
 	{
 		doorclosed = true;
 		R_ClipWallSegment(ds.x1, ds.x2, true);
 	}
-	else if (!R_EmptyLineSeg(segline, frontsector, backsector))
+	else if (!R_EmptyLineSeg(segline, &wall))
 	{
 		doorclosed = false;
 		R_ClipWallSegment(ds.x1, ds.x2, false);
@@ -639,7 +631,7 @@ static bool R_CheckBBox(const fixed_t *bspcoord)
 void R_Subsector (int num)
 {
 	int				count;
-	const seg_t*	 segline;
+	const seg_t*	segline;
 	subsector_t*	sub;
 	sector_t     	tempsec;				// killough 3/7/98: deep water hack
 	int          	floorlightlevel;		// killough 3/16/98: set floor lightlevel
@@ -658,7 +650,7 @@ void R_Subsector (int num)
 	segline = &segs[sub->firstline];
 
 	// killough 3/8/98, 4/4/98: Deep water / fake ceiling effect
-	frontsector = R_FakeFlat(segline, frontsector, &tempsec, &floorlightlevel,
+	frontsector = R_FakeFlat(NULL, frontsector, &tempsec, &floorlightlevel,
 						   &ceilinglightlevel, false);	// killough 4/11/98
 
 	basecolormap = frontsector->ceilingcolormap->maps;

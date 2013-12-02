@@ -48,7 +48,7 @@ void R_RenderBSPNode (int bspnum);
 bool R_DoorClosed(void);	// killough 1/17/98
 
 // killough 4/13/98: fake floors/ceilings for deep water / fake ceilings:
-sector_t *R_FakeFlat(const seg_t*, sector_t *, sector_t *, int *, int *, bool);
+sector_t *R_FakeFlat(const drawseg_t*, sector_t *, sector_t *, int *, int *, bool);
 
 
 #endif

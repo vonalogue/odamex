@@ -152,8 +152,7 @@ void R_ClipLine(const vertex_t* in1, const vertex_t* in2,
 				int32_t lclip, int32_t rclip,
 				v2fixed_t* out1, v2fixed_t* out2);
 
-bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
-	fixed_t& gx1, fixed_t& gy1, fixed_t& gx2, fixed_t& gy2);
+bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, wall_t* wall, fixed_t clipdist);
 
 subsector_t* R_PointInSubsector(fixed_t x, fixed_t y);
 

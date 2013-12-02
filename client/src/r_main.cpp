@@ -528,13 +528,11 @@ static fixed_t R_LineLength(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2)
 // R_ProjectSeg
 //
 // Projects a seg_t to the screen, clipping to the view frustum, and saves
-// the projection to the drawseg_t ds. The clipped vertices are saved
-// as gx1, gy1 and gx2, gy2 respectively.
+// the projection to the drawseg_t ds. The clipped vertices are saved to wall.
 //
 // Returns false if the entire seg_t is clipped (not in the viewable area).
 //
-bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
-	fixed_t& gx1, fixed_t& gy1, fixed_t& gx2, fixed_t& gy2)
+bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, wall_t* wall, fixed_t clipdist)
 {
 	//TODO: don't hard-code this
 	clipdist = (1 << PREC) / 4;
@@ -623,10 +621,29 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, fixed_t clipdist,
 		ds->uinvzstep = 0;
 	}
 	
-	gx1 = w1.x;
-	gy1 = w1.y; 
-	gx2 = w2.x; 
-	gy2 = w2.y;
+	// killough 3/8/98, 4/4/98: hack for invisible ceilings / deep water
+	static sector_t tempsec;
+	backsector = segline->backsector ? R_FakeFlat(ds, segline->backsector, &tempsec, NULL, NULL, true) : NULL;
+
+	ds->frontsector = frontsector;
+	ds->backsector = backsector;
+
+	// TODO: clip z coordinates of the wall to 0, viewheight - 1
+	// and save offset info 
+	wall->twosided = (backsector != NULL); 
+
+	M_SetVec3Fixed(&wall->frontc1, w1.x, w1.y, P_CeilingHeight(w1.x, w1.y, frontsector));
+	M_SetVec3Fixed(&wall->frontc2, w2.x, w2.y, P_CeilingHeight(w2.x, w2.y, frontsector));
+	M_SetVec3Fixed(&wall->frontf1, w1.x, w1.y, P_FloorHeight(w1.x, w1.y, frontsector));
+	M_SetVec3Fixed(&wall->frontf2, w2.x, w2.y, P_FloorHeight(w2.x, w2.y, frontsector));
+
+	if (backsector)
+	{
+		M_SetVec3Fixed(&wall->backc1, w1.x, w1.y, P_CeilingHeight(w1.x, w1.y, backsector));
+		M_SetVec3Fixed(&wall->backc2, w2.x, w2.y, P_CeilingHeight(w2.x, w2.y, backsector));
+		M_SetVec3Fixed(&wall->backf1, w1.x, w1.y, P_FloorHeight(w1.x, w1.y, backsector));
+		M_SetVec3Fixed(&wall->backf2, w2.x, w2.y, P_FloorHeight(w2.x, w2.y, backsector));
+	}
 
 	return true;
 }

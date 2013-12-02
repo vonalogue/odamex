@@ -69,10 +69,6 @@ static fixed_t	rw_midtexturemid;
 static fixed_t	rw_toptexturemid;
 static fixed_t	rw_bottomtexturemid;
 
-extern fixed_t	rw_frontcz1, rw_frontcz2;
-extern fixed_t	rw_frontfz1, rw_frontfz2;
-extern fixed_t	rw_backcz1, rw_backcz2;
-extern fixed_t	rw_backfz1, rw_backfz2;
 static bool		rw_hashigh, rw_haslow;
 
 static int walltopf[MAXWIDTH];
@@ -85,6 +81,9 @@ extern float yfoc;
 
 // [SL] global seg texture mapping parameters for the current seg_t
 static drawseg_t rw;
+
+// [SL] global vertices fro the current seg_t
+static wall_t rw_wall;
 
 //
 // Texture mapping functor for wall segs
@@ -163,6 +162,71 @@ bool R_HasMaskedMidTexture(const seg_t* line)
 }
 
 
+static fixed_t R_CalculateMidTextureMid(const drawseg_t* ds)
+{
+	const texhandle_t texhandle = ds->curline->sidedef->midtexture;
+	fixed_t result;
+
+	if (ds->curline->linedef->flags & ML_DONTPEGBOTTOM)
+	{
+		// bottom of texture at bottom
+		const Texture* texture = texturemanager.getTexture(texhandle);
+		fixed_t texheight = FixedMul(texture->getHeight() << FRACBITS, texture->getScaleY());
+		result = P_FloorHeight(ds->frontsector) - viewz + texheight;
+	}
+	else
+	{
+		// top of texture at top
+		result = P_CeilingHeight(ds->frontsector) - viewz;
+	}
+
+	result += ds->curline->sidedef->rowoffset;
+	return result;
+}
+
+static fixed_t R_CalculateTopTextureMid(const drawseg_t* ds)
+{
+	const texhandle_t texhandle = ds->curline->sidedef->toptexture;
+	fixed_t result;
+
+	if (ds->curline->linedef->flags & ML_DONTPEGTOP)
+	{
+		// top of texture at top
+		result = P_CeilingHeight(ds->frontsector) - viewz;
+	}
+	else
+	{
+		// bottom of texture
+		fixed_t texheight = 0;
+		if (texhandle)
+			texheight = texturemanager.getTexture(texhandle)->getHeight() << FRACBITS;
+		result = P_CeilingHeight(ds->backsector) - viewz + texheight;
+	}
+
+	result += ds->curline->sidedef->rowoffset;
+	return result;
+}
+
+static fixed_t R_CalculateBottomTextureMid(const drawseg_t* ds)
+{
+	fixed_t result;
+
+	if (ds->curline->linedef->flags & ML_DONTPEGBOTTOM)
+	{
+		// bottom of texture at bottom, top of texture at top
+		result = P_CeilingHeight(ds->frontsector) - viewz;
+	}
+	else
+	{
+		// top of texture at top
+		result = P_FloorHeight(ds->backsector) - viewz;
+	}
+
+	result += ds->curline->sidedef->rowoffset;
+	return result;
+}
+
+
 //
 // R_SelectColormapTable
 //
@@ -191,14 +255,7 @@ static inline const shaderef_t* R_SelectColormapTable(const drawseg_t* ds)
 			adjustment = 1;
 	}
 
-/*
-	// correct lightnum for 2s lines
-	sector_t tempsec;
-	int lightnum = (R_FakeFlat(ds->curline->frontsector, &tempsec, NULL, NULL, false)->lightlevel >> LIGHTSEGSHIFT)
-				+ (foggy ? 0 : extralight) + adjustment;
-*/
-
-	int lightnum = (ds->curline->frontsector->lightlevel >> LIGHTSEGSHIFT)
+	int lightnum = (ds->frontsector->lightlevel >> LIGHTSEGSHIFT)
 				+ (foggy ? 0 : extralight) + adjustment;
 
 	walllights = scalelight[clamp(lightnum, 0, LIGHTLEVELS - 1)];	
@@ -404,8 +461,8 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 	side_t* sidedef = ds->curline->sidedef;
 	line_t* linedef = ds->curline->linedef;
 
-	frontsector = ds->curline->frontsector;
-	backsector = ds->curline->backsector;
+	frontsector = ds->frontsector;
+	backsector = ds->backsector;
 
 	const Texture* texture = texturemanager.getTexture(sidedef->midtexture);
 	fixed_t texheight = texture->getHeight() << FRACBITS;
@@ -418,7 +475,7 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 
 	if (linedef->flags & ML_DONTPEGBOTTOM)
 	{
-		dcol.texturemid = MAX(P_FloorHeight(frontsector), P_FloorHeight(backsector))
+		dcol.texturemid = MAX(P_FloorHeight(ds->frontsector), P_FloorHeight(ds->backsector))
 						+ texheight - viewz + sidedef->rowoffset;
 
 		for (int x = start; x <= stop; x++)
@@ -434,7 +491,7 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 	}
 	else
 	{
-		dcol.texturemid = MIN(P_CeilingHeight(frontsector), P_CeilingHeight(backsector))
+		dcol.texturemid = MIN(P_CeilingHeight(ds->frontsector), P_CeilingHeight(ds->backsector))
 						- viewz + sidedef->rowoffset;
 
 		for (int x = start; x <= stop; x++)
@@ -455,7 +512,7 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 
 	dcol.color = (dcol.color + 4) & 0xFF;	// color if using r_drawflat
 
-	basecolormap = frontsector->floorcolormap->maps;	// [RH] Set basecolormap
+	basecolormap = ds->frontsector->floorcolormap->maps;	// [RH] Set basecolormap
 
 	// generate the light table
 	const shaderef_t* colormap_table = R_SelectColormapTable(ds);
@@ -473,7 +530,7 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 // walltopb, and wallbottomb arrays with the top and bottom pixel heights
 // of the wall for the span from start to stop.
 //
-void R_PrepWall(const drawseg_t* ds, fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2)
+void R_PrepWall(const drawseg_t* ds, const wall_t* wall)
 {
 	int width = ds->x2 - ds->x1 + 1;
 	if (width <= 0)
@@ -484,51 +541,42 @@ void R_PrepWall(const drawseg_t* ds, fixed_t px1, fixed_t py1, fixed_t px2, fixe
 	float scale2 = FIXED2FLOAT(ds->scale2);
 
 	rw = *ds;
-
-	// get the z coordinates of the line's vertices on each side of the line
-	rw_frontcz1 = P_CeilingHeight(px1, py1, frontsector);
-	rw_frontfz1 = P_FloorHeight(px1, py1, frontsector);
-	rw_frontcz2 = P_CeilingHeight(px2, py2, frontsector);
-	rw_frontfz2 = P_FloorHeight(px2, py2, frontsector);
+	rw_wall = *wall;
 
 	// calculate the upper and lower heights of the walls in the front
-	R_FillWallHeightArray(walltopf, ds->x1, ds->x2, rw_frontcz1, rw_frontcz2, scale1, scale2);
-	R_FillWallHeightArray(wallbottomf, ds->x1, ds->x2, rw_frontfz1, rw_frontfz2, scale1, scale2);
+	R_FillWallHeightArray(walltopf, ds->x1, ds->x2, wall->frontc1.z, wall->frontc2.z, scale1, scale2);
+	R_FillWallHeightArray(wallbottomf, ds->x1, ds->x2, wall->frontf1.z, wall->frontf2.z, scale1, scale2);
 
 	rw_hashigh = rw_haslow = false;
 
-	if (backsector)
+	if (wall->twosided)
 	{
-		rw_backcz1 = P_CeilingHeight(px1, py1, backsector);
-		rw_backfz1 = P_FloorHeight(px1, py1, backsector);
-		rw_backcz2 = P_CeilingHeight(px2, py2, backsector);
-		rw_backfz2 = P_FloorHeight(px2, py2, backsector);
-
 		// calculate the upper and lower heights of the walls in the back
-		R_FillWallHeightArray(walltopb, ds->x1, ds->x2, rw_backcz1, rw_backcz2, scale1, scale2);
-		R_FillWallHeightArray(wallbottomb, ds->x1, ds->x2, rw_backfz1, rw_backfz2, scale1, scale2);
+		R_FillWallHeightArray(walltopb, ds->x1, ds->x2, wall->backc1.z, wall->backc2.z, scale1, scale2);
+		R_FillWallHeightArray(wallbottomb, ds->x1, ds->x2, wall->backf1.z, wall->backf2.z, scale1, scale2);
 	
 		const fixed_t tolerance = FRACUNIT/2;
 
 		// determine if an upper texture is showing
-		rw_hashigh	= (P_CeilingHeight(ds->curline->v1->x, ds->curline->v1->y, frontsector) - tolerance >
-					   P_CeilingHeight(ds->curline->v1->x, ds->curline->v1->y, backsector)) ||
-					  (P_CeilingHeight(ds->curline->v2->x, ds->curline->v2->y, frontsector) - tolerance>
-					   P_CeilingHeight(ds->curline->v2->x, ds->curline->v2->y, backsector));
+		rw_hashigh	= (P_CeilingHeight(ds->curline->v1->x, ds->curline->v1->y, ds->frontsector) - tolerance >
+					   P_CeilingHeight(ds->curline->v1->x, ds->curline->v1->y, ds->backsector)) ||
+					  (P_CeilingHeight(ds->curline->v2->x, ds->curline->v2->y, ds->frontsector) - tolerance>
+					   P_CeilingHeight(ds->curline->v2->x, ds->curline->v2->y, ds->backsector));
 
 		// determine if a lower texture is showing
-		rw_haslow	= (P_FloorHeight(ds->curline->v1->x, ds->curline->v1->y, frontsector) + tolerance <
-					   P_FloorHeight(ds->curline->v1->x, ds->curline->v1->y, backsector)) ||
-					  (P_FloorHeight(ds->curline->v2->x, ds->curline->v2->y, frontsector) + tolerance <
-					   P_FloorHeight(ds->curline->v2->x, ds->curline->v2->y, backsector));
+		rw_haslow	= (P_FloorHeight(ds->curline->v1->x, ds->curline->v1->y, ds->frontsector) + tolerance <
+					   P_FloorHeight(ds->curline->v1->x, ds->curline->v1->y, ds->backsector)) ||
+					  (P_FloorHeight(ds->curline->v2->x, ds->curline->v2->y, ds->frontsector) + tolerance <
+					   P_FloorHeight(ds->curline->v2->x, ds->curline->v2->y, ds->backsector));
 
 		// hack to allow height changes in outdoor areas (sky hack)
 		// copy back ceiling height array to front ceiling height array
-		if (frontsector->ceiling_texhandle == sky1flathandle && 
-			backsector->ceiling_texhandle == sky1flathandle)
+		if (ds->frontsector->ceiling_texhandle == sky1flathandle && ds->backsector->ceiling_texhandle == sky1flathandle)
 			memcpy(walltopf+ds->x1, walltopb+ds->x1, width*sizeof(*walltopb));
 	}
 }
+
+
 
 //
 // R_StoreWallRange
@@ -552,8 +600,11 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 	// mark the segment as visible for auto map
 	linedef->flags |= ML_MAPPED;
 
-	// clip the rw drawseg to the range between start and stop
 	ds->curline = rw.curline;
+	ds->frontsector = rw.frontsector;
+	ds->backsector = rw.backsector;
+
+	// clip the rw drawseg to the range between start and stop
 	ds->x1 = start;
 	ds->x2 = stop;
 
@@ -612,7 +663,7 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 	//	and decide if floor / ceiling marks are needed
 	midtexture = toptexture = bottomtexture = maskedmidtexture = 0; 
 
-	if (!backsector)
+	if (!ds->backsector)
 	{
 		// single sided line
 		midtexture = sidedef->midtexture;
@@ -620,20 +671,7 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 		// a single sided line is terminal, so it must mark ends
 		markfloor = markceiling = true;
 
-		if (linedef->flags & ML_DONTPEGBOTTOM)
-		{
-			// bottom of texture at bottom
-			const Texture* texture = texturemanager.getTexture(midtexture);
-			fixed_t texheight = FixedMul(texture->getHeight() << FRACBITS, texture->getScaleY());
-			rw_midtexturemid = P_FloorHeight(frontsector) - viewz + texheight;
-		}
-		else
-		{
-			// top of texture at top
-			rw_midtexturemid = P_CeilingHeight(frontsector) - viewz;
-		}
-
-		rw_midtexturemid += sidedef->rowoffset;
+		rw_midtexturemid = R_CalculateMidTextureMid(ds);
 
 		ds->silhouette = SIL_BOTH;
 		ds->sprtopclip = viewheightarray;
@@ -656,14 +694,14 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 		else
 		{
 			// determine sprite clipping for non-solid line segs	
-			if (rw_frontfz1 > rw_backfz1 || rw_frontfz2 > rw_backfz2 || 
-				rw_backfz1 > viewz || rw_backfz2 > viewz || 
-				!P_IsPlaneLevel(&backsector->floorplane))	// backside sloping?
+			if (rw_wall.frontf1.z > rw_wall.backf1.z || rw_wall.frontf2.z > rw_wall.backf2.z || 
+				rw_wall.backf1.z > viewz || rw_wall.backf2.z > viewz || 
+				!P_IsPlaneLevel(&ds->backsector->floorplane))	// backside sloping?
 				ds->silhouette |= SIL_BOTTOM;
 
-			if (rw_frontcz1 < rw_backcz1 || rw_frontcz2 < rw_backcz2 ||
-				rw_backcz1 < viewz || rw_backcz2 < viewz || 
-				!P_IsPlaneLevel(&backsector->ceilingplane))	// backside sloping?
+			if (rw_wall.frontc1.z < rw_wall.backc1.z || rw_wall.frontc2.z < rw_wall.backc2.z ||
+				rw_wall.backc1.z < viewz || rw_wall.backc2.z < viewz || 
+				!P_IsPlaneLevel(&ds->backsector->ceilingplane))	// backside sloping?
 				ds->silhouette |= SIL_TOP;
 		}
 
@@ -673,105 +711,80 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 		}
 		else if (spanfunc == R_FillSpan)
 		{
-			markfloor = markceiling = (frontsector != backsector);
+			markfloor = markceiling = (ds->frontsector != ds->backsector);
 		}
 		else
 		{
 			markfloor =
-				  !P_IdenticalPlanes(&backsector->floorplane, &frontsector->floorplane)
-				|| backsector->lightlevel != frontsector->lightlevel
-				|| backsector->floor_texhandle != frontsector->floor_texhandle
+				  !P_IdenticalPlanes(&ds->backsector->floorplane, &ds->frontsector->floorplane)
+				|| ds->backsector->lightlevel != ds->frontsector->lightlevel
+				|| ds->backsector->floor_texhandle != ds->frontsector->floor_texhandle
 
 				// killough 3/7/98: Add checks for (x,y) offsets
-				|| backsector->floor_xoffs != frontsector->floor_xoffs
-				|| (backsector->floor_yoffs + backsector->base_floor_yoffs) != 
-				   (frontsector->floor_yoffs + frontsector->base_floor_yoffs)
+				|| ds->backsector->floor_xoffs != ds->frontsector->floor_xoffs
+				|| (ds->backsector->floor_yoffs + ds->backsector->base_floor_yoffs) != 
+				   (ds->frontsector->floor_yoffs + ds->frontsector->base_floor_yoffs)
 
 				// killough 4/15/98: prevent 2s normals
 				// from bleeding through deep water
-				|| frontsector->heightsec
+				|| ds->frontsector->heightsec
 
 				// killough 4/17/98: draw floors if different light levels
-				|| backsector->floorlightsec != frontsector->floorlightsec
+				|| ds->backsector->floorlightsec != ds->frontsector->floorlightsec
 
 				// [RH] Add checks for colormaps
-				|| backsector->floorcolormap != frontsector->floorcolormap
+				|| ds->backsector->floorcolormap != ds->frontsector->floorcolormap
 
-				|| backsector->floor_xscale != frontsector->floor_xscale
-				|| backsector->floor_yscale != frontsector->floor_yscale
+				|| ds->backsector->floor_xscale != ds->frontsector->floor_xscale
+				|| ds->backsector->floor_yscale != ds->frontsector->floor_yscale
 
-				|| (backsector->floor_angle + backsector->base_floor_angle) !=
-				   (frontsector->floor_angle + frontsector->base_floor_angle)
+				|| (ds->backsector->floor_angle + ds->backsector->base_floor_angle) !=
+				   (ds->frontsector->floor_angle + ds->frontsector->base_floor_angle)
 				;
 
 			markceiling = 
-				  !P_IdenticalPlanes(&backsector->ceilingplane, &frontsector->ceilingplane)
-				|| backsector->lightlevel != frontsector->lightlevel
-				|| backsector->ceiling_texhandle != frontsector->ceiling_texhandle
+				  !P_IdenticalPlanes(&ds->backsector->ceilingplane, &ds->frontsector->ceilingplane)
+				|| ds->backsector->lightlevel != ds->frontsector->lightlevel
+				|| ds->backsector->ceiling_texhandle != ds->frontsector->ceiling_texhandle
 
 				// killough 3/7/98: Add checks for (x,y) offsets
-				|| backsector->ceiling_xoffs != frontsector->ceiling_xoffs
-				|| (backsector->ceiling_yoffs + backsector->base_ceiling_yoffs) !=
-				   (frontsector->ceiling_yoffs + frontsector->base_ceiling_yoffs)
+				|| ds->backsector->ceiling_xoffs != ds->frontsector->ceiling_xoffs
+				|| (ds->backsector->ceiling_yoffs + ds->backsector->base_ceiling_yoffs) !=
+				   (ds->frontsector->ceiling_yoffs + ds->frontsector->base_ceiling_yoffs)
 
 				// killough 4/15/98: prevent 2s normals
 				// from bleeding through fake ceilings
-				|| (frontsector->heightsec && frontsector->ceiling_texhandle != sky1flathandle)
+				|| (ds->frontsector->heightsec && ds->frontsector->ceiling_texhandle != sky1flathandle)
 
 				// killough 4/17/98: draw ceilings if different light levels
-				|| backsector->ceilinglightsec != frontsector->ceilinglightsec
+				|| ds->backsector->ceilinglightsec != ds->frontsector->ceilinglightsec
 
 				// [RH] Add check for colormaps
-				|| backsector->ceilingcolormap != frontsector->ceilingcolormap
+				|| ds->backsector->ceilingcolormap != ds->frontsector->ceilingcolormap
 
-				|| backsector->ceiling_xscale != frontsector->ceiling_xscale
-				|| backsector->ceiling_yscale != frontsector->ceiling_yscale
+				|| ds->backsector->ceiling_xscale != ds->frontsector->ceiling_xscale
+				|| ds->backsector->ceiling_yscale != ds->frontsector->ceiling_yscale
 
-				|| (backsector->ceiling_angle + backsector->base_ceiling_angle) !=
-				   (frontsector->ceiling_angle + frontsector->base_ceiling_angle)
+				|| (ds->backsector->ceiling_angle + ds->backsector->base_ceiling_angle) !=
+				   (ds->frontsector->ceiling_angle + ds->frontsector->base_ceiling_angle)
 				;
 				
 			// Sky hack
 			markceiling = markceiling &&
-				(frontsector->ceiling_texhandle != sky1flathandle ||
-				backsector->ceiling_texhandle != sky1flathandle);
+				(ds->frontsector->ceiling_texhandle != sky1flathandle ||
+				ds->backsector->ceiling_texhandle != sky1flathandle);
 		}
 
 		if (rw_hashigh)
 		{
 			toptexture = sidedef->toptexture;
-			if (linedef->flags & ML_DONTPEGTOP)
-			{
-				// top of texture at top
-				rw_toptexturemid = P_CeilingHeight(frontsector) - viewz;
-			}
-			else
-			{
-				// bottom of texture
-				fixed_t texheight = 0;
-				if (toptexture)
-					texheight = texturemanager.getTexture(toptexture)->getHeight() << FRACBITS;
-				rw_toptexturemid = P_CeilingHeight(backsector) - viewz + texheight;
-			}
-
-			rw_toptexturemid += sidedef->rowoffset;
+			rw_toptexturemid = R_CalculateTopTextureMid(ds);
 		}
 
 		if (rw_haslow)
 		{
 			bottomtexture = sidedef->bottomtexture;
-			if (linedef->flags & ML_DONTPEGBOTTOM)
-			{
-				// bottom of texture at bottom, top of texture at top
-				rw_bottomtexturemid = P_CeilingHeight(frontsector) - viewz;
-			}
-			else
-			{
-				// top of texture at top
-				rw_bottomtexturemid = P_FloorHeight(backsector) - viewz;
-			}
-		
-			rw_bottomtexturemid += sidedef->rowoffset;
+			rw_bottomtexturemid = R_CalculateBottomTextureMid(ds);
 		}
 
 		maskedmidtexture = sidedef->midtexture;
@@ -781,8 +794,8 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 		}
 
 		// [SL] additional fix for sky hack
-		if (frontsector->ceiling_texhandle == sky1flathandle &&
-			backsector->ceiling_texhandle == sky1flathandle)
+		if (ds->frontsector->ceiling_texhandle == sky1flathandle &&
+			ds->backsector->ceiling_texhandle == sky1flathandle)
 			toptexture = 0; 
 	}
 
@@ -802,15 +815,15 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 	//	and doesn't need to be marked.
 
 	// killough 3/7/98: add deep water check
-	if (frontsector->heightsec == NULL ||
-		(frontsector->heightsec->MoreFlags & SECF_IGNOREHEIGHTSEC))
+	if (ds->frontsector->heightsec == NULL ||
+		(ds->frontsector->heightsec->MoreFlags & SECF_IGNOREHEIGHTSEC))
 	{
 		// above view plane?
-		if (P_FloorHeight(viewx, viewy, frontsector) >= viewz)       
+		if (P_FloorHeight(viewx, viewy, ds->frontsector) >= viewz)       
 			markfloor = false;
 		// below view plane?
-		if (P_CeilingHeight(viewx, viewy, frontsector) <= viewz &&
-			frontsector->ceiling_texhandle != sky1flathandle)   
+		if (P_CeilingHeight(viewx, viewy, ds->frontsector) <= viewz &&
+			ds->frontsector->ceiling_texhandle != sky1flathandle)   
 			markceiling = false;	
 	}
 
@@ -831,7 +844,7 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 
 	// [SL] save full clipping info for masked midtextures
 	// cph - if a column was made solid by this wall, we _must_ save full clipping info
-	if (maskedmidtexture || (backsector && didsolidcol))
+	if (maskedmidtexture || (ds->backsector && didsolidcol))
 		ds->silhouette = SIL_BOTH;
 
     // save sprite & masked seg clipping info
