@@ -164,46 +164,43 @@ bool R_HasMaskedMidTexture(const seg_t* line)
 
 static fixed_t R_CalculateMidTextureMid(const drawseg_t* ds)
 {
-	const texhandle_t texhandle = ds->curline->sidedef->midtexture;
 	fixed_t result;
 
 	if (ds->curline->linedef->flags & ML_DONTPEGBOTTOM)
 	{
 		// bottom of texture at bottom
-		const Texture* texture = texturemanager.getTexture(texhandle);
+		const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->midtexture);
 		fixed_t texheight = FixedMul(texture->getHeight() << FRACBITS, texture->getScaleY());
-		result = P_FloorHeight(ds->frontsector) - viewz + texheight;
+		result = P_FloorHeight(ds->frontsector) + texheight;
 	}
 	else
 	{
 		// top of texture at top
-		result = P_CeilingHeight(ds->frontsector) - viewz;
+		result = P_CeilingHeight(ds->frontsector);
 	}
 
-	result += ds->curline->sidedef->rowoffset;
+	result += ds->curline->sidedef->rowoffset - viewz;
 	return result;
 }
 
 static fixed_t R_CalculateTopTextureMid(const drawseg_t* ds)
 {
-	const texhandle_t texhandle = ds->curline->sidedef->toptexture;
 	fixed_t result;
 
 	if (ds->curline->linedef->flags & ML_DONTPEGTOP)
 	{
 		// top of texture at top
-		result = P_CeilingHeight(ds->frontsector) - viewz;
+		result = P_CeilingHeight(ds->frontsector);
 	}
 	else
 	{
 		// bottom of texture
-		fixed_t texheight = 0;
-		if (texhandle)
-			texheight = texturemanager.getTexture(texhandle)->getHeight() << FRACBITS;
-		result = P_CeilingHeight(ds->backsector) - viewz + texheight;
+		const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->toptexture);
+		fixed_t texheight = FixedMul(texture->getHeight() << FRACBITS, texture->getScaleY());
+		result = P_CeilingHeight(ds->backsector) + texheight;
 	}
 
-	result += ds->curline->sidedef->rowoffset;
+	result += ds->curline->sidedef->rowoffset - viewz;
 	return result;
 }
 
@@ -214,17 +211,39 @@ static fixed_t R_CalculateBottomTextureMid(const drawseg_t* ds)
 	if (ds->curline->linedef->flags & ML_DONTPEGBOTTOM)
 	{
 		// bottom of texture at bottom, top of texture at top
-		result = P_CeilingHeight(ds->frontsector) - viewz;
+		result = P_CeilingHeight(ds->frontsector);
 	}
 	else
 	{
 		// top of texture at top
-		result = P_FloorHeight(ds->backsector) - viewz;
+		result = P_FloorHeight(ds->backsector);
 	}
 
-	result += ds->curline->sidedef->rowoffset;
+	result += ds->curline->sidedef->rowoffset - viewz;
 	return result;
 }
+
+static fixed_t R_CalculateMaskedMidTextureMid(const drawseg_t* ds)
+{
+	// [SL] 2013-12-02 - Texture positioning for masked midtextures is based
+	// on the seg's original sector heights, ignoring transfer heights.
+	fixed_t result;
+
+	if (ds->curline->linedef->flags & ML_DONTPEGBOTTOM)
+	{
+		const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->midtexture);
+		fixed_t texheight = FixedMul(texture->getHeight() << FRACBITS, texture->getScaleY());
+		result = MAX(P_FloorHeight(ds->curline->frontsector), P_FloorHeight(ds->curline->backsector)) + texheight;
+	}
+	else
+	{
+		result = MIN(P_CeilingHeight(ds->curline->frontsector), P_CeilingHeight(ds->curline->backsector));
+	}
+
+	result += ds->curline->sidedef->rowoffset - viewz;
+	return result;
+}
+
 
 
 //
@@ -257,8 +276,9 @@ static inline const shaderef_t* R_SelectColormapTable(const drawseg_t* ds)
 
 	int lightnum = (ds->frontsector->lightlevel >> LIGHTSEGSHIFT)
 				+ (foggy ? 0 : extralight) + adjustment;
+	lightnum = clamp(lightnum, 0, LIGHTLEVELS - 1);
 
-	walllights = scalelight[clamp(lightnum, 0, LIGHTLEVELS - 1)];	
+	walllights = scalelight[lightnum];	
 
 	int light = ds->light;
 	int lightstep = ds->lightstep;
@@ -443,7 +463,7 @@ void R_RenderSolidSegRange(const drawseg_t* ds)
 	}
 }
 
-void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
+void R_RenderMaskedSegRange(drawseg_t* ds, int start, int stop)
 {
 	// killough 4/11/98: draw translucent 2s normal textures
 	// [RH] modified because we don't use user-definable
@@ -461,6 +481,13 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 	side_t* sidedef = ds->curline->sidedef;
 	line_t* linedef = ds->curline->linedef;
 
+	// killough 3/8/98, 4/4/98: Deep water / fake ceiling effect
+	static sector_t temp_frontsector, temp_backsector;
+	ds->frontsector = R_FakeFlat(NULL, ds->curline->frontsector, &temp_frontsector, NULL, NULL, false);
+	ds->backsector = ds->curline->backsector
+			? R_FakeFlat(ds, ds->curline->backsector, &temp_backsector, NULL, NULL, true)
+			: NULL;
+
 	frontsector = ds->frontsector;
 	backsector = ds->backsector;
 
@@ -473,11 +500,10 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 	static int top[MAXWIDTH];
 	static int bottom[MAXWIDTH];
 
+	dcol.texturemid = R_CalculateMaskedMidTextureMid(ds);
+
 	if (linedef->flags & ML_DONTPEGBOTTOM)
 	{
-		dcol.texturemid = MAX(P_FloorHeight(ds->frontsector), P_FloorHeight(ds->backsector))
-						+ texheight - viewz + sidedef->rowoffset;
-
 		for (int x = start; x <= stop; x++)
 		{
 			int top1 = (centeryfrac - FixedMul(dcol.texturemid, scalefrac)) >> FRACBITS;
@@ -491,9 +517,6 @@ void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop)
 	}
 	else
 	{
-		dcol.texturemid = MIN(P_CeilingHeight(ds->frontsector), P_CeilingHeight(ds->backsector))
-						- viewz + sidedef->rowoffset;
-
 		for (int x = start; x <= stop; x++)
 		{
 			int bottom1 = (centeryfrac - FixedMul(dcol.texturemid - texheight, scalefrac)) >> FRACBITS;

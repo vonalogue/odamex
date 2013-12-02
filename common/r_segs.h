@@ -29,7 +29,7 @@
 
 void R_PrepWall(const drawseg_t* ds, const wall_t* wall); 
 bool R_HasMaskedMidTexture(const seg_t* line);
-void R_RenderMaskedSegRange(const drawseg_t* ds, int start, int stop);
+void R_RenderMaskedSegRange(drawseg_t* ds, int start, int stop);
 void R_StoreWallRange(drawseg_t* ds, int start, int stop);
 void R_RenderSegLoop();
 void R_ClearOpenings();
