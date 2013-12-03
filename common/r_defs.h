@@ -500,12 +500,11 @@ struct drawseg_s
     // 0=none, 1=bottom, 2=top, 3=both
 	int				silhouette;
 
-	byte*			maskedcoldrawn;
-
 	// Pointers to lists for sprite clipping,
-	//  all three adjusted so [x1] is first value.
+	// adjusted so that the 0 index corresponds to x1
 	int*			sprtopclip;
 	int*			sprbottomclip;
+	byte*			maskedcoldrawn;
 };
 typedef struct drawseg_s drawseg_t;
 

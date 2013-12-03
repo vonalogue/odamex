@@ -97,11 +97,18 @@ static wall_t rw_wall;
 class SegTextureMapper
 {
 public:
-	SegTextureMapper(const drawseg_t* ds, const Texture* texture) :
+	SegTextureMapper(const drawseg_t* ds, const Texture* texture, int x1, int x2) :
 		mInvZ(ds->invz1), mInvZStep(ds->invzstep), mUInvZ(ds->uinvz1), mUInvZStep(ds->uinvzstep)
 	{
 		// use 2.30 fixed-point format for mInvFocY
 		mInvFocY = FixedDiv<0, 16, 30>(1, FocalLengthY);
+
+		if (x1 != ds->x1)
+		{
+			const int delta = x1 - ds->x1;
+			mInvZ += mInvZStep * delta;
+			mUInvZ += mUInvZStep * delta;
+		}
 
 		mHeight = texture->getHeight();
 		mWidthMask = texture->getWidth() - 1; 
@@ -394,7 +401,7 @@ void R_RenderSolidSegRange(const drawseg_t* ds)
 		dcol.textureheight = texture->getHeight() << FRACBITS;
 		dcol.texturemid = rw_midtexturemid;
 
-		SegTextureMapper mapper(ds, texture);
+		SegTextureMapper mapper(ds, texture, start, stop);
 		R_DrawColumnRange<SegTextureMapper>(start, stop, walltopf, lower,
 						texture, mapper, colormap_table, colfunc);
 
@@ -417,7 +424,7 @@ void R_RenderSolidSegRange(const drawseg_t* ds)
 			dcol.textureheight = texture->getHeight() << FRACBITS;
 			dcol.texturemid = rw_toptexturemid;
 
-			SegTextureMapper mapper(ds, texture);
+			SegTextureMapper mapper(ds, texture, start, stop);
 			R_DrawColumnRange<SegTextureMapper>(start, stop, walltopf, lower,
 						texture, mapper, colormap_table, colfunc);
 
@@ -442,7 +449,7 @@ void R_RenderSolidSegRange(const drawseg_t* ds)
 			dcol.textureheight = texture->getHeight() << FRACBITS;
 			dcol.texturemid = rw_bottomtexturemid;
 
-			SegTextureMapper mapper(ds, texture);
+			SegTextureMapper mapper(ds, texture, start, stop);
 			R_DrawColumnRange<SegTextureMapper>(start, stop, wallbottomb, lower,
 						texture, mapper, colormap_table, colfunc);
 
@@ -498,7 +505,7 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int start, int stop)
 	const Texture* texture = texturemanager.getTexture(sidedef->midtexture);
 	fixed_t texheight = texture->getHeight() << FRACBITS;
 
-	fixed_t scalefrac = ds->scale1;
+	fixed_t scalefrac = ds->scale1 + (start - ds->x1) * ds->scalestep;
 	fixed_t scalestep = ds->scalestep;
 
 	static int top[MAXWIDTH];
@@ -510,12 +517,22 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int start, int stop)
 	{
 		for (int x = start; x <= stop; x++)
 		{
-			int top1 = (centeryfrac - FixedMul(dcol.texturemid, scalefrac)) >> FRACBITS;
-			int top2 = ds->sprtopclip[x];
-			top[x] = MAX(top1, top2);
-			int bottom1 = ds->sprbottomclip[x];
-			int bottom2 = top1 + (FixedMul(texheight, scalefrac) >> FRACBITS);
-			bottom[x] = MIN(bottom1, bottom2) - 1;
+			if (ds->maskedcoldrawn[x] == 0)
+			{
+				int top1 = (centeryfrac - FixedMul(dcol.texturemid, scalefrac)) >> FRACBITS;
+				int top2 = ds->sprtopclip[x];
+				top[x] = MAX(top1, top2);
+				int bottom1 = ds->sprbottomclip[x];
+				int bottom2 = top1 + (FixedMul(texheight, scalefrac) >> FRACBITS);
+				bottom[x] = MIN(bottom1, bottom2) - 1;
+				ds->maskedcoldrawn[x] = 1;
+			}
+			else
+			{
+				top[x] = viewheight - 1;
+				bottom[x] = 0;
+			}
+
 			scalefrac += scalestep;
 		}
 	}
@@ -523,12 +540,22 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int start, int stop)
 	{
 		for (int x = start; x <= stop; x++)
 		{
-			int bottom1 = (centeryfrac - FixedMul(dcol.texturemid - texheight, scalefrac)) >> FRACBITS;
-			int bottom2 = ds->sprbottomclip[x];
-			bottom[x] = MIN(bottom1, bottom2) - 1;
-			int top1 = bottom1 - (FixedMul(texheight, scalefrac) >> FRACBITS);
-			int top2 = ds->sprtopclip[x];
-			top[x] = MAX(top1, top2); 
+			if (ds->maskedcoldrawn[x] == 0)
+			{
+				int bottom1 = (centeryfrac - FixedMul(dcol.texturemid - texheight, scalefrac)) >> FRACBITS;
+				int bottom2 = ds->sprbottomclip[x];
+				bottom[x] = MIN(bottom1, bottom2) - 1;
+				int top1 = bottom1 - (FixedMul(texheight, scalefrac) >> FRACBITS);
+				int top2 = ds->sprtopclip[x];
+				top[x] = MAX(top1, top2); 
+				ds->maskedcoldrawn[x] = 1;
+			}
+			else
+			{
+				top[x] = viewheight - 1;
+				bottom[x] = 0;
+			}
+
 			scalefrac += scalestep;
 		}
 	}
@@ -544,7 +571,7 @@ void R_RenderMaskedSegRange(drawseg_t* ds, int start, int stop)
 	// generate the light table
 	const shaderef_t* colormap_table = R_SelectColormapTable(ds);
 
-	SegTextureMapper mapper(ds, texture);
+	SegTextureMapper mapper(ds, texture, start, stop);
 	R_DrawColumnRange<SegTextureMapper>(start, stop, top, bottom,
 				texture, mapper, colormap_table, maskedcolfunc);
 }
