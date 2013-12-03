@@ -473,39 +473,8 @@ static bool R_EmptyLineSeg(const seg_t* segline, const wall_t* wall)
 {
 	// TODO: remove use of global frontsector & backsector
 	return segline->sidedef->midtexture == TextureManager::NO_TEXTURE_HANDLE 
-		&& backsector->ceiling_texhandle == frontsector->ceiling_texhandle
-		&& backsector->floor_texhandle == frontsector->floor_texhandle
-		&& backsector->lightlevel == frontsector->lightlevel
-		&& P_IdenticalPlanes(&frontsector->ceilingplane, &backsector->ceilingplane)
-		&& P_IdenticalPlanes(&frontsector->floorplane, &backsector->floorplane)
-
-		// killough 3/7/98: Take flats offsets into account:
-		&& backsector->floor_xoffs == frontsector->floor_xoffs
-		&& (backsector->floor_yoffs + backsector->base_floor_yoffs)
-				== (frontsector->floor_yoffs + backsector->base_floor_yoffs)
-		&& backsector->ceiling_xoffs == frontsector->ceiling_xoffs
-		&& (backsector->ceiling_yoffs + backsector->base_ceiling_yoffs)
-				== (frontsector->ceiling_yoffs + frontsector->base_ceiling_yoffs)
-
-		// killough 4/16/98: consider altered lighting
-		&& backsector->floorlightsec == frontsector->floorlightsec
-		&& backsector->ceilinglightsec == frontsector->ceilinglightsec
-
-		// [RH] Also consider colormaps
-		&& backsector->floorcolormap == frontsector->floorcolormap
-		&& backsector->ceilingcolormap == frontsector->ceilingcolormap
-
-		// [RH] and scaling
-		&& backsector->floor_xscale == frontsector->floor_xscale
-		&& backsector->floor_yscale == frontsector->floor_yscale
-		&& backsector->ceiling_xscale == frontsector->ceiling_xscale
-		&& backsector->ceiling_yscale == frontsector->ceiling_yscale
-
-		// [RH] and rotation
-		&& (backsector->floor_angle + backsector->base_floor_angle)
-				== (frontsector->floor_angle + frontsector->base_floor_angle)
-		&& (backsector->ceiling_angle + backsector->base_ceiling_angle)
-				== (frontsector->ceiling_angle + frontsector->base_ceiling_angle);
+		&& P_SectorCeilingsMatch(frontsector, backsector)
+		&& P_SectorFloorsMatch(frontsector, backsector);
 }
 
 

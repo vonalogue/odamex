@@ -1121,8 +1121,10 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 	int height = texdef->height;
 
 	Texture* texture = createTexture(handle, width, height);
-	texture->mScaleX = texdef->scalex ? texdef->scalex << (FRACBITS - 3) : FRACUNIT;
-	texture->mScaleY = texdef->scaley ? texdef->scaley << (FRACBITS - 3) : FRACUNIT;
+	if (texdef->scalex)
+		texture->mScaleX = texdef->scalex << (FRACBITS - 3);
+	if (texdef->scaley)
+		texture->mScaleY = texdef->scaley << (FRACBITS - 3);
 
 	if (clientside)
 	{

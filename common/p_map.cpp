@@ -3766,6 +3766,41 @@ void P_CopySector(sector_t *dest, sector_t *src)
 	dest->lightingdata			= src->lightingdata;
 }
 
+//
+// P_SectorFloorsMatch
+//
+bool P_SectorFloorsMatch(const sector_t* sec1, const sector_t* sec2)
+{
+	return P_IdenticalPlanes(&sec1->floorplane, &sec2->floorplane)
+		&& sec1->floor_texhandle == sec2->floor_texhandle
+		&& sec1->lightlevel == sec2->lightlevel
+		&& sec1->floorcolormap == sec2->floorcolormap
+		&& sec1->heightsec == sec2->heightsec
+		&& sec1->floorlightsec == sec2->floorlightsec
+		&& sec1->floor_xscale == sec2->floor_xscale
+		&& sec1->floor_yscale == sec2->floor_yscale
+		&& sec1->floor_xoffs == sec2->floor_xoffs
+		&& sec1->floor_yoffs + sec1->base_floor_yoffs == sec2->floor_yoffs + sec2->base_floor_yoffs
+		&& sec1->floor_angle + sec1->base_floor_angle == sec2->floor_angle + sec2->base_floor_angle;
+}
+
+//
+// P_SectorCeilingsMatch
+//
+bool P_SectorCeilingsMatch(const sector_t* sec1, const sector_t* sec2)
+{
+	return P_IdenticalPlanes(&sec1->ceilingplane, &sec2->ceilingplane)
+		&& sec1->ceiling_texhandle == sec2->ceiling_texhandle
+		&& sec1->lightlevel == sec2->lightlevel
+		&& sec1->ceilingcolormap == sec2->ceilingcolormap
+		&& sec1->heightsec == sec2->heightsec
+		&& sec1->ceilinglightsec == sec2->ceilinglightsec
+		&& sec1->ceiling_xscale == sec2->ceiling_xscale
+		&& sec1->ceiling_yscale == sec2->ceiling_yscale
+		&& sec1->ceiling_xoffs == sec2->ceiling_xoffs
+		&& sec1->ceiling_yoffs + sec1->base_ceiling_yoffs == sec2->ceiling_yoffs + sec2->base_ceiling_yoffs
+		&& sec1->ceiling_angle + sec1->base_ceiling_angle == sec2->ceiling_angle + sec2->base_ceiling_angle;
+}
 
 VERSION_CONTROL (p_map_cpp, "$Id$")
 

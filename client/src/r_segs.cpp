@@ -170,7 +170,9 @@ static fixed_t R_CalculateMidTextureMid(const drawseg_t* ds)
 	{
 		// bottom of texture at bottom
 		const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->midtexture);
-		fixed_t texheight = FixedMul(texture->getHeight() << FRACBITS, texture->getScaleY());
+		fixed_t texheight = texture->getHeight() << FRACBITS;
+		if (texture->getScaleY() != FRACUNIT)
+			texheight = FixedMul(texheight, texture->getScaleY());
 		result = P_FloorHeight(ds->frontsector) + texheight;
 	}
 	else
@@ -196,7 +198,9 @@ static fixed_t R_CalculateTopTextureMid(const drawseg_t* ds)
 	{
 		// bottom of texture
 		const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->toptexture);
-		fixed_t texheight = FixedMul(texture->getHeight() << FRACBITS, texture->getScaleY());
+		fixed_t texheight = texture->getHeight() << FRACBITS;
+		if (texture->getScaleY() != FRACUNIT)
+			texheight = FixedMul(texheight, texture->getScaleY());
 		result = P_CeilingHeight(ds->backsector) + texheight;
 	}
 
@@ -232,7 +236,9 @@ static fixed_t R_CalculateMaskedMidTextureMid(const drawseg_t* ds)
 	if (ds->curline->linedef->flags & ML_DONTPEGBOTTOM)
 	{
 		const Texture* texture = texturemanager.getTexture(ds->curline->sidedef->midtexture);
-		fixed_t texheight = FixedMul(texture->getHeight() << FRACBITS, texture->getScaleY());
+		fixed_t texheight = texture->getHeight() << FRACBITS;
+		if (texture->getScaleY() != FRACUNIT)
+			texheight = FixedMul(texheight, texture->getScaleY());
 		result = MAX(P_FloorHeight(ds->curline->frontsector), P_FloorHeight(ds->curline->backsector)) + texheight;
 	}
 	else
@@ -243,8 +249,6 @@ static fixed_t R_CalculateMaskedMidTextureMid(const drawseg_t* ds)
 	result += ds->curline->sidedef->rowoffset - viewz;
 	return result;
 }
-
-
 
 //
 // R_SelectColormapTable
@@ -594,7 +598,7 @@ void R_PrepWall(const drawseg_t* ds, const wall_t* wall)
 
 		// hack to allow height changes in outdoor areas (sky hack)
 		// copy back ceiling height array to front ceiling height array
-		if (ds->frontsector->ceiling_texhandle == sky1flathandle && ds->backsector->ceiling_texhandle == sky1flathandle)
+		if (R_IsSkyFlat(ds->frontsector->ceiling_texhandle) && R_IsSkyFlat(ds->backsector->ceiling_texhandle))
 			memcpy(walltopf+ds->x1, walltopb+ds->x1, width*sizeof(*walltopb));
 	}
 }
@@ -728,6 +732,9 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 				ds->silhouette |= SIL_TOP;
 		}
 
+		bool skyhack = R_IsSkyFlat(ds->frontsector->ceiling_texhandle)
+					&& R_IsSkyFlat(ds->backsector->ceiling_texhandle);
+
 		if (doorclosed)
 		{
 			markceiling = markfloor = true;
@@ -738,69 +745,13 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 		}
 		else
 		{
-			markfloor =
-				  !P_IdenticalPlanes(&ds->backsector->floorplane, &ds->frontsector->floorplane)
-				|| ds->backsector->lightlevel != ds->frontsector->lightlevel
-				|| ds->backsector->floor_texhandle != ds->frontsector->floor_texhandle
-
-				// killough 3/7/98: Add checks for (x,y) offsets
-				|| ds->backsector->floor_xoffs != ds->frontsector->floor_xoffs
-				|| (ds->backsector->floor_yoffs + ds->backsector->base_floor_yoffs) != 
-				   (ds->frontsector->floor_yoffs + ds->frontsector->base_floor_yoffs)
-
-				// killough 4/15/98: prevent 2s normals
-				// from bleeding through deep water
-				|| ds->frontsector->heightsec
-
-				// killough 4/17/98: draw floors if different light levels
-				|| ds->backsector->floorlightsec != ds->frontsector->floorlightsec
-
-				// [RH] Add checks for colormaps
-				|| ds->backsector->floorcolormap != ds->frontsector->floorcolormap
-
-				|| ds->backsector->floor_xscale != ds->frontsector->floor_xscale
-				|| ds->backsector->floor_yscale != ds->frontsector->floor_yscale
-
-				|| (ds->backsector->floor_angle + ds->backsector->base_floor_angle) !=
-				   (ds->frontsector->floor_angle + ds->frontsector->base_floor_angle)
-				;
-
-			markceiling = 
-				  !P_IdenticalPlanes(&ds->backsector->ceilingplane, &ds->frontsector->ceilingplane)
-				|| ds->backsector->lightlevel != ds->frontsector->lightlevel
-				|| ds->backsector->ceiling_texhandle != ds->frontsector->ceiling_texhandle
-
-				// killough 3/7/98: Add checks for (x,y) offsets
-				|| ds->backsector->ceiling_xoffs != ds->frontsector->ceiling_xoffs
-				|| (ds->backsector->ceiling_yoffs + ds->backsector->base_ceiling_yoffs) !=
-				   (ds->frontsector->ceiling_yoffs + ds->frontsector->base_ceiling_yoffs)
-
-				// killough 4/15/98: prevent 2s normals
-				// from bleeding through fake ceilings
-				|| (ds->frontsector->heightsec && ds->frontsector->ceiling_texhandle != sky1flathandle)
-
-				// killough 4/17/98: draw ceilings if different light levels
-				|| ds->backsector->ceilinglightsec != ds->frontsector->ceilinglightsec
-
-				// [RH] Add check for colormaps
-				|| ds->backsector->ceilingcolormap != ds->frontsector->ceilingcolormap
-
-				|| ds->backsector->ceiling_xscale != ds->frontsector->ceiling_xscale
-				|| ds->backsector->ceiling_yscale != ds->frontsector->ceiling_yscale
-
-				|| (ds->backsector->ceiling_angle + ds->backsector->base_ceiling_angle) !=
-				   (ds->frontsector->ceiling_angle + ds->frontsector->base_ceiling_angle)
-				;
-				
-			// Sky hack
-			markceiling = markceiling &&
-				(ds->frontsector->ceiling_texhandle != sky1flathandle ||
-				ds->backsector->ceiling_texhandle != sky1flathandle);
+			markfloor = !P_SectorFloorsMatch(ds->frontsector, ds->backsector);
+			markceiling = !P_SectorCeilingsMatch(ds->frontsector, ds->backsector) && !skyhack;
 		}
 
 		if (rw_hashigh)
 		{
-			toptexture = sidedef->toptexture;
+			toptexture = skyhack ? 0 : sidedef->toptexture;
 			rw_toptexturemid = R_CalculateTopTextureMid(ds);
 		}
 
@@ -815,11 +766,6 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 		{
 			markfloor = markceiling = true;
 		}
-
-		// [SL] additional fix for sky hack
-		if (ds->frontsector->ceiling_texhandle == sky1flathandle &&
-			ds->backsector->ceiling_texhandle == sky1flathandle)
-			toptexture = 0; 
 	}
 
 	// [SL] 2012-01-24 - Horizon line extends to infinity by scaling the wall
@@ -846,7 +792,7 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 			markfloor = false;
 		// below view plane?
 		if (P_CeilingHeight(viewx, viewy, ds->frontsector) <= viewz &&
-			ds->frontsector->ceiling_texhandle != sky1flathandle)   
+			!R_IsSkyFlat(ds->frontsector->ceiling_texhandle))
 			markceiling = false;	
 	}
 
