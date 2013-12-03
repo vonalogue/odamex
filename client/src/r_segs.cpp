@@ -710,6 +710,9 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 		ds->sprtopclip = ds->sprbottomclip = NULL;
 		ds->silhouette = 0;
 
+		bool skyhack = R_IsSkyFlat(ds->frontsector->ceiling_texhandle)
+					&& R_IsSkyFlat(ds->backsector->ceiling_texhandle);
+
 		extern bool doorclosed;	
 		if (doorclosed)
 		{
@@ -717,6 +720,8 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 			ds->silhouette = SIL_BOTH;
 			ds->sprtopclip = viewheightarray;
 			ds->sprbottomclip = negonearray;
+
+			markceiling = markfloor = true;
 		}
 		else
 		{
@@ -730,40 +735,26 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 				rw_wall.backc1.z < viewz || rw_wall.backc2.z < viewz || 
 				!P_IsPlaneLevel(&ds->backsector->ceilingplane))	// backside sloping?
 				ds->silhouette |= SIL_TOP;
-		}
 
-		bool skyhack = R_IsSkyFlat(ds->frontsector->ceiling_texhandle)
-					&& R_IsSkyFlat(ds->backsector->ceiling_texhandle);
-
-		if (doorclosed)
-		{
-			markceiling = markfloor = true;
-		}
-		else if (spanfunc == R_FillSpan)
-		{
-			markfloor = markceiling = (ds->frontsector != ds->backsector);
-		}
-		else
-		{
 			markfloor = !P_SectorFloorsMatch(ds->frontsector, ds->backsector);
 			markceiling = !P_SectorCeilingsMatch(ds->frontsector, ds->backsector) && !skyhack;
 		}
 
-		if (rw_hashigh)
+		if (rw_hashigh && sidedef->toptexture && !skyhack)
 		{
-			toptexture = skyhack ? 0 : sidedef->toptexture;
+			toptexture = sidedef->toptexture;
 			rw_toptexturemid = R_CalculateTopTextureMid(ds);
 		}
 
-		if (rw_haslow)
+		if (rw_haslow && sidedef->bottomtexture)
 		{
 			bottomtexture = sidedef->bottomtexture;
 			rw_bottomtexturemid = R_CalculateBottomTextureMid(ds);
 		}
 
-		maskedmidtexture = sidedef->midtexture;
-		if (maskedmidtexture)
+		if (sidedef->midtexture)
 		{
+			maskedmidtexture = sidedef->midtexture;
 			markfloor = markceiling = true;
 		}
 	}
