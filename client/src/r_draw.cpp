@@ -1596,16 +1596,6 @@ void R_InitViewBorder()
 	topright_viewborder_bevel_texture		= texturemanager.getTexture(topright_viewborder_bevel_texhandle);
 	bottomleft_viewborder_bevel_texture		= texturemanager.getTexture(bottomleft_viewborder_bevel_texhandle);
 	bottomright_viewborder_bevel_texture	= texturemanager.getTexture(bottomright_viewborder_bevel_texhandle);
-
-	Z_ChangeTag(viewborder_flat_texture, PU_STATIC);
-	Z_ChangeTag(top_viewborder_bevel_texture, PU_STATIC);
-	Z_ChangeTag(bottom_viewborder_bevel_texture, PU_STATIC);
-	Z_ChangeTag(left_viewborder_bevel_texture, PU_STATIC);
-	Z_ChangeTag(right_viewborder_bevel_texture, PU_STATIC);
-	Z_ChangeTag(topleft_viewborder_bevel_texture, PU_STATIC);
-	Z_ChangeTag(topright_viewborder_bevel_texture, PU_STATIC);
-	Z_ChangeTag(bottomleft_viewborder_bevel_texture, PU_STATIC);
-	Z_ChangeTag(bottomright_viewborder_bevel_texture, PU_STATIC);
 }
 
 void R_ShutdownViewBorder()

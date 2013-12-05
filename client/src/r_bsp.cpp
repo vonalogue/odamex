@@ -457,8 +457,7 @@ static bool R_SolidLineSeg(const seg_t* segline, const wall_t* wall)
 			  segline->sidedef->bottomtexture != TextureManager::NO_TEXTURE_HANDLE) &&
 
 			// properly render skies (consider door "open" if both ceilings are sky):
-			(backsector->ceiling_texhandle !=sky1flathandle ||
-			 frontsector->ceiling_texhandle != sky1flathandle));
+			(!R_IsSkyFlat(frontsector->ceiling_texhandle) || !R_IsSkyFlat(backsector->ceiling_texhandle)));
 }
 
 

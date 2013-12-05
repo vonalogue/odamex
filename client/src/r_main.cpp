@@ -437,20 +437,16 @@ static void R_ClipLine2(const v2fixed_t* in1, const v2fixed_t* in2,
 	out2->y = y + FixedMul<30, PREC, PREC>(rclip, dy);
 }
 
-static void R_ClipLine2(const vertex_t* in1, const vertex_t* in2,
-				int32_t lclip, int32_t rclip,
-				v2fixed_t* out1, v2fixed_t* out2)
-{
-	R_ClipLine2((const v2fixed_t*)in1, (const v2fixed_t*)in2, lclip, rclip, out1, out2);
-}
-
-static bool R_ClipLineToFrustum2(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipdist, int32_t& lclip, int32_t& rclip)
+static bool R_ClipLineToFrustum2(
+		const v2fixed_t* v1, const v2fixed_t* v2,
+		fixed_t clipdist, fixed_t slope,
+		int32_t& clip1, int32_t& clip2)
 {
 	static const int32_t CLIPUNIT = FRACUNIT30;
 	v2fixed_t p1 = *v1, p2 = *v2;
 
-	lclip = 0;
-	rclip = CLIPUNIT; 
+	clip1 = 0;
+	clip2 = CLIPUNIT; 
 
 	// Clip portions of the line that are behind the view plane
 	if (p1.y < clipdist)
@@ -460,19 +456,19 @@ static bool R_ClipLineToFrustum2(const v2fixed_t* v1, const v2fixed_t* v2, fixed
 			return false;
 
 		// clip the line at the point where p1.y == clipdist
-		lclip = FixedDiv<PREC, PREC, 30>(clipdist - p1.y, p2.y - p1.y);
+		clip1 = FixedDiv<PREC, PREC, 30>(clipdist - p1.y, p2.y - p1.y);
 	}
 
 	if (p2.y < clipdist)
 	{
 		// clip the line at the point where p2.y == clipdist
-		rclip = FixedDiv<PREC, PREC, 30>(clipdist - p1.y, p2.y - p1.y);
+		clip2 = FixedDiv<PREC, PREC, 30>(clipdist - p1.y, p2.y - p1.y);
 	}
 
-	int32_t unclipped_amount = rclip - lclip;
+	int32_t unclipped_amount = clip2 - clip1;
 
 	// apply the clipping against the 'y = clipdist' plane to p1 & p2
-	R_ClipLine2(v1, v2, lclip, rclip, &p1, &p2);
+	R_ClipLine2(v1, v2, clip1, clip2, &p1, &p2);
 
 	// [SL] A note on clipping to the screen edges:
 	// With a 90-degree FOV, if p1.x < -p1.y, then the left point
@@ -480,8 +476,8 @@ static bool R_ClipLineToFrustum2(const v2fixed_t* v1, const v2fixed_t* v2, fixed
 	// then the right point is off the right side of the screen.
 	// We use yc1 and yc2 instead of p1.y and p2.y because they are
 	// adjusted to work with the current FOV rather than just 90-degrees.
-	fixed_t yc1 = FixedMul<16, PREC, PREC>(fovtan, p1.y);
-	fixed_t yc2 = FixedMul<16, PREC, PREC>(fovtan, p2.y);
+	fixed_t yc1 = FixedMul<16, PREC, PREC>(slope, p1.y);
+	fixed_t yc2 = FixedMul<16, PREC, PREC>(slope, p2.y);
 
 	// is the entire line off the left side or the right side of the screen?
 	if ((p1.x < -yc1 && p2.x < -yc2) || (p1.x > yc1 && p2.x > yc2))
@@ -496,7 +492,7 @@ static bool R_ClipLineToFrustum2(const v2fixed_t* v1, const v2fixed_t* v2, fixed
 			return false;
 
 		int32_t t = FixedDiv<PREC, PREC, 30>(-yc1 - p1.x, den);
-		lclip += FixedMul<30, 30, 30>(t, unclipped_amount);
+		clip1 += FixedMul<30, 30, 30>(t, unclipped_amount);
 	}
 
 	// is the right vertex off the right side of the screen?
@@ -508,10 +504,10 @@ static bool R_ClipLineToFrustum2(const v2fixed_t* v1, const v2fixed_t* v2, fixed
 			return false;
 
 		int32_t t = FixedDiv<PREC, PREC, 30>(yc1 - p1.x, den);
-		rclip -= FixedMul<30, 30, 30>(CLIPUNIT - t, unclipped_amount);
+		clip2 -= FixedMul<30, 30, 30>(CLIPUNIT - t, unclipped_amount);
 	}
 
-	if (lclip > rclip)
+	if (clip1 > clip2)
 		return false;
 
 	return true;
@@ -558,7 +554,7 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, wall_t* wall, fixed_t cli
 			FixedMul<16, 30, PREC>(pt2.y - viewy, viewcos);
 
 	// clip the line seg to the viewing window
-	if (!R_ClipLineToFrustum2(&t1, &t2, clipdist, lclip, rclip))
+	if (!R_ClipLineToFrustum2(&t1, &t2, clipdist, fovtan, lclip, rclip))
 		return false;
 
 	// apply the view frustum clipping to t1 & t2

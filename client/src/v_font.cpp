@@ -64,7 +64,6 @@ static texhandle_t V_LoadDoomFontChar(const char* name, fixed_t scale)
 			data[i] += (0xB0 - 0x50);
 	}
 
-	Z_ChangeTag(dest_texture, PU_STATIC);	// don't allow texture to be purged from cache
 	return dest_texhandle;
 }
 
@@ -81,7 +80,6 @@ static texhandle_t V_LoadBlankDoomFontChar(int width, int height, fixed_t scale)
 	texhandle_t dest_texhandle = texturemanager.createCustomHandle();
 	Texture* dest_texture = texturemanager.createTexture(dest_texhandle, dest_charwidth, dest_charheight);
 
-	Z_ChangeTag(dest_texture, PU_STATIC);
 	return dest_texhandle;
 }
 
@@ -215,7 +213,6 @@ ConCharsFont::ConCharsFont(fixed_t scale)
 
 			Texture* texture = texturemanager.createTexture(mCharacterHandles[charnum], dest_charwidth, dest_charheight);
 			mCharacters[charnum] = texture;
-			Z_ChangeTag(texture, PU_STATIC);	// don't allow texture to be purged from cache
 
 			int x1 = column * charwidth;
 			int x2 = x1 + charwidth - 1;
@@ -507,7 +504,6 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 		}
 
 		mCharacters[charnum] = texture;
-		Z_ChangeTag(texture, PU_STATIC);
 	}
 	
 	texturemanager.freeTexture(background_texhandle);

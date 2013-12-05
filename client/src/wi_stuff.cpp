@@ -1279,7 +1279,6 @@ static const Texture* WI_LoadSprite(const char* name)
 {
 	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_PATCH);
 	const Texture* texture = texturemanager.getTexture(texhandle);
-	Z_ChangeTag(texture, PU_STATIC);
 	return texture;
 }
 
@@ -1290,8 +1289,6 @@ static const Texture* WI_LoadSprite(const char* name)
 //
 static void WI_UnloadSprite(const Texture* texture)
 {
-	if (texture)
-		Z_ChangeTag(texture, PU_CACHE);
 }
 
 
@@ -1315,7 +1312,6 @@ void WI_loadData (void)
 
 	background_texhandle = texturemanager.createCustomHandle();	
 	background_texture = texturemanager.createTexture(background_texhandle, bg_width, bg_height);
-	Z_ChangeTag(background_texture, PU_STATIC);
 
 	R_CopySubimage(background_texture, original_background_texture,
 			0, 0, bg_width - 1, bg_height - 1,

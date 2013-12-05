@@ -489,7 +489,6 @@ static const Texture* ST_LoadSprite(const char* name)
 {
 	texhandle_t texhandle = texturemanager.getHandle(name, Texture::TEX_SPRITE);
 	const Texture* texture = texturemanager.getTexture(texhandle);
-	Z_ChangeTag(texture, PU_STATIC);
 	return texture;
 }
 
@@ -500,7 +499,6 @@ static const Texture* ST_LoadSprite(const char* name)
 //
 static void ST_UnloadSprite(const Texture* texture)
 {
-	Z_ChangeTag(texture, PU_CACHE);
 }
 
 //
