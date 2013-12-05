@@ -1138,6 +1138,9 @@ void TextureManager::cacheWallTexture(texhandle_t handle)
 		for (int i = 0; i < texdef->patchcount; i++)
 		{
 			texdefpatch_t* texdefpatch = &texdef->patches[i];
+			
+			if (texdefpatch->patch == -1)		// not found ?
+				continue;
 
 			unsigned int lumplen = W_LumpLength(texdefpatch->patch);
 			byte* lumpdata = new byte[lumplen];
