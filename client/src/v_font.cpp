@@ -78,7 +78,7 @@ static texhandle_t V_LoadBlankDoomFontChar(int width, int height, fixed_t scale)
 	int dest_charheight = (height * scale) >> FRACBITS;
 
 	texhandle_t dest_texhandle = texturemanager.createCustomHandle();
-	Texture* dest_texture = texturemanager.createTexture(dest_texhandle, dest_charwidth, dest_charheight);
+	texturemanager.createTexture(dest_texhandle, dest_charwidth, dest_charheight);
 
 	return dest_texhandle;
 }
