@@ -221,7 +221,8 @@ static void R_WarpTexture(Texture* dest_texture, const Texture* source_texture)
 //
 // ============================================================================
 
-Texture::Texture()
+Texture::Texture() :
+	mHandle(TextureManager::NO_TEXTURE_HANDLE)
 {
 	init(0, 0);
 }
@@ -538,14 +539,12 @@ void TextureManager::readAnimDefLump()
 
 					// backup the original texture
 					warp.original_texture = getTexture(texhandle);
-					Z_ChangeTag(warp.original_texture, PU_STATIC);
 
 					int width = 1 << warp.original_texture->getWidthBits();
 					int height = 1 << warp.original_texture->getHeightBits();
 
 					// create a new texture of the same size for the warped image
 					warp.warped_texture = createTexture(texhandle, width, height);
-					Z_ChangeTag(warp.warped_texture, PU_STATIC);
 
 					mWarpDefs.push_back(warp);
 				}
@@ -704,7 +703,6 @@ void TextureManager::generateNotFoundTexture()
 
 	const texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
 	Texture* texture = createTexture(handle, width, height);
-	Z_ChangeTag(texture, PU_STATIC);
 
 	if (clientside)
 	{
@@ -867,6 +865,8 @@ Texture* TextureManager::createTexture(texhandle_t texhandle, int width, int hei
 	
 	Texture* texture = (Texture*)Z_Malloc(texture_size, PU_STATIC, NULL);
 	texture->init(width, height);
+
+	texture->mHandle = texhandle;
 
 	mHandleMap.insert(HandleMapPair(texhandle, texture));
 

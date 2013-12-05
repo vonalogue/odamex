@@ -64,8 +64,6 @@ void R_CopySubimage(Texture* dest_texture, const Texture* source_texture,
 class Texture
 {
 public:
-	Texture();
-
 	typedef enum
 	{
 		TEX_FLAT,
@@ -77,6 +75,9 @@ public:
 
 	static const unsigned int MAX_TEXTURE_WIDTH			= 2048;
 	static const unsigned int MAX_TEXTURE_HEIGHT		= 2048;
+
+	texhandle_t getHandle() const
+	{	return mHandle;	}
 
 	byte* getData() const
 	{	return mData;	}
@@ -117,11 +118,12 @@ public:
 private:
 	friend class TextureManager;
 
+	Texture();
+
 	static size_t calculateSize(int width, int height);
 	void init(int width, int height);
 
-	byte*				mMask;
-	byte*				mData;
+	texhandle_t			mHandle;
 
 	fixed_t				mScaleX;
 	fixed_t				mScaleY;
@@ -136,6 +138,10 @@ private:
 	byte				mHeightBits;
 
 	bool				mHasMask;
+
+	byte*				mMask;
+	byte*				mData;
+
 };
 
 
