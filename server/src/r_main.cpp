@@ -231,10 +231,20 @@ R_PointToAngle
     return R_PointToAngle2 (viewx, viewy, x, y);
 }
 
+//
+// R_RotatePoint
+//
+// Rotates a point x, y by viewangle and stores the result in tx, ty
+//
+void R_RotatePoint(fixed_t x, fixed_t y, fixed_t &tx, fixed_t &ty)
+{
+	tx = FixedMul<16, 30, 16>(x, viewcos) - FixedMul<16, 30, 16>(y, viewsin);
+	ty = FixedMul<16, 30, 16>(x, viewsin) + FixedMul<16, 30, 16>(y, viewcos);
+}
+
 void R_RotatePoint(fixed_t x, fixed_t y, angle_t ang, fixed_t &tx, fixed_t &ty)
 {
 	int index = ang >> ANGLETOFINESHIFT;
-	
 	tx = FixedMul(x, finecosine[index]) - FixedMul(y, finesine[index]);
 	ty = FixedMul(x, finesine[index]) + FixedMul(y, finecosine[index]);
 }

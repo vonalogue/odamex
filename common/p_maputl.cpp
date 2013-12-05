@@ -1168,7 +1168,7 @@ bool P_ActorInFOV(AActor* origin, AActor* mo , float f, fixed_t dist)
 	// transform and rotate so that tx and ty represent mo's location with respect
 	// to the direction origin is looking
 	fixed_t tx, ty;
-	R_RotatePoint(mo->x - origin->x, mo->y - origin->y, tx, ty);
+	R_RotatePoint(mo->x - origin->x, mo->y - origin->y, ANG90 - origin->angle, tx, ty);
 
 	// mo is behind origin?
 	if (ty < 4*FRACUNIT)
