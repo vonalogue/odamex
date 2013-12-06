@@ -641,11 +641,7 @@ void D_Init()
 		Printf(PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
 	R_Init();
 
-	// fonts
-	V_LoadDoomFont();
-	V_LoadHudFont();
-	V_LoadMenuFont();
-	V_LoadConsoleFont();
+	V_LoadFonts();
 
 	C_InitConsoleBackground();
 
@@ -726,11 +722,7 @@ void STACK_ARGS D_Shutdown()
 	// close all open WAD files
 	W_Close();
 
-	// fonts
-	V_UnloadConsoleFont();
-	V_UnloadMenuFont();
-	V_UnloadHudFont();
-	V_UnloadDoomFont();
+	V_UnloadFonts();
 
 	R_Shutdown();
 

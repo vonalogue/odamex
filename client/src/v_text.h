@@ -114,6 +114,10 @@ void V_UnloadMenuFont();
 void V_LoadDoomFont();
 void V_UnloadDoomFont();
 
+void V_LoadFonts();
+void V_UnloadFonts();
+bool V_FontsLoaded();
+
 extern OFont* console_font;
 extern OFont* hud_font;
 extern OFont* menu_font;

@@ -714,6 +714,9 @@ static bool V_DoModeSetup(int width, int height, int bits)
 	R_InitColumnDrawers();
 	R_MultiresInit();
 
+	if (V_FontsLoaded())
+		V_LoadFonts();
+
 	// [SL] 2011-11-30 - Prevent the player's view angle from moving
 	I_FlushInput();
 

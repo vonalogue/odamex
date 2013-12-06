@@ -109,6 +109,27 @@ void V_LoadDoomFont()
 	doom_font = new SmallDoomFont(MIN(CleanXfac, CleanYfac) * FRACUNIT);
 }
 
+void V_LoadFonts()
+{
+	V_LoadConsoleFont();
+	V_LoadHudFont();
+	V_LoadMenuFont();
+	V_LoadDoomFont();
+}
+
+void V_UnloadFonts()
+{
+	V_UnloadConsoleFont();
+	V_UnloadHudFont();
+	V_UnloadMenuFont();
+	V_UnloadDoomFont();
+}
+
+bool V_FontsLoaded()
+{
+	return console_font || hud_font || menu_font || doom_font;
+}
+
 extern "C" void STACK_ARGS PrintChar1P (DWORD *charimg, byte *dest, int screenpitch);
 extern "C" void STACK_ARGS PrintChar2P_MMX (DWORD *charimg, byte *dest, int screenpitch);
 
