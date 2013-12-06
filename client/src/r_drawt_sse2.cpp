@@ -114,9 +114,9 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	const __m128i mumask = _mm_set1_epi32(umask);
 	const __m128i mvmask = _mm_set1_epi32(vmask);
 
-	__m128i mufrac = _mm_set_epi32(ufrac+ustep*0, ufrac+ustep*1, ufrac+ustep*2, ufrac+ustep*3);
+	__m128i mufrac = _mm_setr_epi32(ufrac+ustep*0, ufrac+ustep*1, ufrac+ustep*2, ufrac+ustep*3);
 	const __m128i mufracinc = _mm_set1_epi32(ustep*4);
-	__m128i mvfrac = _mm_set_epi32(vfrac+vstep*0, vfrac+vstep*1, vfrac+vstep*2, vfrac+vstep*3);
+	__m128i mvfrac = _mm_setr_epi32(vfrac+vstep*0, vfrac+vstep*1, vfrac+vstep*2, vfrac+vstep*3);
 	const __m128i mvfracinc = _mm_set1_epi32(vstep*4);
 
 	while (batches--)
@@ -137,7 +137,7 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		byte pixel2 = source[((int*)&spots)[2]];
 		byte pixel3 = source[((int*)&spots)[3]];
 
-		const __m128i finalColors = _mm_set_epi32(
+		const __m128i finalColors = _mm_setr_epi32(
 			colormap.shade(pixel0),
 			colormap.shade(pixel1),
 			colormap.shade(pixel2),
@@ -153,8 +153,8 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		mvfrac = _mm_add_epi32(mvfrac, mvfracinc);
 	}
 
-	ufrac = (dsfixed_t)((int*)&mufrac)[3];
-	vfrac = (dsfixed_t)((int*)&mvfrac)[3];
+	ufrac = (dsfixed_t)((int*)&mufrac)[0];
+	vfrac = (dsfixed_t)((int*)&mvfrac)[0];
 
 	// blit the remaining 0 - 3 pixels
 	while (remainder--)
