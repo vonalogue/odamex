@@ -54,6 +54,8 @@
 #include <vector>
 #include <algorithm>
 
+void D_StartTitle();
+
 std::string DownloadStr;
 
 static void C_TabComplete (void);
@@ -713,7 +715,7 @@ void C_SetTicker (unsigned int at)
 
 void C_DrawConsole (void)
 {
-	if (!Lines)
+	if (!Lines || menuactive)
 		return;
 
 	static const size_t str_size = 1024;
@@ -731,9 +733,6 @@ void C_DrawConsole (void)
 		offset = -4 * rowheight / 2;;
 
 	byte* zap = Last - (SkipRows + RowAdjust) * (ConCols + 2);
-
-	if (menuactive)
-		return;
 
 	if (ConsoleState == c_up)
 	{
@@ -856,11 +855,12 @@ void C_DrawConsole (void)
 void C_FullConsole (void)
 {
 	// SoM: disconnect effect.
-	if(gamestate == GS_LEVEL && ConsoleState == c_up && !menuactive)
+	if (gamestate == GS_LEVEL && ConsoleState == c_up && !menuactive)
 		C_ServerDisconnectEffect();
 
 	if (demoplayback)
-		G_CheckDemoStatus ();
+		G_CheckDemoStatus();
+
 	advancedemo = false;
 	ConsoleState = c_down;
 	HistPos = NULL;
@@ -873,8 +873,11 @@ void C_FullConsole (void)
  		SN_StopAllSequences ();
 		V_SetBlend (0,0,0,0);
 		I_EnableKeyRepeat();
-	} else
-		C_AdjustBottom ();
+	}
+	else
+	{
+		C_AdjustBottom();
+	}
 }
 
 void C_ToggleConsole (void)
@@ -910,10 +913,9 @@ void C_HideConsole (void)
 		ConsoleState = c_up;
 		ConBottom = 0;
 		HistPos = NULL;
+
 		if (!menuactive)
-		{
 			I_DisableKeyRepeat();
-		}
 	}
 }
 
@@ -1226,10 +1228,10 @@ bool C_HandleKey (event_t *ev, byte *buffer, int len)
 			{
 				C_HideConsole();
 
-                // [Russell] Don't enable toggling of console when downloading
-                // or connecting, it creates screen artifacts
-                if (gamestate != GS_CONNECTING && gamestate != GS_DOWNLOAD)
-                    gamestate = GS_DEMOSCREEN;
+				// [Russell] Don't enable toggling of console when downloading
+				// or connecting, it creates screen artifacts
+				if (gamestate != GS_CONNECTING && gamestate != GS_DOWNLOAD)
+					D_StartTitle();
 
 				if (cmd && !strcmp(cmd, "toggleconsole"))
 					return true;

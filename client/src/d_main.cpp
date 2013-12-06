@@ -321,8 +321,7 @@ void D_Display (void)
 	// draw pause pic
 	if (paused && !menuactive)
 	{
-		texhandle_t texhandle = texturemanager.getHandle("M_PAUSE", Texture::TEX_PATCH);
-		const Texture* texture = texturemanager.getTexture(texhandle);
+		const Texture* texture = R_LoadTexture("M_PAUSE");
 		int x = (screen->width - texture->getWidth() * CleanXfac) / 2;
 		int y = (automapactive && !viewactive) ? 4 : viewwindowy + 4;
 		screen->DrawTextureCleanNoMove(texture, x, y);
@@ -394,8 +393,11 @@ void D_PageTicker (void)
 //
 void D_PageDrawer (void)
 {
-	const Texture* page_texture = texturemanager.getTexture(page_texhandle);
-	screen->DrawTextureFullScreen(page_texture);
+	if (page_texhandle)
+	{
+		const Texture* page_texture = texturemanager.getTexture(page_texhandle);
+		screen->DrawTextureFullScreen(page_texture);
+	}
 }
 
 //
