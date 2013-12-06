@@ -365,11 +365,21 @@ bool SDLVideo::NextMode (int *width, int *height)
 	return true;
 }
 
+static int CalculatePitch(int width, int height, int bits, int alignment)
+{
+	const int mask = alignment - 1;
+	const int bytesperpixel = bits / 8;
+	return (width * bytesperpixel + mask) & ~mask;
+}
+
+static byte* AlignFrameBuffer(byte* allocated_buffer, int alignment)
+{
+	const int mask = alignment - 1;
+	return allocated_buffer + ((alignment - ((uintptr_t)allocated_buffer & mask)) & mask);
+}
 
 DCanvas *SDLVideo::AllocateSurface(int width, int height, int bits, bool primary)
 {
-	const int alignment = 64;	// align framebuffer rows to 64-byte boundaries
-
 	DCanvas *scrn = new DCanvas;
 
 	scrn->width = width;
@@ -382,18 +392,17 @@ DCanvas *SDLVideo::AllocateSurface(int width, int height, int bits, bool primary
 	SDL_Surface* new_surface;
 	Uint32 flags = SDL_SWSURFACE;
 
-	int bytesperpixel = bits / 8;
-	int alignedwidth = (width * bytesperpixel + alignment - 1) & ~(alignment - 1);
-	framebuffer = new byte[height * alignedwidth];
-	byte* aligned_framebuffer = (byte*)(((uintptr_t)framebuffer + alignment - 1) & ~(alignment - 1));
+	// create a new frame buffer and make sure that the start of each row
+	// is aligned to a 64-byte boundary.
+	const int alignment = 64;
+	int pitch = CalculatePitch(width, height, bits, alignment);
+	framebuffer = new byte[height * pitch + alignment];
+	byte* aligned_framebuffer = AlignFrameBuffer(framebuffer, alignment);
 
-	new_surface = SDL_CreateRGBSurfaceFrom(aligned_framebuffer, width, height, bits, alignedwidth, 0, 0, 0, 0);
+	new_surface = SDL_CreateRGBSurfaceFrom(aligned_framebuffer, width, height, bits, pitch, 0, 0, 0, 0);
 
 	if (!new_surface)
 		I_FatalError("SDLVideo::AllocateSurface failed to allocate an SDL surface.");
-
-	if (new_surface->pitch != (width * (bits / 8)) && vid_autoadjust)
-		Printf(PRINT_HIGH, "Warning: SDLVideo::AllocateSurface got a surface with an abnormally wide pitch.\n");
 
 	// determine format of 32bpp pixels
 	if (bits == 32)
