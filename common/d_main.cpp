@@ -1012,35 +1012,10 @@ bool D_DoomWadReboot(
 
 	lastWadRebootSuccess = false;
 
-	if (gamestate == GS_LEVEL)
-		G_ExitLevel(0, 0);
-
-	S_Stop();
-
-	DThinker::DestroyAllThinkers();
-
-	// Close all open WAD files
-	W_Close();
-
-	// [ML] 9/11/10: Reset custom wad level information from MAPINFO et al.
-	for (size_t i = 0; i < wadlevelinfos.size(); i++)
-	{
-		if (wadlevelinfos[i].snapshot)
-		{
-			delete wadlevelinfos[i].snapshot;
-			wadlevelinfos[i].snapshot = NULL;
-		}
-	}
-
-	wadlevelinfos.clear();
-	wadclusterinfos.clear();
-
-	UndoDehPatch();
-
-	SetLanguageIDs();
-
 	gamestate_t oldgamestate = gamestate;
 	gamestate = GS_STARTUP; // prevent console from trying to use nonexistant font
+	
+	D_Shutdown();
 
 	// Load all the WAD and DEH/BEX files
 	D_LoadResourceFiles(newwadfiles, newpatchfiles, newwadhashes, newpatchhashes); 

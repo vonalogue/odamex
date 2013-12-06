@@ -691,6 +691,22 @@ void D_Init()
 //
 void STACK_ARGS D_Shutdown()
 {
+	if (gamestate == GS_LEVEL)
+		G_ExitLevel(0, 0);
+
+	// [ML] 9/11/10: Reset custom wad level information from MAPINFO et al.
+	for (size_t i = 0; i < wadlevelinfos.size(); i++)
+	{
+		if (wadlevelinfos[i].snapshot)
+		{
+			delete wadlevelinfos[i].snapshot;
+			wadlevelinfos[i].snapshot = NULL;
+		}
+	}
+
+	wadlevelinfos.clear();
+	wadclusterinfos.clear();
+
 	ST_Shutdown();
 
 	R_ShutdownViewBorder();
@@ -702,6 +718,8 @@ void STACK_ARGS D_Shutdown()
 	AM_Stop();
 
 	DThinker::DestroyAllThinkers();
+
+	UndoDehPatch();
 
 	// close all open WAD files
 	W_Close();
