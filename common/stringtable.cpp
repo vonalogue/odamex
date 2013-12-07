@@ -30,7 +30,6 @@
 #include "cmdlib.h"
 #include "m_swap.h"
 #include "w_wad.h"
-#include "z_zone.h"
 #include "i_system.h"
 
 struct FStringTable::Header
@@ -55,6 +54,9 @@ void FStringTable::FreeData ()
 	Strings = NULL;
 	Names = NULL;
 	NumStrings = 0;
+
+	delete [] Data;
+	Data = NULL;
 }
 
 void FStringTable::FreeStrings ()
@@ -97,10 +99,14 @@ void FStringTable::FreeStandardStrings ()
 #include "errors.h"
 void FStringTable::LoadStrings (int lump, int expectedSize, bool enuOnly)
 {
-	BYTE *strData = (BYTE *)W_CacheLumpNum (lump, PU_CACHE);
-	int lumpLen = LELONG(((Header *)strData)->FileSize);
-	int nameCount = LESHORT(((Header *)strData)->NameCount);
-	int nameLen = LESHORT(((Header *)strData)->NameLen);
+	if (Data)
+		delete [] Data;
+	Data = new byte[W_LumpLength(lump)];
+	W_ReadLump(lump, Data);
+
+	int lumpLen = LELONG(((Header *)Data)->FileSize);
+	int nameCount = LESHORT(((Header *)Data)->NameCount);
+	int nameLen = LESHORT(((Header *)Data)->NameLen);
 
 	int languageStart = sizeof(Header) + nameCount*4 + nameLen;
 	languageStart += (4 - languageStart) & 3;
@@ -111,7 +117,7 @@ void FStringTable::LoadStrings (int lump, int expectedSize, bool enuOnly)
 
 		W_GetLumpName (name, lump);
 		name[8] = 0;
-		I_FatalError ("%s had %d strings.\nThis version of ZDoom expects it to have %d.",
+		I_FatalError ("%s had %d strings.\nThis version of Odamex expects it to have %d.",
 			name, nameCount, expectedSize);
 	}
 
@@ -127,8 +133,8 @@ void FStringTable::LoadStrings (int lump, int expectedSize, bool enuOnly)
 		memset (Strings, 0, sizeof(char *)*nameCount);
 	}
 
-	BYTE *const start = strData + languageStart;
-	BYTE *const end = strData + lumpLen;
+	BYTE *const start = Data + languageStart;
+	BYTE *const end = Data + lumpLen;
 	int loadedCount, i;
 
 	for (loadedCount = i = 0; i < NumStrings; ++i)
@@ -280,12 +286,16 @@ int FStringTable::SumStringSizes () const
 
 void FStringTable::LoadNames () const
 {
-	BYTE *lump = (BYTE *)W_CacheLumpNum (LumpNum, PU_CACHE);
-	int nameLen = LESHORT(((Header *)lump)->NameLen);
+	byte* lumpdata = new byte[W_LumpLength(LumpNum)];
+	W_ReadLump(LumpNum, lumpdata);
+
+	int nameLen = LESHORT(((Header *)lumpdata)->NameLen);
 
 	FlushNames ();
 	Names = new BYTE[nameLen + 4*NumStrings];
-	memcpy (Names, lump + sizeof(Header), nameLen + 4*NumStrings);
+	memcpy (Names, lumpdata + sizeof(Header), nameLen + 4*NumStrings);
+
+	delete [] lumpdata;
 }
 
 void FStringTable::FlushNames () const

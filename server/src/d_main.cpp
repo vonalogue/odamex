@@ -383,11 +383,10 @@ void D_Shutdown()
 
 	UndoDehPatch();
 
+	GStrings.FreeData();
+
 	// close all open WAD files
 	W_Close();
-
-	GStrings.ResetStrings();
-	GStrings.Compact();
 
 	R_ShutdownTextureManager();
 

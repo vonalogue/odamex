@@ -719,15 +719,14 @@ void STACK_ARGS D_Shutdown()
 
 	UndoDehPatch();
 
+	GStrings.FreeData();
+
 	// close all open WAD files
 	W_Close();
 
 	V_UnloadFonts();
 
 	R_Shutdown();
-
-	GStrings.ResetStrings();
-	GStrings.Compact();
 
 	C_ShutdownConsoleBackground();
 

@@ -41,6 +41,7 @@ class FStringTable
 {
 public:
 	FStringTable () :
+		Data(NULL),
 		StringStatus(NULL),
 		NumStrings (0),
 		Names(NULL),
@@ -53,6 +54,7 @@ public:
 	void LoadStrings (int lump, int expectedSize, bool enuOnly);
 	void ReloadStrings ();
 	void ResetStrings ();
+	void FreeData ();
 
 	void LoadNames () const;
 	void FlushNames () const;
@@ -66,6 +68,7 @@ public:
 private:
 	struct Header;
 
+	byte* Data;
 	BYTE *StringStatus;
 	int NumStrings;
 	mutable BYTE *Names;
@@ -74,7 +77,6 @@ private:
 	size_t CompactSize;
 	int LumpNum;
 
-	void FreeData ();
 	void FreeStrings ();
 	void FreeStandardStrings ();
 	int SumStringSizes () const;
