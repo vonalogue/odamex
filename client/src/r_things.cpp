@@ -101,7 +101,7 @@ EXTERN_CVAR (hud_crosshairscale)
 //
 
 // variables used to look up
-//	and range check thing_t sprites patches
+//	and range check thing_t sprites textures
 spritedef_t*	sprites;
 int				numsprites;
 
@@ -219,7 +219,7 @@ static void R_InstallSprite (const char *name, int num)
 		{
 		  case -1:
 			// no rotations were found for that frame at all
-			I_FatalError ("R_InstallSprite: No patches found for %s frame %c", sprname, frame+'A');
+			I_FatalError ("R_InstallSprite: No textures found for %s frame %c", sprname, frame+'A');
 			break;
 
 		  case 0:
@@ -1123,7 +1123,7 @@ void R_DrawPSprite (pspdef_t* psp, unsigned flags)
 	fixed_t sx = P_CalculateWeaponBobX();
 	fixed_t sy = P_CalculateWeaponBobY();
 
-	// decide which patch to use
+	// decide which texture to use
 #ifdef RANGECHECK
 	if ( (unsigned)psp->state->sprite >= (unsigned)numsprites) {
 		DPrintf ("R_DrawPSprite: invalid sprite number %i\n", psp->state->sprite);
@@ -1507,23 +1507,22 @@ static void R_DrawCrosshair (void)
 
 		V_ColorMap = translationref_t(crosshair_trans);
 
-		// TODO: replace DCanvas patch drawing functions with functions taking Texture*
-		unsigned int crosshair_lump = crosshair_texhandle & 0xFFFF;
+		const Texture* crosshair_texture = texturemanager.getTexture(crosshair_texhandle);
 
 		if (hud_crosshairdim && hud_crosshairscale)
-			screen->DrawTranslatedLucentPatchCleanNoMove(W_CachePatch(crosshair_lump),
+			screen->DrawTranslatedLucentTextureCleanNoMove(crosshair_texture,
 				realviewwidth / 2 + viewwindowx,
 				realviewheight / 2 + viewwindowy);
         else if (hud_crosshairscale)
-			screen->DrawTranslatedPatchCleanNoMove (W_CachePatch (crosshair_lump),
+			screen->DrawTranslatedTextureCleanNoMove(crosshair_texture,
 				realviewwidth / 2 + viewwindowx,
 				realviewheight / 2 + viewwindowy);
         else if (hud_crosshairdim)
-			screen->DrawTranslatedLucentPatch (W_CachePatch (crosshair_lump),
+			screen->DrawTranslatedLucentTexture(crosshair_texture,
 				realviewwidth / 2 + viewwindowx,
 				realviewheight / 2 + viewwindowy);
 		else
-			screen->DrawTranslatedPatch (W_CachePatch (crosshair_lump),
+			screen->DrawTranslatedTexture(crosshair_texture,
 				realviewwidth / 2 + viewwindowx,
 				realviewheight / 2 + viewwindowy);
 	}
