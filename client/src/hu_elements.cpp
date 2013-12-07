@@ -17,7 +17,7 @@
 //
 // DESCRIPTION:
 //   HUD elements.  Holds 'variable' information for the HUD such
-//   as player data, formatted text strings and patches.
+//   as player data, formatted text strings and textures.
 //
 //-----------------------------------------------------------------------------
 

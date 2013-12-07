@@ -77,7 +77,7 @@ void HU_Init (void);
 void HU_Drawer (void);
 BOOL HU_Responder (event_t *ev);
 
-patch_t* sbline;
+const Texture* sbline;
 
 void HU_DrawScores (player_t *plyr);
 void HU_ConsoleScores (player_t *plyr);
@@ -133,7 +133,18 @@ void HU_Init (void)
 	input_text = "";
 
 	// Load the status bar line
-	sbline = W_CachePatch("SBLINE", PU_STATIC);
+	sbline = R_LoadTexture("SBLINE");
+}
+
+
+//
+// HU_Shutdown
+//
+void STACK_ARGS HU_Shutdown()
+{
+	if (sbline)
+		texturemanager.freeTexture(sbline->getHandle());
+	sbline = NULL;
 }
 
 //
@@ -297,8 +308,8 @@ void HU_Drawer (void)
 	// denis - moved to hu_stuff and uncommented
 	if (noservermsgs && (gamestate == GS_INTERMISSION || gamestate == GS_LEVEL) )
 	{
-		patch_t *netlag = W_CachePatch ("NET");
-		screen->DrawPatchCleanNoMove (netlag, 50*CleanXfac, CleanYfac);
+		const Texture* texture = R_LoadTexture("NET");
+		screen->DrawTextureCleanNoMove(texture, 50*CleanXfac, CleanYfac);
 
 		// SoM: Not here.
 		//screen->Dim ();
@@ -549,7 +560,7 @@ void drawHeader(player_t *player, int y) {
 
 	// Line
 	for (short xi = -236 + 1;xi < 236;xi += 2) {
-		hud::DrawTranslatedPatch(xi, y + 24, hud_scalescoreboard,
+		hud::DrawTranslatedTexture(xi, y + 24, hud_scalescoreboard,
 		                         hud::X_CENTER, hud::Y_MIDDLE,
 		                         hud::X_CENTER, hud::Y_TOP,
 		                         sbline, Ranges + CR_GREY * 256, true);
@@ -599,7 +610,7 @@ void drawScores(player_t *player, int y, byte extra_rows) {
 
 	// Line
 	for (short xi = -236 + 1;xi < 236;xi += 2) {
-		hud::DrawTranslatedPatch(xi, y + 8, hud_scalescoreboard,
+		hud::DrawTranslatedTexture(xi, y + 8, hud_scalescoreboard,
 		                         hud::X_CENTER, hud::Y_MIDDLE,
 		                         hud::X_CENTER, hud::Y_TOP,
 		                         sbline, Ranges + CR_GREY * 256, true);
@@ -693,11 +704,11 @@ void drawTeamScores(player_t *player, int y, byte extra_rows) {
 		}
 
 		for (short xi = tx[i];xi < tx[i] + 232;xi += 2) {
-			hud::DrawTranslatedPatch(xi, y + 8, hud_scalescoreboard,
+			hud::DrawTranslatedTexture(xi, y + 8, hud_scalescoreboard,
 			                         hud::X_CENTER, hud::Y_MIDDLE,
 			                         hud::X_LEFT, hud::Y_TOP,
 			                         sbline, Ranges + color * 256, true);
-			hud::DrawTranslatedPatch(xi, y + 19, hud_scalescoreboard,
+			hud::DrawTranslatedTexture(xi, y + 19, hud_scalescoreboard,
 			                         hud::X_CENTER, hud::Y_MIDDLE,
 			                         hud::X_LEFT, hud::Y_TOP,
 			                         sbline, Ranges + color * 256, true);
@@ -778,7 +789,7 @@ void drawSpectators(player_t *player, int y, byte extra_rows) {
 
 	// Line
 	for (short xi = -236 + 1;xi < 236;xi += 2) {
-		hud::DrawTranslatedPatch(xi, y, hud_scalescoreboard,
+		hud::DrawTranslatedTexture(xi, y, hud_scalescoreboard,
 		                         hud::X_CENTER, hud::Y_MIDDLE,
 		                         hud::X_CENTER, hud::Y_TOP,
 		                         sbline, Ranges + CR_GREY * 256, true);
@@ -909,7 +920,7 @@ void drawLowHeader(player_t *player, int y) {
 
 	// Line
 	for (short xi = -146 + 1;xi < 146;xi += 2) {
-		hud::DrawTranslatedPatch(xi, y + 8, hud_scalescoreboard,
+		hud::DrawTranslatedTexture(xi, y + 8, hud_scalescoreboard,
 		                         hud::X_CENTER, hud::Y_MIDDLE,
 		                         hud::X_CENTER, hud::Y_TOP,
 		                         sbline, Ranges + CR_GREY * 256, true);
@@ -959,7 +970,7 @@ void drawLowScores(player_t *player, int y, byte extra_rows) {
 
 	// Line
 	for (short xi = -146 + 1;xi < 146;xi += 2) {
-		hud::DrawTranslatedPatch(xi, y + 8, hud_scalescoreboard,
+		hud::DrawTranslatedTexture(xi, y + 8, hud_scalescoreboard,
 		                         hud::X_CENTER, hud::Y_MIDDLE,
 		                         hud::X_CENTER, hud::Y_TOP,
 		                         sbline, Ranges + CR_GREY * 256, true);
@@ -1077,11 +1088,11 @@ void drawLowTeamScores(player_t *player, int y, byte extra_rows) {
 		}
 
 		for (short xi = -146 + 1;xi < 146;xi += 2) {
-			hud::DrawTranslatedPatch(xi, y + ty[i], hud_scalescoreboard,
+			hud::DrawTranslatedTexture(xi, y + ty[i], hud_scalescoreboard,
 			                         hud::X_CENTER, hud::Y_MIDDLE,
 			                         hud::X_CENTER, hud::Y_TOP,
 			                         sbline, Ranges + color * 256, true);
-			hud::DrawTranslatedPatch(xi, y + ty[i] + 11, hud_scalescoreboard,
+			hud::DrawTranslatedTexture(xi, y + ty[i] + 11, hud_scalescoreboard,
 			                         hud::X_CENTER, hud::Y_MIDDLE,
 			                         hud::X_CENTER, hud::Y_TOP,
 			                         sbline, Ranges + color * 256, true);
@@ -1174,7 +1185,7 @@ void drawLowSpectators(player_t *player, int y, byte extra_rows) {
 
 	// Line
 	for (short xi = -146 + 1;xi < 146;xi += 2) {
-		hud::DrawTranslatedPatch(xi, y, hud_scalescoreboard,
+		hud::DrawTranslatedTexture(xi, y, hud_scalescoreboard,
 		                         hud::X_CENTER, hud::Y_MIDDLE,
 		                         hud::X_CENTER, hud::Y_TOP,
 		                         sbline, Ranges + CR_GREY * 256, true);

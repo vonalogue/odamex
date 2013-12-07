@@ -53,50 +53,40 @@ void DrawText(int x, int y, const float scale,
               const x_align_t x_origin, const y_align_t y_origin,
               const char* str, const int color,
               const bool force_opaque = false);
-void DrawTexture(int x, int y, const float scale,
-               const x_align_t x_align, const y_align_t y_align,
-               const x_align_t x_origin, const y_align_t y_origin,
-               const Texture* texture, const bool force_opaque = false,
-               const bool use_offsets = false);
-void DrawTextureStretched(int x, int y,
-                        const unsigned short w, const unsigned short h,
-                        const float scale,
-                        const x_align_t x_align, const y_align_t y_align,
-                        const x_align_t x_origin, const y_align_t y_origin,
-                        const Texture* texture, const bool force_opaque = false,
-                        const bool use_offsets = false);
-void DrawTextureScaled(const int x, const int y,
-                     unsigned short w, unsigned short h,
-                     const float scale,
-                     const x_align_t x_align, const y_align_t y_align,
-                     const x_align_t x_origin, const y_align_t y_origin,
-                     const Texture* texture, const bool force_opaque = false,
-                     const bool use_offsets = false);
-void DrawPatch(int x, int y, const float scale,
-               const x_align_t x_align, const y_align_t y_align,
-               const x_align_t x_origin, const y_align_t y_origin,
-               const patch_t* patch, const bool force_opaque = false,
-               const bool use_patch_offsets = false);
-void DrawTranslatedPatch(int x, int y, const float scale,
-                         const x_align_t x_align, const y_align_t y_align,
-                         const x_align_t x_origin, const y_align_t y_origin,
-                         const patch_t* patch, byte* translation,
-                         const bool force_opaque = false,
-                         const bool use_patch_offsets = false);
-void DrawPatchStretched(int x, int y,
-                        const unsigned short w, const unsigned short h,
-                        const float scale,
-                        const x_align_t x_align, const y_align_t y_align,
-                        const x_align_t x_origin, const y_align_t y_origin,
-                        const patch_t* patch, const bool force_opaque = false,
-                        const bool use_patch_offsets = false);
-void DrawPatchScaled(const int x, const int y,
-                     unsigned short w, unsigned short h,
-                     const float scale,
-                     const x_align_t x_align, const y_align_t y_align,
-                     const x_align_t x_origin, const y_align_t y_origin,
-                     const patch_t* patch, const bool force_opaque = false,
-                     const bool use_patch_offsets = false);
+
+
+void DrawTexture(	int x, int y, float scale,
+					x_align_t x_align, y_align_t y_align,
+					x_align_t x_origin, y_align_t y_origin,
+					const Texture* texture,
+					bool force_opaque = false,
+					bool use_texture_offsets = false);
+
+void DrawTranslatedTexture(	int x, int y, float scale,
+							x_align_t x_align, y_align_t y_align,
+							x_align_t x_origin, y_align_t y_origin,
+							const Texture* texture, const byte* translation,
+							bool force_opaque = false,
+							bool use_texture_offsets = false);
+
+void DrawTextureStretched(	int x, int y,
+							short w, short h,
+							float scale,
+							x_align_t x_align, y_align_t y_align,
+							x_align_t x_origin, y_align_t y_origin,
+							const Texture* texture,
+							bool force_opaque = false,
+							bool use_texture_offsets = false);
+
+void DrawTextureScaled(	int x, int y,
+						short w, short h,
+						float scale,
+						x_align_t x_align, y_align_t y_align,
+						x_align_t x_origin, y_align_t y_origin,
+						const Texture* texture,
+						bool force_opaque = false,
+						bool use_texture_offsets = false);
+
 }
 
 #endif

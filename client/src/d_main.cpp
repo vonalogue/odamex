@@ -728,6 +728,8 @@ void STACK_ARGS D_Shutdown()
 
 	R_Shutdown();
 
+	HU_Shutdown();
+
 	C_ShutdownConsoleBackground();
 
 	R_ShutdownTextureManager();
