@@ -595,7 +595,7 @@ void DCanvas::DrawSWrapper(EWrapperCode drawer, const Texture* texture, int x0, 
 	dcol.colormap = V_Palette;
 	dcol.translation = V_ColorMap;
 
-	dcol.color = 0x80;
+	dcol.color = (int)V_ColorFill;
 
 	dcol.translevel = 0xFFFF * hud_transparency;
 	dcol.yl = y0;

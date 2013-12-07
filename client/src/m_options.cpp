@@ -1284,12 +1284,14 @@ void M_DrawSlider (int x, int y, float leftval, float rightval, float cur)
 
 	float dist = (cur - leftval) / (rightval - leftval);
 
-	screen->DrawPatchClean (W_CachePatch ("LSLIDE"), x, y);
-	for (int i = 1; i < 11; i++)
-		screen->DrawPatchClean (W_CachePatch ("MSLIDE"), x + i*8, y);
-	screen->DrawPatchClean (W_CachePatch ("RSLIDE"), x + 88, y);
+	screen->DrawTextureClean(R_LoadTexture("LSLIDE"), x, y);
 
-	screen->DrawPatchClean (W_CachePatch ("CSLIDE"), x + 5 + (int)(dist * 78.0), y);
+	for (int i = 1; i < 11; i++)
+		screen->DrawTextureClean(R_LoadTexture("MSLIDE"), x + i*8, y);
+
+	screen->DrawTextureClean(R_LoadTexture("RSLIDE"), x + 88, y);
+
+	screen->DrawTextureClean(R_LoadTexture("CSLIDE"), x + 5 + (int)(dist * 78.0), y);
 }
 
 void M_DrawColoredSlider(int x, int y, float leftval, float rightval, float cur, int color)
@@ -1301,17 +1303,20 @@ void M_DrawColoredSlider(int x, int y, float leftval, float rightval, float cur,
 
 	float dist = (cur - leftval) / (rightval - leftval);
 
-	screen->DrawPatchClean (W_CachePatch ("LSLIDE"), x, y);
-	for (int i = 1; i < 11; i++)
-		screen->DrawPatchClean (W_CachePatch ("MSLIDE"), x + i*8, y);
-	screen->DrawPatchClean (W_CachePatch ("RSLIDE"), x + 88, y);
+	screen->DrawTextureClean(R_LoadTexture("LSLIDE"), x, y);
 
-	screen->DrawPatchClean (W_CachePatch ("GSLIDE"), x + 5 + (int)(dist * 78.0), y);
+	for (int i = 1; i < 11; i++)
+		screen->DrawTextureClean(R_LoadTexture("MSLIDE"), x + i*8, y);
+
+	screen->DrawTextureClean(R_LoadTexture("RSLIDE"), x + 88, y);
+
+	screen->DrawTextureClean(R_LoadTexture("GSLIDE"), x + 5 + (int)(dist * 78.0), y);
 
 	V_ColorFill = BestColor(GetDefaultPalette()->basecolors,
 	                        RPART(color), GPART(color), BPART(color),
 	                        GetDefaultPalette()->numcolors);
-	screen->DrawColoredPatchClean(W_CachePatch("OSLIDE"), x + 5 + (int)(dist * 78.0), y);
+
+	screen->DrawColoredTextureClean(R_LoadTexture("OSLIDE"), x + 5 + (int)(dist * 78.0), y);
 }
 
 int M_FindCurVal (float cur, value_t *values, int numvals)
@@ -1331,7 +1336,6 @@ void M_OptDrawer (void)
 	int y, width, i, x, ytop;
 	int theight = 0;
 	menuitem_t *item;
-	patch_t *title;
 
 	// Background effect
 	int background_x1 = (screen->width / 2) - (160 * CleanXfac);
@@ -1340,12 +1344,12 @@ void M_OptDrawer (void)
 	int background_y2 = (screen->height / 2) + (100 * CleanYfac);
 	OdamexEffect(background_x1, background_y1, background_x2, background_y2);
 
-	title = W_CachePatch(CurrentMenu->title);
-	screen->DrawPatchClean(title, 160 - title->width() / 2, 10);
+	const Texture* title_texture = R_LoadTexture(CurrentMenu->title);
+	screen->DrawTextureClean(title_texture, 160 - title_texture->getWidth() / 2, 10);
 
 	const int rowheight = 8;
 
-	y = 15 + title->height();
+	y = 15 + title_texture->getHeight();
 	ytop = y + CurrentMenu->scrolltop * rowheight;
 
 	for (i = 0; i < CurrentMenu->numitems && y <= 192 - theight; i++, y += rowheight)	// TIJ
@@ -1389,7 +1393,7 @@ void M_OptDrawer (void)
 					((item->a.selmode != -1 && (skullAnimCounter < 6 || WaitingForKey)) || WaitingForAxis || testingmode);
 
 			if (draw_cursor)
-				screen->DrawPatchClean (W_CachePatch ("LITLCURS"), item->a.selmode * 104 + 8, y);
+				screen->DrawTextureClean(R_LoadTexture("LITLCURS"), item->a.selmode * 104 + 8, y);
 		}
 		else
 		{
@@ -1536,7 +1540,7 @@ void M_OptDrawer (void)
 			}
 
 			if (i == CurrentItem && (skullAnimCounter < 6 || WaitingForKey || WaitingForAxis))
-				screen->DrawPatchClean (W_CachePatch ("LITLCURS"), CurrentMenu->indent + 3, y);
+				screen->DrawTextureClean(R_LoadTexture("LITLCURS"), CurrentMenu->indent + 3, y);
 		}
 	}
 	
@@ -1545,10 +1549,10 @@ void M_OptDrawer (void)
 	CanScrollDown = (i < CurrentMenu->numitems);
 
 	if (CanScrollUp)
-		screen->DrawPatchClean (W_CachePatch ("LITLUP"), 3, ytop);
+		screen->DrawTextureClean(R_LoadTexture("LITLUP"), 3, ytop);
 
 	if (CanScrollDown)
-		screen->DrawPatchClean (W_CachePatch ("LITLDN"), 3, 190);
+		screen->DrawTextureClean(R_LoadTexture("LITLDN"), 3, 190);
 }
 
 void M_OptResponder (event_t *ev)
