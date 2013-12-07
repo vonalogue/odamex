@@ -597,7 +597,7 @@ void DCanvas::DrawSWrapper(EWrapperCode drawer, const Texture* texture, int x0, 
 
 	dcol.color = 0x80;
 
-	dcol.translevel = FLOAT2FIXED(hud_transparency);
+	dcol.translevel = 0xFFFF * hud_transparency;
 	dcol.yl = y0;
 	dcol.yh = y0 + destheight - 1;
 	dcol.iscale = yinc;
