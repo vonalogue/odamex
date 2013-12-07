@@ -82,8 +82,8 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	shaderef_t colormap = drawspan.colormap;
 	int colsize = drawspan.colsize;
 	
-	const int umask = drawspan.umask; 
-	const int vmask = drawspan.vmask; 
+	const unsigned int umask = drawspan.umask; 
+	const unsigned int vmask = drawspan.vmask; 
 	const int ushift = drawspan.ushift; 
 	const int vshift = drawspan.vshift;
 
@@ -98,7 +98,7 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	while (align--)
 	{
 		// Current texture index in u,v.
-		const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
+		const unsigned int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 
 		// Lookup pixel from flat texture tile,
 		//  re-index using light/colormap.
@@ -127,15 +127,16 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 //		const int spot2 = (((ufrac + ustep*2) >> ushift) & umask) | (((vfrac + vstep*2) >> vshift) & vmask); 
 //		const int spot3 = (((ufrac + ustep*3) >> ushift) & umask) | (((vfrac + vstep*3) >> vshift) & vmask); 
 
-		__m128i u = _mm_and_si128(_mm_srai_epi32(mufrac, ushift), mumask);
-		__m128i v = _mm_and_si128(_mm_srai_epi32(mvfrac, vshift), mvmask);
-		__m128i spots = _mm_or_si128(u, v);
+		__m128i u = _mm_and_si128(_mm_srli_epi32(mufrac, ushift), mumask);
+		__m128i v = _mm_and_si128(_mm_srli_epi32(mvfrac, vshift), mvmask);
+		__m128i mspots = _mm_or_si128(u, v);
+		unsigned int* spots = (unsigned int*)&mspots;
 
 		// get the color of the pixels at each of the spots
-		byte pixel0 = source[((int*)&spots)[0]];
-		byte pixel1 = source[((int*)&spots)[1]];
-		byte pixel2 = source[((int*)&spots)[2]];
-		byte pixel3 = source[((int*)&spots)[3]];
+		byte pixel0 = source[spots[0]];
+		byte pixel1 = source[spots[1]];
+		byte pixel2 = source[spots[2]];
+		byte pixel3 = source[spots[3]];
 
 		const __m128i finalColors = _mm_setr_epi32(
 			colormap.shade(pixel0),
@@ -153,8 +154,8 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		mvfrac = _mm_add_epi32(mvfrac, mvfracinc);
 	}
 
-	ufrac = (dsfixed_t)((int*)&mufrac)[0];
-	vfrac = (dsfixed_t)((int*)&mvfrac)[0];
+	ufrac = (dsfixed_t)((dsfixed_t*)&mufrac)[0];
+	vfrac = (dsfixed_t)((dsfixed_t*)&mvfrac)[0];
 
 	// blit the remaining 0 - 3 pixels
 	while (remainder--)
