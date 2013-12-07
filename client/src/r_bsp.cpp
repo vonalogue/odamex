@@ -574,7 +574,7 @@ static bool R_CheckBBox(const fixed_t *bspcoord)
 			return true;
 
 		int32_t lclip, rclip;
-		if (R_ClipLineToFrustum(p1, p2, clipdist, lclip, rclip))
+		if (R_ClipLineToFrustum(p1, p2, clipdist, fovtan, lclip, rclip))
 		{
 			R_ClipLine(p1, p2, lclip, rclip, p1, p2);
 			int x1 = R_ProjectPointX(p1->x, p1->y);

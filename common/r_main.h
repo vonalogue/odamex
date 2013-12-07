@@ -55,6 +55,8 @@ extern int				viewwindowy;
 extern bool				r_fakingunderwater;
 extern bool				r_underwater;
 
+extern fixed_t			fovtan;
+
 extern int				centerx;
 extern "C" int			centery;
 
@@ -145,7 +147,10 @@ bool R_CheckProjectionY(int &y1, int &y2);
 void R_RotatePoint(fixed_t x, fixed_t y, fixed_t &tx, fixed_t &ty);
 void R_RotatePoint(fixed_t x, fixed_t y, angle_t ang, fixed_t &tx, fixed_t &ty);
 
-bool R_ClipLineToFrustum(const v2fixed_t* v1, const v2fixed_t* v2, fixed_t clipdist, int32_t& lclip, int32_t& rclip);
+bool R_ClipLineToFrustum(
+		const v2fixed_t* v1, const v2fixed_t* v2,
+		fixed_t clipdist, fixed_t slope,
+		int32_t& clip1, int32_t& clip2);
 
 void R_ClipLine(const v2fixed_t* in1, const v2fixed_t* in2, 
 				int32_t lclip, int32_t rclip,
