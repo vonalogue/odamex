@@ -43,7 +43,7 @@ void F_Drawer (void);
 
 
 void F_StartFinale (char *music, char *flat, const char *text);
-
+void STACK_ARGS F_EndFinale();
 
 
 

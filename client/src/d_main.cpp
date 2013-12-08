@@ -705,6 +705,8 @@ void STACK_ARGS D_Shutdown()
 	wadlevelinfos.clear();
 	wadclusterinfos.clear();
 
+	F_EndFinale();
+
 	ST_Shutdown();
 
 	R_ShutdownViewBorder();

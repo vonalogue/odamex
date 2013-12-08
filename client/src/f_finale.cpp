@@ -43,9 +43,9 @@
 
 // Stage of animation:
 //	0 = text, 1 = art screen, 2 = character cast
-unsigned int	finalestage;
+static unsigned int finalestage;
 
-int	finalecount;
+static int finalecount;
 
 #define TEXTSPEED		2
 #define TEXTWAIT		250
@@ -57,6 +57,16 @@ void	F_StartCast (void);
 void	F_CastTicker (void);
 BOOL	F_CastResponder (event_t *ev);
 void	F_CastDrawer (void);
+
+static void F_ShutdownBunnyScroll();
+
+//
+// F_EndFinale
+//
+void STACK_ARGS F_EndFinale()
+{
+	F_ShutdownBunnyScroll();
+}
 
 //
 // F_StartFinale
@@ -482,7 +492,7 @@ BOOL F_CastResponder (event_t* ev)
 //
 // F_CastDrawer
 //
-void F_CastDrawer (void)
+void F_CastDrawer(void)
 {
 	spritedef_t*		sprdef;
 	spriteframe_t*		sprframe;
@@ -516,214 +526,49 @@ void F_CastDrawer (void)
 }
 
 
-//
-// F_DrawPatchCol
-//
+static Texture* bunny_texture;
+static Texture* scroll_texture;
+static bool bunny_scroll_initialized;
 
-// Palettized version 8bpp
-
-void F_DrawPatchColP (int x, const patch_t *patch, int col, const DCanvas *scrn)
+static void F_InitBunnyScroll()
 {
-	byte*		source;
-	byte*		dest;
-	byte*		desttop;
-	unsigned	count;
-	int			repeat;
-	int			c;
-	unsigned	step;
-	unsigned	invstep;
-	float		mul;
-	float		fx;
-	byte		p;
-	int			pitch;
+	const Texture* source_texture1 = R_LoadTexture("PFUB1");
+	const Texture* source_texture2 = R_LoadTexture("PFUB2");
 
-	// [RH] figure out how many times to repeat this column
-	// (for screens wider than 320 pixels)
-	mul = scrn->width / (float)320;
-	fx = (float)x;
-	repeat = (int)(floor (mul*(fx+1)) - floor(mul*fx));
-	if (repeat == 0)
-		return;
+	texhandle_t bunny_texhandle = texturemanager.createCustomHandle();
+	bunny_texture = texturemanager.createTexture(bunny_texhandle, 640, 200);
 
-	// [RH] Remap virtual-x to real-x
-	x = (int)floor (mul*x);
+	R_CopySubimage(bunny_texture, source_texture1,
+			320, 0, 639, 199,
+			0, 0, 319, 199);
 
-	// [RH] Figure out per-row fixed-point step
-	step = (200<<16) / scrn->height;
-	invstep = (scrn->height<<16) / 200;
+	R_CopySubimage(bunny_texture, source_texture2,
+			0, 0, 319, 199,
+			0, 0, 319, 199);
 
-	tallpost_t *post = (tallpost_t *)((byte *)patch + LELONG(patch->columnofs[col]));
-	desttop = scrn->buffer + x;
-	pitch = scrn->pitch;
+	texhandle_t scroll_texhandle = texturemanager.createCustomHandle();
+	scroll_texture = texturemanager.createTexture(scroll_texhandle, 320, 200);
 
-	// step through the posts in a column
-	while (!post->end())
-	{
-		source = post->data();
-		dest = desttop + ((post->topdelta*invstep)>>16)*pitch;
-		count = (post->length * invstep) >> 16;
-		c = 0;
+	texturemanager.freeTexture(source_texture1->getHandle());
+	texturemanager.freeTexture(source_texture2->getHandle());
 
-		switch (repeat) {
-			case 1:
-				do {
-					*dest = source[c>>16];
-					dest += pitch;
-					c += step;
-				} while (--count);
-				break;
-			case 2:
-				do {
-					p = source[c>>16];
-					dest[0] = p;
-					dest[1] = p;
-					dest += pitch;
-					c += step;
-				} while (--count);
-				break;
-			case 3:
-				do {
-					p = source[c>>16];
-					dest[0] = p;
-					dest[1] = p;
-					dest[2] = p;
-					dest += pitch;
-					c += step;
-				} while (--count);
-				break;
-			case 4:
-				do {
-					p = source[c>>16];
-					dest[0] = p;
-					dest[1] = p;
-					dest[2] = p;
-					dest[3] = p;
-					dest += pitch;
-					c += step;
-				} while (--count);
-				break;
-			default:
-				{
-					int count2;
-
-					do {
-						p = source[c>>16];
-						for (count2 = repeat; count2; count2--) {
-							dest[count2] = p;
-						}
-						dest += pitch;
-						c += step;
-					} while (--count);
-				}
-				break;
-		}
-
-		post = post->next();
-	}
+	bunny_scroll_initialized = true;
 }
 
-// Direct version 32bpp:
-
-void F_DrawPatchColD (int x, const patch_t *patch, int col, const DCanvas *scrn)
+static void STACK_ARGS F_ShutdownBunnyScroll()
 {
-	byte*		source;
-	argb_t*		dest;
-	argb_t*		desttop;
-	unsigned	count;
-	int			repeat;
-	int			c;
-	unsigned	step;
-	unsigned	invstep;
-	float		mul;
-	float		fx;
-	argb_t		p;
-	int			pitch;
-
-	// [RH] figure out how many times to repeat this column
-	// (for screens wider than 320 pixels)
-	mul = scrn->width / (float)320;
-	fx = (float)x;
-	repeat = (int)(floor (mul*(fx+1)) - floor(mul*fx));
-	if (repeat == 0)
-		return;
-
-	// [RH] Remap virtual-x to real-x
-	x = (int)floor (mul*x);
-
-	// [RH] Figure out per-row fixed-point step
-	step = (200<<16) / scrn->height;
-	invstep = (scrn->height<<16) / 200;
-
-	tallpost_t *post = (tallpost_t *)((byte *)patch + LELONG(patch->columnofs[col]));
-	desttop = (argb_t *)scrn->buffer + x;
-	pitch = scrn->pitch / sizeof(argb_t);
-
-	shaderef_t pal = shaderef_t(&GetDefaultPalette()->maps, 0);
-
-	// step through the posts in a column
-	while (!post->end())
+	if (bunny_texture)
 	{
-		source = post->data();
-		dest = desttop + ((post->topdelta*invstep)>>16)*pitch;
-		count = (post->length * invstep) >> 16;
-		c = 0;
-
-		switch (repeat) {
-			case 1:
-				do {
-					*dest = pal.shade(source[c>>16]);
-					dest += pitch;
-					c += step;
-				} while (--count);
-				break;
-			case 2:
-				do {
-					p = pal.shade(source[c>>16]);
-					dest[0] = p;
-					dest[1] = p;
-					dest += pitch;
-					c += step;
-				} while (--count);
-				break;
-			case 3:
-				do {
-					p = pal.shade(source[c>>16]);
-					dest[0] = p;
-					dest[1] = p;
-					dest[2] = p;
-					dest += pitch;
-					c += step;
-				} while (--count);
-				break;
-			case 4:
-				do {
-					p = pal.shade(source[c>>16]);
-					dest[0] = p;
-					dest[1] = p;
-					dest[2] = p;
-					dest[3] = p;
-					dest += pitch;
-					c += step;
-				} while (--count);
-				break;
-			default:
-				{
-					int count2;
-
-					do {
-						p = pal.shade(source[c>>16]);
-						for (count2 = repeat; count2; count2--) {
-							dest[count2] = p;
-						}
-						dest += pitch;
-						c += step;
-					} while (--count);
-				}
-				break;
-		}
-
-		post = post->next();
+		texturemanager.freeTexture(bunny_texture->getHandle());
+		bunny_texture = NULL;
 	}
+	if (scroll_texture)
+	{
+		texturemanager.freeTexture(scroll_texture->getHandle());
+		scroll_texture = NULL;
+	}
+
+	bunny_scroll_initialized = false;
 }
 
 
@@ -732,57 +577,29 @@ void F_DrawPatchColD (int x, const patch_t *patch, int col, const DCanvas *scrn)
 //
 void F_BunnyScroll (void)
 {
-	int 		scrolled;
-	int 		x;
-	patch_t*	p1;
-	patch_t*	p2;
-	char		name[10];
-	int 		stage;
 	static int	laststage;
-
-	p1 = W_CachePatch ("PFUB2");
-	p2 = W_CachePatch ("PFUB1");
 
 	V_MarkRect (0, 0, screen->width, screen->height);
 
-	scrolled = 320 - (finalecount-230)/2;
-	if (scrolled > 320)
-		scrolled = 320;
-	if (scrolled < 0)
-		scrolled = 0;
+	int scrolled = clamp(320 - (finalecount-230)/2, 0, 320);
 
-	if (screen->is8bit())
-	{
-		for ( x=0 ; x<320 ; x++)
-		{
-			if (x+scrolled < 320)
-				F_DrawPatchColP (x, p1, x+scrolled, screen);
-			else
-				F_DrawPatchColP (x, p2, x+scrolled - 320, screen);
-		}
-	}
-	else
-	{
-	for ( x=0 ; x<320 ; x++)
-	{
-		if (x+scrolled < 320)
-				F_DrawPatchColD (x, p1, x+scrolled, screen);
-		else
-				F_DrawPatchColD (x, p2, x+scrolled - 320, screen);
-		}
-	}
+	if (!bunny_scroll_initialized)
+		F_InitBunnyScroll();
+
+	R_CopySubimage(scroll_texture, bunny_texture, 0, 0, 319, 199, scrolled, 0, scrolled + 319, 199);
+
+	screen->DrawTextureFullScreen(scroll_texture);
 
 	if (finalecount < 1130)
 		return;
 	if (finalecount < 1180)
 	{
-		screen->DrawPatchIndirect (W_CachePatch ("END0"),
-			(320-13*8)/2, (200-8*8)/2);
+		screen->DrawTextureIndirect(R_LoadTexture("END0"), (320-13*8)/2, (200-8*8)/2);
 		laststage = 0;
 		return;
 	}
 
-	stage = (finalecount-1180) / 5;
+	int stage = (finalecount-1180) / 5;
 	if (stage > 6)
 		stage = 6;
 	if (stage > laststage)
@@ -791,9 +608,9 @@ void F_BunnyScroll (void)
 		laststage = stage;
 	}
 
-	sprintf (name,"END%i",stage);
-	screen->DrawPatchIndirect (W_CachePatch (name),
-		(320-13*8)/2, (200-8*8)/2);
+	char name[10];
+	sprintf(name,"END%i",stage);
+	screen->DrawTextureIndirect(R_LoadTexture(name), (320-13*8)/2, (200-8*8)/2);
 }
 
 
@@ -813,16 +630,16 @@ void F_Drawer (void)
 			{
 				default:
 				case '1':
-					screen->DrawPatchIndirect (W_CachePatch (gameinfo.finalePage1), 0, 0);
+					screen->DrawTextureFullScreen(R_LoadTexture(gameinfo.finalePage1));
 					break;
 				case '2':
-					screen->DrawPatchIndirect (W_CachePatch (gameinfo.finalePage2), 0, 0);
+					screen->DrawTextureFullScreen(R_LoadTexture(gameinfo.finalePage2));
 					break;
 				case '3':
-					F_BunnyScroll ();
+					F_BunnyScroll();
 					break;
 				case '4':
-					screen->DrawPatchIndirect (W_CachePatch (gameinfo.finalePage3), 0, 0);
+					screen->DrawTextureFullScreen(R_LoadTexture(gameinfo.finalePage3));
 					break;
 			}
 			break;
