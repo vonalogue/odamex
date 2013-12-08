@@ -439,30 +439,6 @@ struct node_s
 typedef struct node_s node_t;
 
 
-
-// posts are runs of non masked source pixels
-struct post_s
-{
-	byte		topdelta;		// -1 is the last post in a column
-	byte		length; 		// length data bytes follows
-};
-typedef struct post_s post_t;
-
-// column_t is a list of 0 or more post_t, (byte)-1 terminated
-typedef post_t	column_t;
-
-struct tallpost_s
-{
-	unsigned short		topdelta;
-	unsigned short		length;
-	
-	byte *data() const { return (byte*)(this) + 4; }
-	tallpost_s *next() const { return (tallpost_s*)((byte*)(this) + 4 + length); }
-	bool end() const { return topdelta == 0xFFFF; }
-	void writeend() { topdelta = 0xFFFF; }
-};
-typedef struct tallpost_s tallpost_t;
-
 //
 // OTHER TYPES
 //
@@ -511,33 +487,6 @@ struct drawseg_s
 	byte*			maskedcoldrawn;
 };
 typedef struct drawseg_s drawseg_t;
-
-
-// Patches.
-// A patch holds one or more columns.
-// Patches are used for sprites and all masked pictures, and we compose
-// textures from the TEXTURE1/2 lists of patches.
-struct patch_s
-{
-private:
-	short			_width;			// bounding box size
-	short			_height;
-	short			_leftoffset; 	// pixels to the left of origin
-	short			_topoffset;		// pixels below the origin
-
-public:
-
-	short width() const { return LESHORT(_width); }
-	short height() const { return LESHORT(_height); }
-	short leftoffset() const { return LESHORT(_leftoffset); }
-	short topoffset() const { return LESHORT(_topoffset); }
-
-	int columnofs[8]; // only [width] used
-	// the [0] is &columnofs[width]
-};
-typedef struct patch_s patch_t;
-
-
 
 
 // A vissprite_t is a thing
@@ -592,7 +541,7 @@ typedef struct vissprite_s vissprite_t;
 //  x indicating the rotation, x = 0, 1-7.
 // The sprite and frame specified by a thing_t
 //  is range checked at run time.
-// A sprite is a patch_t that is assumed to represent
+// A sprite is a texture that is assumed to represent
 //  a three dimensional object and may have multiple
 //  rotations pre drawn.
 // Horizontal flipping is used to save space,

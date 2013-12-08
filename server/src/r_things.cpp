@@ -62,7 +62,7 @@ extern fixed_t FocalLengthX, FocalLengthY;
 //
 
 // variables used to look up
-//	and range check thing_t sprites patches
+//	and range check thing_t sprites textures
 spritedef_t*	sprites;
 int				numsprites;
 
@@ -76,26 +76,6 @@ size_t			numskins;
 
 void R_CacheSprite (spritedef_t *sprite)
 {
-	int i, r;
-	patch_t *patch;
-
-	DPrintf ("cache sprite %s\n",
-		sprite - sprites < NUMSPRITES ? sprnames[sprite - sprites] : "");
-	for (i = 0; i < sprite->numframes; i++)
-	{
-		for (r = 0; r < 8; r++)
-		{
-			if (sprite->spriteframes[i].width[r] == SPRITE_NEEDS_INFO)
-			{
-				if (sprite->spriteframes[i].lump[r] == -1)
-					I_Error ("Sprite %d, rotation %d has no lump", i, r);
-				patch = W_CachePatch (sprite->spriteframes[i].lump[r]);
-				sprite->spriteframes[i].width[r] = patch->width()<<FRACBITS;
-				sprite->spriteframes[i].offset[r] = patch->leftoffset()<<FRACBITS;
-				sprite->spriteframes[i].topoffset[r] = patch->topoffset()<<FRACBITS;
-			}
-		}
-	}
 }
 
 //
@@ -163,7 +143,7 @@ static void R_InstallSprite (const char *name, int num)
 		{
 		  case -1:
 			// no rotations were found for that frame at all
-			I_FatalError ("R_InstallSprite: No patches found for %s frame %c", sprname, frame+'A');
+			I_FatalError ("R_InstallSprite: No textures found for %s frame %c", sprname, frame+'A');
 			break;
 
 		  case 0:

@@ -17,7 +17,7 @@
 // GNU General Public License for more details.
 //
 // DESCRIPTION:
-//		Functions to draw patches (by post) directly to screen->
+//		Functions to draw textures directly to screen->
 //		Functions to blit a block to the screen->
 //
 //-----------------------------------------------------------------------------
@@ -291,30 +291,6 @@ void DCanvas::DrawTextureFullScreen(const Texture* texture) const
 	{
 		// 4:3 resolution - draw pic to the entire screen
 		DrawTextureStretched(texture, 0, 0, width, height);
-	}
-}
-
-// [SL] Stretches a patch to fill the full-screen while maintaining a 4:3
-// aspect ratio. Pillarboxing is used in widescreen resolutions.
-void DCanvas::DrawPatchFullScreen(const patch_t* patch) const
-{
-	Clear(0, 0, width, height, 0);
-
-	if (isProtectedRes())
-	{
-		DrawPatch(patch, 0, 0);
-	}   
-	else if (width * 3 > height * 4)
-	{   
-		// widescreen resolution - draw pic in 4:3 ratio in center of screen
-		int picwidth = 4 * height / 3;
-		int picheight = height;
-		DrawPatchStretched(patch, (width - picwidth) / 2, 0, picwidth, picheight);
-	}   
-	else
-	{
-		// 4:3 resolution - draw pic to the entire screen
-		DrawPatchStretched(patch, 0, 0, width, height);
 	}
 }
 

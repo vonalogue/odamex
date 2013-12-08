@@ -41,10 +41,6 @@
 #define SAFESHORT(s)	LESHORT(s)
 #endif
 
-// Retrieve column data for span blitting.
-tallpost_t* R_GetPatchColumn(int lumpnum, int colnum);
-byte* R_GetPatchColumnData(int lumpnum, int colnum);
-
 // I/O, setting up the stuff.
 void R_InitData (void);
 void R_PrecacheLevel (void);
