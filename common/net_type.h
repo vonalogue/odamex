@@ -51,7 +51,7 @@ public:
 	BitField(const BitField& other) : mSize(other.mSize), mByteCount(other.mByteCount)
 	{
 		mData = new uint8_t[mByteCount];
-		memcpy(mData, other.mData, sizeof(mData));
+		memcpy(mData, other.mData, mByteCount);
 	}
 
 	~BitField()
@@ -70,7 +70,7 @@ public:
 			}
 			mSize = other.mSize;
 			mByteCount = other.mByteCount;
-			memcpy(mData, other.mData, sizeof(mData));
+			memcpy(mData, other.mData, mByteCount);
 		}
 		return *this;
 	}
@@ -82,7 +82,7 @@ public:
 
 	void clear()
 	{
-		memset(mData, 0, sizeof(mData));
+		memset(mData, 0, mByteCount);
 	}
 
 	bool empty() const

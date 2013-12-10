@@ -74,31 +74,80 @@ void**			lumpcache;
 
 static unsigned	stdisk_lumpnum;
 
-#define MAX_HASHES 10
-
-typedef struct
-{
-    std::string name;
-    std::string hash[MAX_HASHES];
-} gamewadinfo_t;
-
 // Valid IWAD file names
-static const gamewadinfo_t doomwadnames[] =
+const gamewadinfo_t doomwadnames[] =
 {
-    { "DOOM2F.WAD", { "" } },
-// Last 3 DOOM2.WAD hashes are Freedoom 0.6.4, 0.7, and 0.8beta1
-    { "DOOM2.WAD", { "25E1459CA71D321525F84628F45CA8CD", "C3BEA40570C23E511A7ED3EBCD9865F7", "5292a1275340798acf9cee07081718e8", "21ea277fa5612267eb7985493b33150e", "0597b0937e9615a9667b98077332597d" } },
-    { "DOOM2BFG.WAD", { "C3BEA40570C23E511A7ED3EBCD9865F7" } },
-    { "PLUTONIA.WAD", { "75C8CF89566741FA9D22447604053BD7" } },
-    { "TNT.WAD", { "4E158D9953C79CCF97BD0663244CC6B6" } },
-    { "DOOMU.WAD", { "C4FE9FD920207691A9F493668E0A2083" } },
-// Last 3 DOOM.WAD hashes are Freedoom 0.6.4, 0.7, and 0.8beta1
-    { "DOOM.WAD", { "C4FE9FD920207691A9F493668E0A2083", "1CD63C5DDFF1BF8CE844237F580E9CF3","FB35C4A5A9FD49EC29AB6E900572C524", "2e1af223cad142e3487c4327cf0ac8bd", "7b7720fc9c1a20fb8ebb3e9532c089af", "2a24722c068d3a74cd16f770797ff198" } },
-    { "DOOMBFG.WAD", { "FB35C4A5A9FD49EC29AB6E900572C524" } },
-    { "FREEDOOM.WAD", { "" } },
-    { "FREEDM.WAD", { "" } },
-    { "CHEX.WAD", { "25485721882b050afa96a56e5758dd52" } },
-    { "", { "" } }
+    { "DOOM2F.WAD", 
+		{ "" },
+		true
+	},
+
+    {	"DOOM2.WAD",
+		{ "25E1459CA71D321525F84628F45CA8CD",
+		  "C3BEA40570C23E511A7ED3EBCD9865F7",
+		  "5292A1275340798ACF9CEE07081718E8",		// Freedoom 0.6.4
+		  "21EA277FA5612267EB7985493B33150E",		// Freedoom 0.7
+		  "0597B0937E9615A9667B98077332597D" },		// Freedoom 0.8beta1
+		true
+	},
+
+    {	"DOOM2BFG.WAD",
+		{ "C3BEA40570C23E511A7ED3EBCD9865F7" },
+		true
+	},
+
+    {	"PLUTONIA.WAD",
+		{ "75C8CF89566741FA9D22447604053BD7" },
+		true
+	},
+
+    {	"TNT.WAD",
+		{ "4E158D9953C79CCF97BD0663244CC6B6" },
+		true
+	},
+
+    {	"DOOMU.WAD",
+		{ "C4FE9FD920207691A9F493668E0A2083" },
+		true
+	},
+
+    {	"DOOM.WAD",
+		{ "C4FE9FD920207691A9F493668E0A2083",
+		  "1CD63C5DDFF1BF8CE844237F580E9CF3",
+		  "FB35C4A5A9FD49EC29AB6E900572C524",
+		  "2E1AF223CAD142E3487C4327CF0AC8BD",		// Freedoom 0.6.4
+		  "7B7720FC9C1A20FB8EBB3E9532C089AF",		// Freedoom 0.7
+		  "2A24722C068D3A74CD16F770797FF198" },		// Freedoom 0.8beta1
+		true
+	},
+
+    {	"DOOMBFG.WAD",
+		{ "FB35C4A5A9FD49EC29AB6E900572C524" },
+		true
+	},
+
+	{	"DOOM1.WAD",
+		{ "F0CEFCA49926D00903CF57551D901ABE" },
+		false
+	},
+
+    {	"FREEDOOM.WAD",
+		{ "" },
+		false
+	},
+
+    {	"FREEDM.WAD",
+		{ "" },
+		false
+	},
+
+    {	"CHEX.WAD",
+		{ "25485721882b050afa96a56e5758dd52" },
+		true
+	},
+
+	// the entry below is used to indicate the end of the list
+    { "", { "" }, false }
 };
 
 //
@@ -150,16 +199,16 @@ void W_HashLumps(void)
 }
 
 //
-// W_IsIWAD
+// W_GetIWADInfo
 //
-// Checks to see whether a given filename is an IWAD (Internal WAD), it can take
-// shortened (base name) versions of standard file names (eg doom2, plutonia),
-// it can also do an optional hash comparison against a correct hash list
-// for more "accurate" detection.
-bool W_IsIWAD(const std::string& filename, const std::string& hash)
+// Helper function that returns a pointer to the appropriate entry of
+// doomwadnames for a given file name if it is an IWAD.
+// Returns NULL if the given file name is not an IWAD.
+//
+static const gamewadinfo_t* W_GetIWADInfo(const std::string& filename, const std::string& hash)
 {
 	if (filename.empty())
-		return false;
+		return NULL;
 
 	// find our match if there is one
 	for (size_t i = 0; !doomwadnames[i].name.empty(); i++)
@@ -171,7 +220,7 @@ bool W_IsIWAD(const std::string& filename, const std::string& hash)
 			{
 				// the hash is always right! even if the name is wrong..
 				if (iequals(hash, doomwadnames[i].hash[j]))
-					return true;
+					return &doomwadnames[i];
 			}
 		}
 		else
@@ -182,11 +231,34 @@ bool W_IsIWAD(const std::string& filename, const std::string& hash)
 
 			if (iequals(filename, doomwadnames[i].name) ||
 				iequals(base_filename, base_iwadname))
-				return true;
+				return &doomwadnames[i];
 		}
 	}
 
-	return false;
+	return NULL;
+}
+
+//
+// W_IsIWAD
+//
+// Checks to see whether a given filename is an IWAD (Internal WAD), it can take
+// shortened (base name) versions of standard file names (eg doom2, plutonia),
+// it can also do an optional hash comparison against a correct hash list
+// for more "accurate" detection.
+bool W_IsIWAD(const std::string& filename, const std::string& hash)
+{
+	return W_GetIWADInfo(filename, hash) != NULL;
+}
+
+//
+// W_IsIWADCommercial
+//
+// Checks to see whether a given filename is an IWAD flagged as "commercial"
+//
+bool W_IsIWADCommercial(const std::string& filename, const std::string& hash)
+{
+	const gamewadinfo_t* entry = W_GetIWADInfo(filename, hash);
+	return entry && entry->commercial;
 }
 
 
@@ -258,14 +330,10 @@ std::string W_MD5(std::string filename)
 std::string W_AddFile (std::string filename)
 {
 	wadinfo_t		header;
-	lumpinfo_t*		lump_p;
-	size_t			i;
 	FILE			*handle;
 	size_t			length;
 	size_t			startlump;
-	size_t          res;
 	filelump_t*		fileinfo;
-	filelump_t		singleinfo;
 
 	FixPathSeparator (filename);
 	std::string name = filename;
@@ -282,16 +350,16 @@ std::string W_AddFile (std::string filename)
 
 	startlump = numlumps;
 
-	res = fread (&header, sizeof(header), 1, handle);
+	fread (&header, sizeof(header), 1, handle);
 	header.identification = LELONG(header.identification);
 
 	if (header.identification != IWAD_ID && header.identification != PWAD_ID)
 	{
 		// raw lump file
-		fileinfo = &singleinfo;
-		singleinfo.filepos = 0;
-		singleinfo.size = M_FileLength(handle);
-		M_ExtractFileBase (filename, name);
+		fileinfo = new filelump_t[1];	
+		fileinfo->filepos = 0;
+		fileinfo->size = M_FileLength(handle);
+		M_ExtractFileBase(filename, name);
 		numlumps++;
 		Printf (PRINT_HIGH, " (single lump)\n", header.numlumps);
 	}
@@ -309,9 +377,9 @@ std::string W_AddFile (std::string filename)
 			return "";
 		}
 
-		fileinfo = (filelump_t *)Z_Malloc (length, PU_STATIC, 0);
+		fileinfo = new filelump_t[header.numlumps];
 		fseek (handle, header.infotableofs, SEEK_SET);
-		res = fread (fileinfo, length, 1, handle);
+		fread (fileinfo, length, 1, handle);
 		numlumps += header.numlumps;
 		Printf (PRINT_HIGH, " (%d lumps)\n", header.numlumps);
 	}
@@ -322,18 +390,21 @@ std::string W_AddFile (std::string filename)
 	if (!lumpinfo)
 		I_Error ("Couldn't realloc lumpinfo");
 
-	lump_p = &lumpinfo[startlump];
+	lumpinfo_t* lump_p = &lumpinfo[startlump];
+	filelump_t* fileinfo_p = fileinfo;
 
-	for (i=startlump ; i<numlumps ; i++,lump_p++, fileinfo++)
+	for (size_t i = startlump; i < numlumps; i++, lump_p++, fileinfo_p++)
 	{
 		lump_p->handle = handle;
-		lump_p->position = LELONG(fileinfo->filepos);
-		lump_p->size = LELONG(fileinfo->size);
-		strncpy (lump_p->name, fileinfo->name, 8);
+		lump_p->position = LELONG(fileinfo_p->filepos);
+		lump_p->size = LELONG(fileinfo_p->size);
+		strncpy (lump_p->name, fileinfo_p->name, 8);
 
 		// W_CheckNumForName needs all lump names in upper case
 		std::transform(lump_p->name, lump_p->name+8, lump_p->name, toupper);
 	}
+
+	delete [] fileinfo;
 
 	return W_MD5(filename);
 }

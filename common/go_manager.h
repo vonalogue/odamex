@@ -211,7 +211,7 @@ private:
 		bool						mComposite;
 	};
 
-	typedef HashTable<OString, ComponentTypeRecord>	ComponentTypeStore;
+	typedef OHashTable<OString, ComponentTypeRecord> ComponentTypeStore;
 	ComponentTypeStore			mComponentTypes;
 };
 

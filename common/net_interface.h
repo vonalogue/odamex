@@ -147,8 +147,8 @@ private:
 
 	ConnectionIdGenerator		mConnectionIdGenerator;
 
-	typedef HashTable<SocketAddress, Connection*> ConnectionAddressTable;
-	typedef HashTable<ConnectionId, Connection*> ConnectionIdTable;
+	typedef OHashTable<SocketAddress, Connection*> ConnectionAddressTable;
+	typedef OHashTable<ConnectionId, Connection*> ConnectionIdTable;
 
 	ConnectionAddressTable		mConnectionsByAddress;
 	ConnectionIdTable			mConnectionsById;

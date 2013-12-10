@@ -74,6 +74,9 @@ public:
 		mRequired(true), mReplicatable(true), mManager(NULL)
 	{ }
 
+	virtual ~GameObjectComponent()
+	{ }
+
 	// name of the type (eg., "uint32")
 	virtual const OString& getTypeName() const = 0;
 	inline void setTypeName(const OString& value) { }

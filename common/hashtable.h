@@ -16,28 +16,33 @@
 // GNU General Public License for more details.
 //
 // DESCRIPTION:
-//	A hash table implementation with iterator.
+//
+// A hash table implementation with iterator.
 //
 //-----------------------------------------------------------------------------
 
 #ifndef __HASHTABLE_H__
 #define __HASHTABLE_H__
 
+#include <cassert>
 #include <utility>
 #include <string>
 
 // ============================================================================
 //
-// HashTable
+// OHashTable
 //
 // Lightweight templated hashtable implementation with iterator.
 // The template parameters are:
 // 		key type,
 //		value type,
 //		hash functor with the following signature (optional):
-//			size_t operator()(KT) const;
+//			unsigned int operator()(KT) const;
 //
 // ============================================================================
+
+// forward declaration
+template <typename KT, typename VT, typename HF> class OHashTable;
 
 // Default hash functors for integer & string types
 template <typename KT>
@@ -45,106 +50,103 @@ struct hashfunc
 { };
 
 template <> struct hashfunc<unsigned char>
-{	size_t operator()(unsigned char val) const { return val; }	};
+{	unsigned int operator()(unsigned char val) const { return (unsigned int)val; }	};
 
 template <> struct hashfunc<signed char>
-{	size_t operator()(signed char val) const { return val; }	};
+{	unsigned int operator()(signed char val) const { return (unsigned int)val; }	};
 
 template <> struct hashfunc<unsigned short>
-{	size_t operator()(unsigned short val) const { return val; }	};
+{	unsigned int operator()(unsigned short val) const { return (unsigned int)val; }	};
 
 template <> struct hashfunc<signed short>
-{	size_t operator()(signed short val) const { return val; }	};
+{	unsigned int operator()(signed short val) const { return (unsigned int)val; }	};
 
 template <> struct hashfunc<unsigned int>
-{	size_t operator()(unsigned int val) const { return val; }	};
+{	unsigned int operator()(unsigned int val) const { return (unsigned int)val; }	};
 
 template <> struct hashfunc<signed int>
-{	size_t operator()(signed int val) const { return val; }		};
+{	unsigned int operator()(signed int val) const { return (unsigned int)val; }		};
 
 template <> struct hashfunc<unsigned long long>
-{	size_t operator()(unsigned long long val) const { return val; }	};
+{	unsigned int operator()(unsigned long long val) const { return (unsigned int)val; }	};
 
 template <> struct hashfunc<signed long long>
-{	size_t operator()(signed long long val) const { return val; }	};
+{	unsigned int operator()(signed long long val) const { return (unsigned int)val; }	};
 
-static inline size_t __hash_cstring(const char* str)
+static inline unsigned int __hash_cstring(const char* str)
 {
-	size_t val = 0;
+	unsigned int val = 0;
 	while (*str != 0)
 		val = val * 101 + *str++;
 	return val;	
 }
 
 template <> struct hashfunc<char*>
-{	size_t operator()(const char* str) const { return __hash_cstring(str); } };
+{	unsigned int operator()(const char* str) const { return __hash_cstring(str); } };
 
 template <> struct hashfunc<const char*>
-{	size_t operator()(const char* str) const { return __hash_cstring(str); } };
+{	unsigned int operator()(const char* str) const { return __hash_cstring(str); } };
 
 template <> struct hashfunc<std::string>
-{	size_t operator()(const std::string& str) const { return __hash_cstring(str.c_str()); } };
+{	unsigned int operator()(const std::string& str) const { return __hash_cstring(str.c_str()); } };
 
 
 // ----------------------------------------------------------------------------
-// HashTable interface & inline implementation
+// OHashTable interface & inline implementation
 //
 // The implementation is fairly straight forward. Hash collisions are resolved
-// with chaining, making each bucket a doubly-linked list of nodes with matching
-// hash keys. Iteration through the hash table is done quickly via a
-// doubly-linked list of all of the nodes.
+// with open addressing using linear probing. Iteration through the hash table
+// is done quickly by iterating through the internal array of key/value pairs.
 // ----------------------------------------------------------------------------
 
 template <typename KT, typename VT, typename HF = hashfunc<KT> >
-class HashTable
+class OHashTable
 {
 private:
 	typedef std::pair<KT, VT> HashPairType;
-	typedef HashTable<KT, VT, HF> HashTableType;
+	typedef OHashTable<KT, VT, HF> HashTableType;
 
-	class Node
+	typedef unsigned int IndexType;
+	static const unsigned int MAX_CAPACITY	= 65536;
+	static const IndexType NOT_FOUND		= HashTableType::MAX_CAPACITY;
+
+	struct Bucket
 	{
-	public:
-		Node() : mChainNext(NULL), mChainPrev(NULL), mItrPrev(NULL), mItrNext(NULL) { }
-		
-		HashPairType		mKeyValuePair;
-		Node*				mChainNext;
-		Node*				mChainPrev;
-		Node*				mItrPrev;
-		Node*				mItrNext;
+		unsigned int	order;
+		HashPairType	pair;
 	};
-	
+
 public:
 	// ------------------------------------------------------------------------
-	// HashTable::iterator & const_iterator implementation
+	// OHashTable::iterator & const_iterator implementation
 	// ------------------------------------------------------------------------
 
-	template <typename IVT, typename IHTT, typename INT> class generic_iterator;
-	typedef generic_iterator<HashPairType, HashTableType, HashTableType::Node> iterator;
-	typedef generic_iterator<const HashPairType, const HashTableType, const HashTableType::Node> const_iterator;
+	template <typename IVT, typename IHTT> class generic_iterator;
+	typedef generic_iterator<HashPairType, HashTableType> iterator;
+	typedef generic_iterator<const HashPairType, const HashTableType> const_iterator;
 
-	template <typename IVT, typename IHTT, typename INT>
-	class generic_iterator : public std::iterator<std::forward_iterator_tag, HashTable>
+	template <typename IVT, typename IHTT>
+	class generic_iterator : public std::iterator<std::forward_iterator_tag, OHashTable>
 	{
 	private:
 		// typedef for easier-to-read code
-		typedef generic_iterator<IVT, IHTT, INT> ThisClass;
-		typedef generic_iterator<const IVT, const IHTT, const INT> ConstThisClass;
+		typedef generic_iterator<IVT, IHTT> ThisClass;
+		typedef generic_iterator<const IVT, const IHTT> ConstThisClass;
 
 	public:
 		generic_iterator() :
-			mNode(NULL), mHashTable(NULL)
+			mBucketNum(IHTT::NOT_FOUND), mHashTable(NULL)
 		{ }
 
 		// allow implicit converstion from iterator to const_iterator
 		operator ConstThisClass() const
 		{
-			return ConstThisClass(mNode, mHashTable);
+			return ConstThisClass(mBucketNum, mHashTable);
 		}
 
 		bool operator== (const ThisClass& other) const
 		{
-			return mNode == other.mNode && mHashTable == other.mHashTable;
+			return mBucketNum == other.mBucketNum && mHashTable == other.mHashTable;
 		}
 
 		bool operator!= (const ThisClass& other) const
@@ -154,79 +156,72 @@ public:
 
 		IVT& operator* ()
 		{
-			return mNode->mKeyValuePair;
+			return mHashTable->mElements[mBucketNum].pair;
 		}
 
 		IVT* operator-> ()
 		{
-			return &(mNode->mKeyValuePair);
+			return &(operator*());
 		}
 
 		ThisClass& operator++ ()
 		{
-			mNode = mNode->mItrNext;
+			do {
+				mBucketNum++;
+			} while (mBucketNum < mHashTable->mSize && mHashTable->emptyBucket(mBucketNum));
+			
+			if (mBucketNum >= mHashTable->mSize)
+				mBucketNum = IHTT::NOT_FOUND;
 			return *this;
 		}
 
 		ThisClass operator++ (int)
 		{
 			generic_iterator temp(*this);
-			mNode = mNode->mItrNext;
+			operator++();
 			return temp;
 		}
 
-		friend class HashTable<KT, VT, HF>;
+		friend class OHashTable<KT, VT, HF>;
 
 	private:
-		generic_iterator(INT* node, IHTT* hashtable) :
-			mNode(node), mHashTable(hashtable)
-		{ }
+		generic_iterator(IndexType bucketnum, IHTT* hashtable) :
+			mBucketNum(bucketnum), mHashTable(hashtable)
+		{
+			if (mBucketNum >= mHashTable->mSize)
+				mBucketNum = IHTT::NOT_FOUND;
+		}
 
-		INT*		mNode;
+		IndexType	mBucketNum;
 		IHTT*		mHashTable;
 	};
 
 
 
 	// ------------------------------------------------------------------------
-	// HashTable functions
+	// OHashTable functions
 	// ------------------------------------------------------------------------
 
-	HashTable(size_t size = 32) :
-		mSize(0), mUsed(0), mHashTable(NULL), mHashItrList(NULL)
+	OHashTable(unsigned int size = 256) :
+		mSize(0), mSizeMask(0), mUsed(0), mElements(NULL), mNextOrder(1)
 	{
 		resize(size);
 	}
 
-	HashTable(const HashTable<KT, VT, HF>& other) :
-		mSize(0), mUsed(0), mHashTable(NULL), mHashItrList(NULL)
+	OHashTable(const HashTableType& other) :
+		mSize(0), mSizeMask(0), mUsed(0), mElements(NULL), mNextOrder(1)
 	{
-		resize(other.mSize);
-		for (Node* itr = other.mHashItrList; itr != NULL; itr = itr->mItrNext)
-		{
-			const KT& key = itr->mKeyValuePair.first;
-			const VT& value = itr->mKeyValuePair.second;
-			insertNode(key, value);
-		}
+		copyFromOther(other);
 	}
 
-	~HashTable()
+	~OHashTable()
 	{
-		clear();
-		delete [] mHashTable;
+		delete [] mElements;
 	}
 
-	HashTable& operator= (const HashTable<KT, VT, HF>& other)
+	OHashTable& operator= (const HashTableType& other)
 	{
-		clear();
-		resize(other.mSize);
-		for (Node* itr = other.mHashItrList; itr != NULL; itr = itr->mItrNext)
-		{
-			const KT& key = itr->mKeyValuePair.first;
-			const VT& value = itr->mKeyValuePair.second;
-			insertNode(key, value);
-		}
-
+		copyFromOther(other);
 		return *this;
 	}
 
@@ -235,82 +230,78 @@ public:
 		return mUsed == 0;
 	}
 
-	size_t size() const
+	unsigned int size() const
 	{
 		return mUsed;
 	}
 
-	size_t count(const KT& key) const
+	unsigned int count(const KT& key) const
 	{
-		return findNode(key) ? 1 : 0;
+		return emptyBucket(findBucket(key)) ? 0 : 1;
 	}
 
 	void clear()
 	{
-		while (mHashItrList != NULL)
-		{
-			Node* oldnode = mHashItrList;
-			mHashItrList = mHashItrList->mItrNext;
-			delete oldnode;
-		}
+		for (unsigned int i = 0; i < mSize; i++)
+			if (!emptyBucket(i))
+				mElements[i].pair = HashPairType();
+
+		for (unsigned int i = 0; i < mSize; i++)
+			mElements[i].order = 0;
 
 		mUsed = 0;
+		mNextOrder = 1;
 	}
 
-	iterator begin()
+	inline iterator begin()
 	{
-		return iterator(mHashItrList, this);
+		return iterator(0, this);
 	}
 
-	const_iterator begin() const
+	inline const_iterator begin() const
 	{
-		return const_iterator(mHashItrList, this);
+		return const_iterator(0, this);
 	}
 
-	iterator end()
+	inline iterator end()
 	{
-		return iterator(NULL, this);
+		return iterator(NOT_FOUND, this);
 	}
 
-	const_iterator end() const
+	inline const_iterator end() const
 	{
-		return const_iterator(NULL, this);
+		return const_iterator(NOT_FOUND, this);
 	}	
 
-	iterator find(const KT& key)
+	inline iterator find(const KT& key)
 	{
-		return iterator(findNode(key), this);
+		IndexType bucketnum = findBucket(key);
+		if (emptyBucket(bucketnum))
+			return end();
+		return iterator(bucketnum, this);
 	}
 
-	const_iterator find(const KT& key) const
+	inline const_iterator find(const KT& key) const
 	{
-		return const_iterator(findNode(key), this);
+		IndexType bucketnum = findBucket(key);
+		if (emptyBucket(bucketnum))
+			return end();
+		return const_iterator(bucketnum, this);
 	}
 
-	VT& operator[](const KT& key)
+	inline VT& operator[](const KT& key)
 	{
-		Node* node = findNode(key);
-		if (!node)
-			node = insertNode(key, VT());	// no match so insert new pair
-
-		return node->mKeyValuePair.second;
+		IndexType bucketnum = findBucket(key);
+		if (emptyBucket(bucketnum))
+			bucketnum = insertElement(key, VT());	// no match so insert new pair
+		return mElements[bucketnum].pair.second;
 	}
 
 	std::pair<iterator, bool> insert(const HashPairType& hp)
 	{
-		const KT& key = hp.first;
-		const VT& value = hp.second;
-		bool inserted = false;
-
-		Node* node = findNode(key);
-		if (!node)
-		{
-			node = insertNode(key, value);
-			inserted = true;
-		}
-
-		iterator it = iterator(node, this);
-		return std::pair<iterator, bool>(it, inserted);
+		unsigned int oldused = mUsed;	
+		IndexType bucketnum = insertElement(hp.first, hp.second);
+		return std::pair<iterator, bool>(iterator(bucketnum, this), mUsed > oldused);
 	}
 
 	template <typename Inputiterator>
@@ -318,27 +309,22 @@ public:
 	{
 		while (it1 != it2)
 		{
-			const KT& key = it1->first;
-			const VT& value = it1->second;
-			if (!findNode(key))
-				insertNode(key, value);
+			insertElement(it1->first, it1->second);
 			++it1;
 		}
 	}
 
 	void erase(iterator it)
 	{
-		const KT& key = it.mNode->mKeyValuePair.first;
-		erase(key);	
+		eraseBucket(it.mBucketNum);	
 	}
 
-	size_t erase(const KT& key)
+	unsigned int erase(const KT& key)
 	{
-		Node* node = findNode(key);
-		if (!node)
+		IndexType bucketnum = findBucket(key);
+		if (emptyBucket(bucketnum))
 			return 0;
-
-		eraseNode(node);
+		eraseBucket(bucketnum);
 		return 1;
 	}
 
@@ -346,134 +332,140 @@ public:
 	{
 		while (it1 != it2)
 		{
-			erase(it1);
+			eraseBucket(it1.mBucketNum);
 			++it1;
 		}
 	}
 
 private:
-	inline size_t hashKey(const KT& key) const
+	inline bool emptyBucket(IndexType bucketnum) const
 	{
-		return mHashFunc(key) % mSize;
+		return mElements[bucketnum].order == 0;
 	}
 
-	void resize(size_t newsize)
+	void resize(unsigned int newsize)
 	{
-		if (newsize == 0)		// don't allow 0 size tables!
-			newsize = 1;
+		unsigned int oldsize = mSize;
 
-		mSize = newsize;
+		// ensure newsize is in a valid range
+		if (newsize < 2)
+			newsize = 2;
+		if (newsize > HashTableType::MAX_CAPACITY)
+			newsize = HashTableType::MAX_CAPACITY;
+
+		// ensure newsize is a power of two
+		// determine number of bits needed for newsize
+		newsize = newsize * 2 - 1;
+		int bits = 0;
+		while (newsize >>= 1)
+			bits++;
+
+		mSize = 1 << bits;
+		mSizeMask = mSize - 1;
+		assert(mSize > oldsize);
+
+		Bucket* oldelements = mElements;
+		mElements = new Bucket[mSize];
+
 		mUsed = 0;
+		mNextOrder = 1;
 
-		delete [] mHashTable;
-		mHashTable = new Node*[mSize];
-		for (size_t i = 0; i < mSize; i++)
-			mHashTable[i] = NULL;
+		// indicate all buckets are empty
+		for (unsigned int i = 0; i < mSize; i++)
+			mElements[i].order = 0;
 
-		Node* itr = mHashItrList;
-		mHashItrList = NULL;
+		// copy elements to new hashtable
+		// TODO: go through iteration list instead
+		for (unsigned int i = 0; i < oldsize; i++)
+			if (oldelements[i].order)
+				insertElement(oldelements[i].pair.first, oldelements[i].pair.second);
 
-		while (itr)
-		{
-			const KT& key = itr->mKeyValuePair.first;
-			const VT& value = itr->mKeyValuePair.second;
-			insertNode(key, value); 	// rehash the node from the old iteration list
-
-			Node* olditr = itr;
-			itr = itr->mItrNext;
-			delete olditr;		// free the node from the old iteration list
-		}
+		delete [] oldelements;
 	}
 
-	Node* findNode(const KT& key) 
+	void copyFromOther(const HashTableType& other)
 	{
-		Node* node = mHashTable[hashKey(key)];
-		while (node)
+		clear();
+		resize(other.mSize);
+		for (int i = 0; i < mSize; i++)
 		{
-			if (node->mKeyValuePair.first == key)
-				return node;
-			node = node->mChainNext;
+			mElements[i].order = other.mElements[i].order;
+			mElements[i].pair = other.mElements[i].pair;
 		}
 
-		// node not found
-		return NULL;
+		mNextOrder = other.mNextOrder;
+		mUsed = other.mUsed;
 	}
 
-	const Node* findNode(const KT& key) const
+	inline IndexType findBucket(const KT& key) const
 	{
-		Node* node = mHashTable[hashKey(key)];
-		while (node)
+		IndexType bucketnum = (mHashFunc(key) * 2654435761u) & mSizeMask; 
+
+		// [SL] NOTE: this can loop infinitely if there is no match and the table is full!
+		while (!emptyBucket(bucketnum) && mElements[bucketnum].pair.first != key)
+			bucketnum = (bucketnum + 1) & mSizeMask;
+		return bucketnum;
+	}
+
+	IndexType insertElement(const KT& key, const VT& value)
+	{
+		// double the capacity if we're going to exceed 75% load
+		if (4 * (mUsed + 1) > 3 * mSize)
+			resize(2 * mSize);
+
+		IndexType bucketnum = findBucket(key);
+
+		if (emptyBucket(bucketnum))
 		{
-			if (node->mKeyValuePair.first == key)
-				return node;
-			node = node->mChainNext;
+			// add key and value pair
+			mElements[bucketnum].order = mNextOrder++;
+			mElements[bucketnum].pair.first = key;
+			mElements[bucketnum].pair.second = value;
+			mUsed++;
 		}
-
-		// node not found
-		return NULL;
-	}
-
-	Node* insertNode(const KT& key, const VT& value)
-	{
-		// double the capacity if we're going to exceed the number of buckets
-		if (mUsed + 1 > mSize)
-			resize(2 * mSize + 1);
-
-		// create new node
-		Node* newnode = new Node;
-		newnode->mKeyValuePair.first = key;
-		newnode->mKeyValuePair.second = value;
-
-		// insert at head of chain for the bucket
-		size_t index = hashKey(key);
-		newnode->mChainPrev = NULL;
-		newnode->mChainNext = mHashTable[index];
-		if (newnode->mChainNext)
-			newnode->mChainNext->mChainPrev = newnode;
-		mHashTable[index] = newnode;
-
-		// insert at head of iteration list
-		if (mHashItrList)
-			mHashItrList->mItrPrev = newnode;
-		newnode->mItrPrev = NULL;
-		newnode->mItrNext = mHashItrList;
-		mHashItrList = newnode;
-
-		mUsed++;
-		return newnode;
-	}
-
-	void eraseNode(Node* node)
-	{
-		size_t index = hashKey(node->mKeyValuePair.first);
-
-		// remove from this bucket
-		if (node->mChainPrev)
-			node->mChainPrev->mChainNext = node->mChainNext;
-		if (node->mChainNext)
-			node->mChainNext->mChainPrev = node->mChainPrev;
-
-		// removing head of linked list
-		if (mHashTable[index] == node)
-			mHashTable[index] = node->mChainNext;
-
-		// remove from the iteration list
-		if (node->mItrPrev)
-			node->mItrPrev->mItrNext = node->mItrNext;
 		else
-			mHashItrList = node->mItrNext;
+		{
+			// key already exists so just update the value
+			mElements[bucketnum].pair.second = value;
+		}
 
-		if (node->mItrNext)
-			node->mItrNext->mItrPrev = node->mItrPrev;
-	   
-		delete node;
-		mUsed--;
+		return bucketnum;
 	}
 
-	size_t			mSize;
-	size_t			mUsed;
-	Node**			mHashTable;		// table of linked-lists (chaining hashtable)
-	Node*			mHashItrList;	// linked-list for fast iteration
+	void eraseBucket(IndexType bucketnum)
+	{
+		mElements[bucketnum].order = 0;
+		mElements[bucketnum].pair = HashPairType();
+		mUsed--;
+
+		// Rehash all of the non-empty buckets that follow the erased bucket.
+		bucketnum = (bucketnum + 1) & mSizeMask;
+		while (!emptyBucket(bucketnum))
+		{
+			const KT& key = mElements[bucketnum].pair.first;
+			unsigned int order = mElements[bucketnum].order;
+			mElements[bucketnum].order = 0;
+
+			IndexType new_bucketnum = findBucket(key);
+			mElements[new_bucketnum].order = order;
+
+			if (new_bucketnum != bucketnum)
+			{
+				mElements[new_bucketnum].pair = mElements[bucketnum].pair;
+				mElements[bucketnum].pair = HashPairType();	
+			}
+
+			bucketnum = (bucketnum + 1) & mSizeMask;
+		}
+	}
+
+	unsigned int	mSize;
+	unsigned int	mSizeMask;
+	unsigned int	mUsed;
+
+	Bucket*			mElements;
+	unsigned int	mNextOrder;
+
 	HF				mHashFunc;		// hash key generation functor
 };
 
