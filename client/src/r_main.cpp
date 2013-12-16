@@ -1451,16 +1451,16 @@ void R_RenderPlayerView (player_t *player)
 
 	R_DrawMasked ();
 
-	// [RH] Apply detail mode doubling
-	R_DetailDouble ();
-
 	// NOTE(jsd): Full-screen status color blending:
 	extern int BlendA, BlendR, BlendG, BlendB;
 	if (BlendA != 0)
 	{
 		unsigned int blend_rgb = MAKERGB(newgamma[BlendR], newgamma[BlendG], newgamma[BlendB]);
-		r_dimpatchD(screen, blend_rgb, BlendA, 0, 0, screen->width, screen->height);
+		r_dimpatchD(screen, blend_rgb, BlendA, viewwindowx, viewwindowy, viewwidth, viewheight);
 	}
+
+	// [RH] Apply detail mode doubling
+	R_DetailDouble ();
 
 	R_EndInterpolation();
 }
