@@ -70,7 +70,6 @@ CVAR_FUNC_IMPL(r_stretchsky)
 	R_InitSkyMap ();
 }
 
-extern "C" int detailxshift, detailyshift;
 extern fixed_t freelookviewheight;
 
 //
@@ -165,8 +164,8 @@ void R_InitSkyMap()
 	
 	if (viewwidth && viewheight)
 	{
-		skyiscale = (200*FRACUNIT) / (((freelookviewheight<<detailxshift) * viewwidth) / (viewwidth<<detailxshift));
-		skyscale = ((((freelookviewheight<<detailxshift) * viewwidth) / (viewwidth<<detailxshift)) << FRACBITS) /(200);
+		skyiscale = (200*FRACUNIT) / ((freelookviewheight * viewwidth) / viewwidth);
+		skyscale = (((freelookviewheight * viewwidth) / viewwidth) << FRACBITS) /(200);
 
 		skyiscale = FixedMul (skyiscale, FixedDiv (FieldOfView, 2048));
 		skyscale = FixedMul (skyscale, FixedDiv (2048, FieldOfView));

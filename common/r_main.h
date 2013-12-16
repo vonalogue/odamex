@@ -111,11 +111,6 @@ extern int				lightscaleymul;
 #define NUMCOLORMAPS			32
 
 
-// [RH] New detail modes
-extern "C" int			detailxshift;
-extern "C" int			detailyshift;
-
-
 //
 // Function pointers to switch refresh/drawing functions.
 //

@@ -136,7 +136,6 @@ void M_ReadThis2(int choice);
 void M_ReadThis3(int choice);
 void M_QuitDOOM(int choice);
 
-void M_ChangeDetail(int choice);
 void M_StartGame(int choice);
 void M_Sound(int choice);
 

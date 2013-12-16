@@ -68,7 +68,6 @@ typedef struct
 	int					y;
 	int					x1;
 	int					x2;
-	int					colsize;
 
 	int					umask;
 	int					vmask;
@@ -293,11 +292,6 @@ enum
 #define TRANSLATION(a,b)	(((a)<<8)|(b))
 
 const int MAX_ACS_TRANSLATIONS = 32;
-
-
-
-// [RH] Double view pixels by detail mode
-void R_DetailDouble (void);
 
 void R_InitBuffer(int width, int height);
 

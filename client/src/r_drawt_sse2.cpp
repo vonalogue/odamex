@@ -80,7 +80,6 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 	argb_t* dest = (argb_t*)drawspan.dest;
 
 	shaderef_t colormap = drawspan.colormap;
-	int colsize = drawspan.colsize;
 	
 	const unsigned int umask = drawspan.umask; 
 	const unsigned int vmask = drawspan.vmask; 
@@ -103,7 +102,7 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		// Lookup pixel from flat texture tile,
 		//  re-index using light/colormap.
 		*dest = colormap.shade(source[spot]);
-		dest += colsize;
+		dest++;
 
 		// Next step in u,v.
 		ufrac += ustep;
@@ -147,8 +146,7 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 
 		_mm_store_si128((__m128i*)dest, finalColors);
 
-		// [SL] TODO: does this break with r_detail != 0?
-		dest += 4*colsize;
+		dest += 4;
 
 		mufrac = _mm_add_epi32(mufrac, mufracinc);
 		mvfrac = _mm_add_epi32(mvfrac, mvfracinc);
@@ -166,7 +164,7 @@ void R_DrawSpanD_SSE2(drawspan_t& drawspan)
 		// Lookup pixel from flat texture tile,
 		//  re-index using light/colormap.
 		*dest = colormap.shade(source[spot]);
-		dest += colsize;
+		dest++;
 
 		// Next step in u,v.
 		ufrac += ustep;
@@ -202,8 +200,6 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 	// texture data
 	byte *src = (byte *)drawspan.source;
 
-	assert (drawspan.colsize == 1);
-	const int colsize = drawspan.colsize;
 	int ltindex = 0;		// index into the lighting table
 
 	// Blit the bulk in batches of SPANJUMP columns:
@@ -238,7 +234,7 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			*dest = colormap.shade(src[spot]);
 
-			dest += colsize;
+			dest++;
 			ufrac += ustep;
 			vfrac += vstep;
 			incount--;
@@ -280,7 +276,7 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 				const shaderef_t &colormap = drawspan.slopelighting[ltindex++];
 				const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 				*dest = colormap.shade(src[spot]);
-				dest += colsize;
+				dest++;
 
 				ufrac += ustep;
 				vfrac += vstep;
@@ -319,7 +315,7 @@ void R_DrawSlopeSpanD_SSE2(drawspan_t& drawspan)
 			const shaderef_t &colormap = drawspan.slopelighting[ltindex++];
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			*dest = colormap.shade(src[spot]);
-			dest += colsize;
+			dest++;
 			ufrac += ustep;
 			vfrac += vstep;
 		}

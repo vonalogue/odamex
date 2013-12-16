@@ -78,8 +78,6 @@ int* 			columnofs;
 extern "C" {
 int				realviewwidth;		// [RH] Physical width of view window
 int				realviewheight;		// [RH] Physical height of view window
-int				detailxshift;		// [RH] X shift for horizontal detail level
-int				detailyshift;		// [RH] Y shift for vertical detail level
 }
 
 // [RH] Pointers to the different column drawers.
@@ -138,7 +136,7 @@ void R_InitFuzzTable()
 
 	screen->Lock();
 	int bytesperpixel = screen->is8bit() ? 1 : 4;
-	int offset = (screen->pitch << detailyshift) / bytesperpixel;
+	int offset = screen->pitch / bytesperpixel;
 	screen->Unlock();
 
 	for (unsigned int i = 0; i < FUZZTABLESIZE; i++)
@@ -635,14 +633,13 @@ static forceinline void R_FillSpanGeneric(drawspan_t& drawspan)
 
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
 	int color = drawspan.color;
-	int colsize = drawspan.colsize;
 
 	COLORFUNC colorfunc(drawspan);
 
 	while (count--)
 	{
 		*dest = colorfunc(color, dest);
-		dest += colsize;
+		dest++;
 	}
 }
 
@@ -670,7 +667,6 @@ static forceinline void R_DrawLevelSpanGeneric(drawspan_t& drawspan)
 
 	const palindex_t* source = drawspan.source;
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
-	int colsize = drawspan.colsize;
 	
 	dsfixed_t ufrac = dspan.xfrac;
 	dsfixed_t vfrac = dspan.yfrac;
@@ -692,7 +688,7 @@ static forceinline void R_DrawLevelSpanGeneric(drawspan_t& drawspan)
 		// Lookup pixel from flat texture tile,
 		//  re-index using light/colormap.
 		*dest = colorfunc(source[spot], dest);
-		dest += colsize;
+		dest++;
 
 		// Next step in u,v.
 		ufrac += ustep;
@@ -731,7 +727,6 @@ static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 	
 	const palindex_t* source = drawspan.source;
 	PIXEL_T* dest = (PIXEL_T*)drawspan.dest;
-	int colsize = drawspan.colsize;
 
 	const int umask = drawspan.umask; 
 	const int vmask = drawspan.vmask; 
@@ -775,7 +770,7 @@ static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			*dest = colorfunc(source[spot], dest);
-			dest += colsize;
+			dest++;
 			ufrac += ustep;
 			vfrac += vstep;
 		}
@@ -811,7 +806,7 @@ static forceinline void R_DrawSlopedSpanGeneric(drawspan_t& drawspan)
 
 			const int spot = ((ufrac >> ushift) & umask) | ((vfrac >> vshift) & vmask); 
 			*dest = colorfunc(source[spot], dest);
-			dest += colsize;
+			dest++;
 			ufrac += ustep;
 			vfrac += vstep;
 		}
@@ -1511,39 +1506,31 @@ void R_DrawSlopeSpanD_c(drawspan_t& drawspan)
 //
 void R_InitBuffer(int width, int height) 
 { 
-	int 		i;
-	byte		*buffer;
-	int			pitch;
-	int			xshift;
-
 	// Handle resize,
 	//	e.g. smaller view windows
 	//	with border and/or status bar.
-	viewwindowx = (screen->width-(width<<detailxshift))>>1;
+	viewwindowx = (screen->width - width) >> 1;
 
 	// [RH] Adjust column offset according to bytes per pixel
-	//		and detail mode
-	xshift = (screen->is8bit()) ? 0 : 2;
-	xshift += detailxshift;
+	int xshift = screen->is8bit() ? 0 : 2;
 
 	// Column offset. For windows
-	for (i = 0; i < width; i++)
+	for (int i = 0; i < width; i++)
 		columnofs[i] = (viewwindowx + i) << xshift;
 
 	// Same with base row offset.
-	if ((width<<detailxshift) == screen->width)
+	if (width == screen->width)
 		viewwindowy = 0;
 	else
-		viewwindowy = (ST_Y-(height<<detailyshift)) >> 1;
+		viewwindowy = (ST_Y - height) >> 1;
 
-	screen->Lock ();
-	buffer = screen->buffer;
-	pitch = screen->pitch;
-	screen->Unlock ();
+	screen->Lock();
 
 	// Precalculate all row offsets.
-	for (i=0 ; i<height ; i++)
-		ylookup[i] = buffer + ((i<<detailyshift)+viewwindowy)*pitch;
+	for (int i = 0; i < height; i++)
+		ylookup[i] = screen->buffer + (i + viewwindowy) * screen->pitch;
+
+	screen->Unlock();
 }
 
 
@@ -1659,77 +1646,6 @@ void R_DrawViewBorder (void)
 	V_MarkRect(0, 0, screen->width, ST_Y);
 }
 
-// [RH] Double pixels in the view window horizontally
-//		and/or vertically (or not at all).
-void R_DetailDouble (void)
-{
-	switch ((detailxshift << 1) | detailyshift)
-	{
-		case 1:		// y-double
-		{
-			int rowsize = realviewwidth << ((screen->is8bit()) ? 0 : 2);
-			int pitch = screen->pitch;
-			int y;
-			byte *line;
-
-			line = screen->buffer + viewwindowy*pitch + viewwindowx;
-			for (y = 0; y < viewheight; y++, line += pitch<<1)
-			{
-				memcpy (line+pitch, line, rowsize);
-			}
-		}
-		break;
-
-		case 2:		// x-double
-		{
-			int rowsize = realviewwidth >> 2;
-			int pitch = screen->pitch >> (2-detailyshift);
-			int y,x;
-			unsigned *line,a,b;
-
-			line = (unsigned *)(screen->buffer + viewwindowy*screen->pitch + viewwindowx);
-			for (y = 0; y < viewheight; y++, line += pitch)
-			{
-				for (x = 0; x < rowsize; x += 2)
-				{
-					a = line[x+0];
-					b = line[x+1];
-					a &= 0x00ff00ff;
-					b &= 0x00ff00ff;
-					line[x+0] = a | (a << 8);
-					line[x+1] = b | (b << 8);
-				}
-			}
-		}
-		break;
-
-		case 3:		// x- and y-double
-		{
-			int rowsize = realviewwidth >> 2;
-			int pitch = screen->pitch >> (2-detailyshift);
-			int realpitch = screen->pitch >> 2;
-			int y,x;
-			unsigned *line,a,b;
-
-			line = (unsigned *)(screen->buffer + viewwindowy*screen->pitch + viewwindowx);
-			for (y = 0; y < viewheight; y++, line += pitch)
-			{
-				for (x = 0; x < rowsize; x += 2)
-				{
-					a = line[x+0];
-					b = line[x+1];
-					a &= 0x00ff00ff;
-					b &= 0x00ff00ff;
-					line[x+0] = a | (a << 8);
-					line[x+0+realpitch] = a | (a << 8);
-					line[x+1] = b | (b << 8);
-					line[x+1+realpitch] = b | (b << 8);
-				}
-			}
-		}
-		break;
-	}
-}
 
 enum r_optimize_kind {
 	OPTIMIZE_NONE,

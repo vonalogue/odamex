@@ -100,7 +100,6 @@ EXTERN_CVAR (r_forceenemycolor)
 EXTERN_CVAR (r_enemycolor)
 EXTERN_CVAR (cl_mouselook)
 EXTERN_CVAR (gammalevel)
-EXTERN_CVAR (r_detail)
 EXTERN_CVAR (language)
 
 // [Ralphis - Menu] Compatibility Menu
@@ -1053,13 +1052,6 @@ static char VMEnterText[] = "Press ENTER to set mode";
 static char VMTestText[] = "Press T to test mode for 5 seconds";
 #endif
 
-static value_t DetailModes[] = {
-	{ 0.0, "Normal" },
-	{ 1.0, "Double Horizontal" },
-	{ 2.0, "Double Vertical" },
-	{ 3.0, "Double Horiz & Vert" }
-};
-
 static value_t VidFPSCaps[] = {
 	{ 35.0,		"35fps" },
 	{ 60.0,		"60fps" },
@@ -1077,7 +1069,6 @@ static menuitem_t ModesItems[] = {
 	{ discrete, "32-bit color",			{&vid_32bpp},			{2.0}, {0.0},	{0.0}, {YesNo} },
 	{ discrete,	"Widescreen",			{&vid_widescreen},		{2.0}, {0.0},	{0.0}, {YesNo} } ,
 	{ discrete, "Framerate",			{&vid_maxfps},			{5.0}, {0.0},	{0.0}, {VidFPSCaps} },
-	{ discrete,	"Detail Mode",			{&r_detail},			{4.0}, {0.0},	{0.0}, {DetailModes} },
 	{ redtext,	" ",					{NULL},					{0.0}, {0.0},	{0.0}, {NULL} },
 	{ screenres, NULL,					{NULL},					{0.0}, {0.0},	{0.0}, {NULL} },
 	{ screenres, NULL,					{NULL},					{0.0}, {0.0},	{0.0}, {NULL} },

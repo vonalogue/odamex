@@ -141,7 +141,7 @@ int 			extralight;
 BOOL			foggy;
 
 BOOL			setsizeneeded;
-int				setblocks, setdetail = -1;
+int				setblocks;
 
 fixed_t			freelookviewheight;
 
@@ -858,7 +858,7 @@ void R_InitLightTables (void)
 		}
 	}
 
-	lightscalexmul = ((320<<detailyshift) * (1<<LIGHTSCALEMULBITS)) / screen->width;
+	lightscalexmul = (320 * (1 << LIGHTSCALEMULBITS)) / screen->width;
 }
 
 //
@@ -878,61 +878,21 @@ void R_SetViewSize (int blocks)
 
 //
 //
-// CVAR r_detail
-//
-// Selects a pixel doubling mode
-//
-//
-
-CVAR_FUNC_IMPL (r_detail)
-{
-	static BOOL badrecovery = false;
-
-	if (badrecovery)
-	{
-		badrecovery = false;
-		return;
-	}
-
-	if (var < 0.0 || var > 3.0)
-	{
-		Printf (PRINT_HIGH, "Bad detail mode. (Use 0-3)\n");
-		badrecovery = true;
-		var.Set ((float)((detailyshift << 1)|detailxshift));
-		return;
-	}
-
-	setdetail = (int)var;
-	setsizeneeded = true;
-}
-
-//
-//
 // R_ExecuteSetViewSize
 //
 //
 
 void R_ExecuteSetViewSize (void)
 {
-	int i, j;
-	int level;
-	int startmap;
-
 	setsizeneeded = false;
-
-	if (setdetail >= 0)
-	{
-		detailxshift = setdetail & 1;
-		detailyshift = (setdetail >> 1) & 1;
-		setdetail = -1;
-	}
 
 	if (setblocks == 11 || setblocks == 12)
 	{
 		realviewwidth = screen->width;
 		freelookviewheight = realviewheight = screen->height;
 	}
-	else if (setblocks == 10) {
+	else if (setblocks == 10)
+	{
 		realviewwidth = screen->width;
 		realviewheight = ST_Y;
 		freelookviewheight = screen->height;
@@ -944,9 +904,8 @@ void R_ExecuteSetViewSize (void)
 		freelookviewheight = ((setblocks*screen->height)/10)&~7;
 	}
 
-	viewwidth = realviewwidth >> detailxshift;
-	viewheight = realviewheight >> detailyshift;
-	freelookviewheight >>= detailyshift;
+	viewwidth = realviewwidth;
+	viewheight = realviewheight;
 
 	{
 		char temp[16];
@@ -962,8 +921,7 @@ void R_ExecuteSetViewSize (void)
 
 	// calculate the vertical stretching factor to emulate 320x200
 	// it's a 5:4 ratio = (320 / 200) / (4 / 3)
-	// also take r_detail into account
-	yaspectmul = (320.0f / 200.0f) / (4.0f / 3.0f) * ((FRACUNIT << detailxshift) >> detailyshift);
+	yaspectmul = FLOAT2FIXED((320.0f / 200.0f) / (4.0f / 3.0f));
 
 	for (int i = 0; i < screen->width; i++)
 	{
@@ -984,7 +942,7 @@ void R_ExecuteSetViewSize (void)
 		crvwidth = ((setblocks * cswidth) / 10) & (~(15 >> (screen->is8bit() ? 0 : 2)));
 	else
 		crvwidth = cswidth;
-	pspritexscale = (((crvwidth >> detailxshift) / 2) << FRACBITS) / 160;
+	pspritexscale = ((crvwidth / 2) << FRACBITS) / 160;
 
 	pspriteyscale = FixedMul(pspritexscale, yaspectmul);
 	pspritexiscale = FixedDiv(FRACUNIT, pspritexscale);
@@ -1000,12 +958,12 @@ void R_ExecuteSetViewSize (void)
 
 	// Calculate the light levels to use for each level / scale combination.
 	// [RH] This just stores indices into the colormap rather than pointers to a specific one.
-	for (i = 0; i < LIGHTLEVELS; i++)
+	for (int i = 0; i < LIGHTLEVELS; i++)
 	{
-		startmap = ((LIGHTLEVELS-1-i)*2)*NUMCOLORMAPS/LIGHTLEVELS;
-		for (j = 0; j < MAXLIGHTSCALE; j++)
+		int startmap = ((LIGHTLEVELS - 1 - i) * 2) * NUMCOLORMAPS / LIGHTLEVELS;
+		for (int j = 0; j < MAXLIGHTSCALE; j++)
 		{
-			level = startmap - (j*(screen->width>>detailxshift))/((viewwidth*DISTMAP));
+			int level = startmap - (j * screen->width) / (viewwidth * DISTMAP);
 			if (level < 0)
 				level = 0;
 			else if (level >= NUMCOLORMAPS)
@@ -1458,9 +1416,6 @@ void R_RenderPlayerView (player_t *player)
 		unsigned int blend_rgb = MAKERGB(newgamma[BlendR], newgamma[BlendG], newgamma[BlendB]);
 		r_dimpatchD(screen, blend_rgb, BlendA, viewwindowx, viewwindowy, viewwidth, viewheight);
 	}
-
-	// [RH] Apply detail mode doubling
-	R_DetailDouble ();
 
 	R_EndInterpolation();
 }
