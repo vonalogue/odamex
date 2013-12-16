@@ -94,11 +94,9 @@ void ST_AdjustStatusBarScale(bool scale)
 		// [AM] Scale status bar width according to height, unless there isn't
 		//      enough room for it.  Fixes widescreen status bar scaling.
 		// [ML] A couple of minor changes for true 4:3 correctness...
-		ST_WIDTH = ST_HEIGHT*10;
+		ST_WIDTH = ST_HEIGHT * 10;
 		if (!screen->isProtectedRes())
-        {
-            ST_WIDTH = SquareWidth;
-        }
+			ST_WIDTH = SquareWidth;
 	}
 	else
 	{
@@ -114,12 +112,12 @@ void ST_AdjustStatusBarScale(bool scale)
 	}
 	else
 	{
-		ST_X = (screen->width-ST_WIDTH)/2;
+		ST_X = (screen->width - ST_WIDTH) / 2;
 		ST_Y = screen->height - ST_HEIGHT;
 	}
 
-	ST_SCALEX = FixedDiv(ST_WIDTH << FRACBITS, 320*FRACUNIT);
-	ST_SCALEY = FixedDiv(ST_HEIGHT << FRACBITS, 32*FRACUNIT);
+	ST_SCALEX = FixedDiv(ST_WIDTH << FRACBITS, 320*FRACUNIT) + 1;
+	ST_SCALEY = FixedDiv(ST_HEIGHT << FRACBITS, 32*FRACUNIT) + 1;
 
 	setsizeneeded = true;
 	st_firsttime = true;
