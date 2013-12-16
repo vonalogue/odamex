@@ -172,11 +172,153 @@ void DCanvas::DrawCNMWrapper(EWrapperCode drawer, const Texture* texture, int x0
 /*								*/
 /********************************/
 
+static void V_TransposeTextureData(byte* dest, const byte* source, int width, int height, int pitch)
+{
+	for (int x = 0; x < width; x++)
+	{
+		const byte* ptr = source + x;
+		
+		for (int y = 0; y < height; y++)
+		{
+			*dest = *ptr;
+			ptr += pitch;
+			dest++;
+		}
+	}
+}
+
+
 //
-// V_CopyRect
+// DCanvas::FlatFill
 //
-void DCanvas::CopyRect (int srcx, int srcy, int _width, int _height,
-						int destx, int desty, DCanvas *destscrn)
+// Fills an area with a tiling texture.
+// [RH] Fill an area with a 64x64 flat texture
+//		right and bottom are one pixel *past* the boundaries they describe.
+void DCanvas::FlatFill(const Texture* texture, int x1, int y1, int x2, int y2) const
+{
+	static const int maxwidth = 256;
+	static const int maxheight = 256;
+
+	int tex_width_bits = MIN(texture->getWidthBits(), 8);
+	int tex_height_bits = MIN(texture->getHeightBits(), 8);
+	int tex_width = MIN(1 << tex_width_bits, maxwidth);
+	int tex_height = MIN(1 << tex_height_bits, maxheight);
+	int tex_width_mask = tex_width - 1;
+	int tex_height_mask = tex_height - 1;
+
+	static byte source[maxwidth * maxheight];
+
+	// transpose the texture so that we can use row-major blitting (faster)
+	V_TransposeTextureData(source, texture->getData(), tex_width, tex_height, texture->getWidth());
+
+	if (is8bit())
+	{
+		int advance = pitch - x2 + x1 - 1;
+		palindex_t* dest = (palindex_t*)buffer + y1 * pitch + x1;
+
+		for (int y = y1; y <= y2; y++)
+		{
+			for (int x = x1; x <= x2; x++)
+			{
+				int offset = ((y & tex_height_mask) << tex_width_bits) + (x & tex_width_mask);
+				*dest++ = source[offset];
+			}
+
+			dest += advance;
+		}
+	}
+	else
+	{
+		int advance = pitch / 4 - x2 + x1 - 1;
+		argb_t* dest = (argb_t*)buffer + y1 * pitch / 4 + x1;
+
+		for (int y = y1; y <= y2; y++)
+		{
+			for (int x = x1; x <= x2; x++)
+			{
+				int offset = ((y & tex_height_mask) << tex_width_bits) + (x & tex_width_mask);
+				*dest++ = V_Palette.shade(source[offset]);
+			}
+
+			dest += advance;
+		}
+	}
+}
+
+//
+// DCanvas::DrawTextureFullScreen
+//
+// [SL] Stretches a texture to fill the full-screen while maintaining a 4:3
+// aspect ratio. Pillarboxing is used in widescreen resolutions.
+//
+void DCanvas::DrawTextureFullScreen(const Texture* texture) const
+{
+	Clear(0, 0, width, height, 0);
+
+	if (isProtectedRes())
+	{
+		DrawTexture(texture, 0, 0);
+	}   
+	else if (width * 3 > height * 4)
+	{   
+		// widescreen resolution - draw pic in 4:3 ratio in center of screen
+		int picwidth = 4 * height / 3;
+		int picheight = height;
+		DrawTextureStretched(texture, (width - picwidth) / 2, 0, picwidth, picheight);
+	}   
+	else
+	{
+		// 4:3 resolution - draw pic to the entire screen
+		DrawTextureStretched(texture, 0, 0, width, height);
+	}
+}
+
+
+//
+// DCanvas::Clear
+//
+// [RH] Set an area to a specified color
+//
+void DCanvas::Clear(int left, int top, int right, int bottom, int color) const
+{
+	int x, y;
+
+	if (is8bit())
+	{
+		byte *dest;
+
+		dest = buffer + top * pitch + left;
+		x = right - left;
+		for (y = top; y < bottom; y++)
+		{
+			memset (dest, color, x);
+			dest += pitch;
+		}
+	}
+	else
+	{
+		unsigned int *dest;
+
+		dest = (unsigned int *)(buffer + top * pitch + (left << 2));
+		right -= left;
+
+		for (y = top; y < bottom; y++)
+		{
+			for (x = 0; x < right; x++)
+			{
+				dest[x] = color;
+			}
+			dest += pitch >> 2;
+		}
+	}
+}
+
+
+//
+// DCanvas::CopyRect
+//
+void DCanvas::CopyRect(int srcx, int srcy, int _width, int _height,
+					   int destx, int desty, DCanvas *destscrn)
 {
 	#ifdef RANGECHECK
 	// [AM] Properly crop the copy.  All of these comparison checks (except
