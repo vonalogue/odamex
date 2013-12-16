@@ -62,14 +62,14 @@ void DCanvas::DrawWrapper(EWrapperCode drawer, const Texture* texture, int x0, i
 void DCanvas::DrawSWrapper(EWrapperCode drawer, const Texture* texture, int x0, int y0,
 							int destwidth, int destheight) const
 {
-	if (destwidth <= 0 || destheight <= 0)
+	if (!texture)
 		return;
 
 	int texwidth = texture->getWidth();
 	int texheight = texture->getHeight();
 
-	destwidth = MIN(destwidth, width - x0);
-	destheight = MIN(destheight, height - y0);
+	if (destwidth <= 0 || destheight <= 0 || texwidth == 0 || texheight == 0)
+		return;
 
 	// [AM] Adding 1 to the inc variables leads to fewer weird scaling
 	//      artifacts since it forces col to roll over to the next real number
