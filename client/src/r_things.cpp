@@ -1112,6 +1112,10 @@ void R_AddSprites (sector_t *sec, int lightlevel, int fakeside)
 //
 void R_DrawPSprite (pspdef_t* psp, unsigned flags)
 {
+	// Don't display the weapon sprite if using spectating without spynext
+	if (consoleplayer().spectator && displayplayer_id == consoleplayer_id)
+		return;
+
 	fixed_t 			tx;
 	int 				x1;
 	int 				x2;
@@ -1222,10 +1226,6 @@ void R_DrawPSprite (pspdef_t* psp, unsigned flags)
 		// shadow draw
 		vis->mobjflags = MF_SHADOW;
 	}
-
-	// Don't display the weapon sprite if using spectating without spynext
-	if (consoleplayer().spectator && displayplayer_id == consoleplayer_id)
-		return;
 
 	R_DrawVisSprite(vis);
 }
