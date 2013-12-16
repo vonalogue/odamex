@@ -1102,6 +1102,39 @@ static void R_ViewShear(angle_t pitch)
 	}
 }
 
+//
+// R_GetSine30
+//
+// Returns the sine value of the given angle using 30 bits of precision.
+// The finesine30 LUT is used with linear interpolation between table entries.
+//
+static int32_t R_GetSine30(angle_t ang)
+{
+	static const int32_t lutunit = 1 << ANGLETOFINESHIFT;
+	int32_t blend1 = ang & (lutunit - 1);
+	int32_t blend2 = lutunit - blend1;
+	int index = ang >> ANGLETOFINESHIFT;
+
+	return FixedMul<ANGLETOFINESHIFT, 30, 30>(blend1, finesine30[index + 1]) +
+			FixedMul<ANGLETOFINESHIFT, 30, 30>(blend2, finesine30[index]);
+}
+
+//
+// R_GetCosine30
+//
+// Returns the cosine value of the given angle using 30 bits of precision.
+// The finecosine30 LUT is used with linear interpolation between table entries.
+//
+static int32_t R_GetCosine30(angle_t ang)
+{
+	static const int32_t lutunit = 1 << ANGLETOFINESHIFT;
+	int32_t blend1 = ang & (lutunit - 1);
+	int32_t blend2 = lutunit - blend1;
+	int index = ang >> ANGLETOFINESHIFT;
+
+	return FixedMul<ANGLETOFINESHIFT, 30, 30>(blend1, finecosine30[index + 1]) +
+			FixedMul<ANGLETOFINESHIFT, 30, 30>(blend2, finecosine30[index]);
+}
 
 //
 //
@@ -1152,8 +1185,8 @@ void R_SetupFrame (player_t *player)
 
 	extralight = camera == player->mo ? player->extralight : 0;
 
-	viewsin = finesine30[(ANG90 - viewangle) >> ANGLETOFINESHIFT];
-	viewcos = finecosine30[(ANG90 - viewangle) >> ANGLETOFINESHIFT];
+	viewsin = R_GetSine30(ANG90 - viewangle);
+	viewcos = R_GetCosine30(ANG90 - viewangle);
 
 	// killough 3/20/98, 4/4/98: select colormap based on player status
 	// [RH] Can also select a blend
