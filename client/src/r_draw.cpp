@@ -1243,7 +1243,7 @@ public:
 	{
 		argb_t fg = colormap.shade(c);
 		argb_t bg = *dest;
-		return alphablend2a(bg, bga, fg, fga);	
+		return rt_blend2<argb_t>(bg, bga, fg, fga);	
 	}
 
 private:

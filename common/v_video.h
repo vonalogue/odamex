@@ -511,8 +511,26 @@ std::string V_GetColorStringByName (const char *name);
 
 
 bool V_SetResolution (int width, int height, int bpp);
+bool V_UsePillarBox();
+bool V_UseLetterBox();
+bool V_UseWidescreen();
 
-template<>
+
+// ----------------------------------------------------------------------------
+//
+// Shaders
+//
+// ----------------------------------------------------------------------------
+
+//
+// rt_blend2
+//
+// Performs alpha-blending between two colors.
+//
+template<typename PIXEL_T>
+static forceinline PIXEL_T rt_blend2(const PIXEL_T bg, const int bga, const PIXEL_T fg, const int fga);
+
+template <>
 forceinline palindex_t rt_blend2(const palindex_t bg, const int bga, const palindex_t fg, const int fga)
 {
 	// Crazy 8bpp alpha-blending using lookup tables and bit twiddling magic
@@ -523,15 +541,83 @@ forceinline palindex_t rt_blend2(const palindex_t bg, const int bga, const palin
 	return RGB32k[0][0][mix & (mix >> 15)];
 }
 
-template<>
+template <>
 forceinline argb_t rt_blend2(const argb_t bg, const int bga, const argb_t fg, const int fga)
 {
-	return alphablend2a(bg, bga, fg, fga);
+	return MAKERGB(
+		(RPART(bg) * bga + RPART(fg) * fga) >> 8,
+		(GPART(bg) * bga + GPART(fg) * fga) >> 8,
+		(BPART(bg) * bga + BPART(fg) * fga) >> 8
+	);
 }
 
-bool V_UsePillarBox();
-bool V_UseLetterBox();
-bool V_UseWidescreen();
+
+//
+// rt_rawcolor
+//
+// Performs no colormapping and only uses the default palette.
+//
+template<typename PIXEL_T>
+static forceinline PIXEL_T rt_rawcolor(const shaderef_t &pal, const byte c);
+
+template <>
+forceinline palindex_t rt_rawcolor<palindex_t>(const shaderef_t &pal, const byte c)
+{
+	return (c);
+}
+
+template <>
+forceinline argb_t rt_rawcolor<argb_t>(const shaderef_t &pal, const byte c)
+{
+	return pal.shade(c);
+}
+
+
+//
+// rt_mapcolor
+//
+// Performs color mapping.
+//
+template<typename PIXEL_T>
+static forceinline PIXEL_T rt_mapcolor(const shaderef_t &pal, const byte c);
+
+template <>
+forceinline palindex_t rt_mapcolor<palindex_t>(const shaderef_t &pal, const byte c)
+{
+	return pal.index(c);
+}
+
+template <>
+forceinline argb_t rt_mapcolor<argb_t>(const shaderef_t &pal, const byte c)
+{
+	return pal.shade(c);
+}
+
+
+//
+// rt_tlatecolor
+//
+// Performs color mapping and color translation.
+//
+template<typename PIXEL_T>
+static forceinline PIXEL_T rt_tlatecolor
+			(const shaderef_t &pal, const translationref_t &translation, const byte c);
+
+template <>
+forceinline palindex_t rt_tlatecolor<palindex_t>
+			(const shaderef_t &pal, const translationref_t &translation, const byte c)
+{
+	return translation.tlate(pal.index(c));
+}
+
+template <>
+forceinline argb_t rt_tlatecolor<argb_t>
+			(const shaderef_t &pal, const translationref_t &translation, const byte c)
+{
+	return pal.tlate(translation, c);
+}
+
+
 
 // Alpha blend between two RGB colors with only dest alpha value
 // 0 <=   toa <= 255

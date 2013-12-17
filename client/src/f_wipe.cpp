@@ -51,17 +51,6 @@ EXTERN_CVAR (r_wipetype)
 
 static byte* wipe_screen = NULL;
 
-static inline void Wipe_Blend(palindex_t* to, const palindex_t* from, int fglevel, int bglevel)
-{
-	*to = rt_blend2<palindex_t>(*from, bglevel << 2, *to, fglevel << 2);
-}
-
-static inline void Wipe_Blend(argb_t* to, const argb_t* from, int fglevel, int bglevel)
-{
-	*to = alphablend2a(*from, bglevel << 2, *to, fglevel << 2);
-}
-
-
 // Melt -------------------------------------------------------------
 
 // [SL] The standard Doom screen wipe. This implementation borrows
@@ -309,7 +298,7 @@ static inline void Wipe_DrawBurnGeneric()
 			if (fglevel > 0 && fglevel < 63)
 			{
 				int bglevel = 64 - fglevel;
-				Wipe_Blend(&to[x], &from[x], fglevel, bglevel);
+				to[x] = rt_blend2<PIXEL_T>(from[x], bglevel << 2, to[x], fglevel << 2);
 			}
 			else if (fglevel == 0)
 			{
@@ -363,7 +352,7 @@ static inline void Wipe_DrawFadeGeneric()
 	for (int y = 0; y < screen->height; y++)
 	{
 		for (int x = 0; x < screen->width; x++)
-			Wipe_Blend(&to[x], &from[x], fade, bglevel);
+			to[x] = rt_blend2<PIXEL_T>(from[x], bglevel << 2, to[x], fade << 2);
 
 		from += screen->width;
 		to += pitch;
