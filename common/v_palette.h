@@ -80,10 +80,6 @@ extern byte newgamma[256];
 // Alpha blend between two RGB colors with only dest alpha value
 // 0 <=   toa <= 256
 argb_t alphablend1a(const argb_t from, const argb_t to, const int toa);
-// Alpha blend between two RGB colors with two alpha values
-// 0 <= froma <= 256
-// 0 <=   toa <= 256
-argb_t alphablend2a(const argb_t from, const int froma, const argb_t to, const int toa);
 
 // InitPalettes()
 //	input: name:  the name of the default palette lump

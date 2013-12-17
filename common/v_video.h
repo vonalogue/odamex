@@ -638,19 +638,6 @@ forceinline argb_t alphablend1a(const argb_t from, const argb_t to, const int to
 	);
 }
 
-// Alpha blend between two RGB colors with two alpha values
-// 0 <= froma <= 255
-// 0 <=   toa <= 255
-forceinline argb_t alphablend2a(const argb_t from, const int froma, const argb_t to, const int toa)
-{
-	return MAKERGB(
-		(RPART(from) * froma + RPART(to) * toa) >> 8,
-		(GPART(from) * froma + GPART(to) * toa) >> 8,
-		(BPART(from) * froma + BPART(to) * toa) >> 8
-	);
-}
-
-
 #endif // __V_VIDEO_H__
 
 
