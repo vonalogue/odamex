@@ -67,14 +67,6 @@ typedef struct palette_s palette_t;
 #define LAP_TEXTURE			(3)
 
 
-struct dyncolormap_s {
-	shaderef_t   maps;
-	unsigned int color;
-	unsigned int fade;
-	struct dyncolormap_s *next;
-};
-typedef struct dyncolormap_s dyncolormap_t;
-
 extern byte newgamma[256];
 
 // Alpha blend between two RGB colors with only dest alpha value

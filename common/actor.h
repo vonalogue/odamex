@@ -43,6 +43,9 @@
 
 #include "szp.h"
 
+// translationref_t
+#include "v_colormap.h"
+
 // STL
 #include <vector>
 #include <map>

@@ -841,7 +841,6 @@ public:
 
 	forceinline palindex_t operator()(byte c, palindex_t* dest) const
 	{
-		return rt_rawc
 		return c;
 	}
 };

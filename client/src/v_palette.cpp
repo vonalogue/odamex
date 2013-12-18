@@ -28,6 +28,7 @@
 
 #include "doomstat.h"
 #include "v_video.h"
+#include "v_colormap.h"
 #include "v_gamma.h"
 #include "m_alloc.h"
 #include "r_main.h"		// For lighting constants
@@ -72,85 +73,6 @@ argb_t IndexedPalette[256];
 
 /* Current color blending values */
 int		BlendR, BlendG, BlendB, BlendA;
-
-translationref_t::translationref_t() : m_table(NULL), m_player_id(-1)
-{
-}
-
-translationref_t::translationref_t(const translationref_t &other) : m_table(other.m_table), m_player_id(other.m_player_id)
-{
-}
-
-translationref_t::translationref_t(const byte *table) : m_table(table), m_player_id(-1)
-{
-}
-
-translationref_t::translationref_t(const byte *table, const int player_id) : m_table(table), m_player_id(player_id)
-{
-}
-
-shaderef_t::shaderef_t() : m_colors(NULL), m_mapnum(-1), m_colormap(NULL), m_shademap(NULL)
-{
-}
-
-shaderef_t::shaderef_t(const shaderef_t &other)
-	: m_colors(other.m_colors), m_mapnum(other.m_mapnum),
-	  m_colormap(other.m_colormap), m_shademap(other.m_shademap), m_dyncolormap(other.m_dyncolormap)
-{
-}
-
-shaderef_t::shaderef_t(const shademap_t * const colors, const int mapnum) : m_colors(colors), m_mapnum(mapnum)
-{
-#if DEBUG
-	// NOTE(jsd): Arbitrary value picked here because we don't record the max number of colormaps for dynamic ones... or do we?
-	if (m_mapnum >= 8192)
-	{
-		char tmp[100];
-		sprintf_s(tmp, "32bpp: shaderef_t::shaderef_t() called with mapnum = %d, which looks too large", m_mapnum);
-		throw CFatalError(tmp);
-	}
-#endif
-
-	if (m_colors != NULL)
-	{
-		if (m_colors->colormap != NULL)
-			m_colormap = m_colors->colormap + (256 * m_mapnum);
-		else
-			m_colormap = NULL;
-
-		if (m_colors->shademap != NULL)
-			m_shademap = m_colors->shademap + (256 * m_mapnum);
-		else
-			m_shademap = NULL;
-
-		// Detect if the colormap is dynamic:
-		m_dyncolormap = NULL;
-
-		extern palette_t DefPal;
-		if (m_colors != &(DefPal.maps))
-		{
-			// Find the dynamic colormap by the `m_colors` pointer:
-			extern dyncolormap_t NormalLight;
-			dyncolormap_t *colormap = &NormalLight;
-
-			do
-			{
-				if (m_colors == colormap->maps.m_colors)
-				{
-					m_dyncolormap = colormap;
-					break;
-				}
-				colormap = colormap->next;
-			} while (colormap);
-		}
-	}
-	else
-	{
-		m_colormap = NULL;
-		m_shademap = NULL;
-		m_dyncolormap = NULL;
-	}
-}
 
 /**************************/
 /* Gamma correction stuff */
@@ -461,6 +383,24 @@ static void DoBlendingWithGamma (DWORD *from, DWORD *to, unsigned count, int tor
 	}
 }
 
+
+argb_t V_LightWithGamma(const dyncolormap_t* dyncolormap, argb_t color, int intensity)
+{
+	argb_t lightcolor;
+
+	if (dyncolormap)
+		lightcolor = dyncolormap->color;			// use dynamic lighting if availible
+	else
+		lightcolor = MAKERGB(0xFF, 0xFF, 0xFF);		// white light
+
+	return MAKERGB(
+		newgamma[(RPART(color) * RPART(lightcolor) * intensity) >> 16],
+		newgamma[(GPART(color) * GPART(lightcolor) * intensity) >> 16],
+		newgamma[(BPART(color) * BPART(lightcolor) * intensity) >> 16]);
+}
+
+
+
 static const float lightScale(float a)
 {
 	// NOTE(jsd): Revised inverse logarithmic scale; near-perfect match to COLORMAP lump's scale
@@ -471,6 +411,30 @@ static const float lightScale(float a)
 	float newa = clamp(1.0f - (e1 - (float)exp(a * 2.0f - 1.0f)) / e1sube0, 0.0f, 1.0f);
 	return newa;
 }
+
+
+//
+// V_FindDynamicColormap
+//
+// Finds the dynamic colormap that contains shademap
+//
+dyncolormap_t* V_FindDynamicColormap(const shademap_t* shademap)
+{
+	if (shademap != &GetDefaultPalette()->maps)
+	{
+		// Find the dynamic colormap by the shademap pointer:
+		dyncolormap_t* colormap = &NormalLight;
+
+		do
+		{
+			if (shademap == colormap->maps.map())
+				return colormap;
+		} while ( (colormap = colormap->next) );
+	}
+
+	return NULL;
+}
+
 
 void BuildLightRamp (shademap_t &maps)
 {

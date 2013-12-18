@@ -106,11 +106,6 @@ extern shaderef_t		fixed_colormap_table[MAXWIDTH];
 extern int				lightscalexmul;	// [RH] for hires lighting fix
 extern int				lightscaleymul;
 
-// Number of diminishing brightness levels.
-// There a 0-31, i.e. 32 LUT in the COLORMAP lump.
-#define NUMCOLORMAPS			32
-
-
 //
 // Function pointers to switch refresh/drawing functions.
 //
@@ -195,52 +190,7 @@ void R_SetLucentDrawFuncs();
 void R_SetTranslatedDrawFuncs();
 void R_SetTranslatedLucentDrawFuncs();
 
-inline const byte shaderef_t::ramp() const
-{
-	if (m_mapnum >= NUMCOLORMAPS)
-		return 0;
-
-	int index = clamp(m_mapnum * 256 / NUMCOLORMAPS, 0, 255);
-	return m_colors->ramp[index];
-}
-
 extern argb_t translationRGB[MAXPLAYERS+1][16];
-
-inline argb_t shaderef_t::tlate(const translationref_t &translation, const byte c) const
-{
-	int pid = translation.getPlayerID();
-
-	// Not a player color translation:
-	if (pid == -1)
-		return shade(translation.tlate(c));
-
-	// Special effect:
-	if (m_mapnum >= NUMCOLORMAPS)
-		return shade(translation.tlate(c));
-
-	// Is a player color translation, but not a player color index:
-	if (!(c >= 0x70 && c < 0x80))
-		return shade(c);
-
-	// Default to white light:
-	argb_t lightcolor = MAKERGB(255, 255, 255);
-
-	// Use the dynamic lighting's light color if we have one:
-	if (m_dyncolormap != NULL)
-		lightcolor = m_dyncolormap->color;
-
-	// Find the shading for the custom player colors:
-	byte a = 255 - ramp();
-	argb_t t = translationRGB[pid][c - 0x70];
-	argb_t s = MAKERGB(
-		newgamma[RPART(t) * RPART(lightcolor) * a / (255 * 255)],
-		newgamma[GPART(t) * GPART(lightcolor) * a / (255 * 255)],
-		newgamma[BPART(t) * BPART(lightcolor) * a / (255 * 255)]
-	);
-
-	return s;
-}
-
 
 void R_DrawLine(const v3fixed_t* inpt1, const v3fixed_t* inpt2, byte color);
 

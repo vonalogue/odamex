@@ -30,6 +30,8 @@
 
 #include "r_texture.h"
 
+#include "v_colormap.h"
+
 // Some more or less basic data types
 // we depend on.
 #include "m_fixed.h"
@@ -134,8 +136,6 @@ struct plane_s
 };
 typedef struct plane_s plane_t;
 
-struct dyncolormap_s;
-
 class DSectorEffect;
 
 struct sector_s
@@ -224,8 +224,9 @@ struct sector_s
 	float gravity;		// [RH] Sector gravity (1.0 is normal)
 	short damage;		// [RH] Damage to do while standing on floor
 	short mod;			// [RH] Means-of-death for applied damage
-	struct dyncolormap_s *floorcolormap;	// [RH] Per-sector colormap
-	struct dyncolormap_s *ceilingcolormap;
+
+	dyncolormap_t* floorcolormap;	// [RH] Per-sector colormap
+	dyncolormap_t* ceilingcolormap;
 
 	bool alwaysfake;	// [RH] Always apply heightsec modifications?
 	byte waterzone;		// [RH] Sector is underwater?
