@@ -177,7 +177,6 @@ static void M_SlidePlayerRed (int choice);
 static void M_SlidePlayerGreen (int choice);
 static void M_SlidePlayerBlue (int choice);
 static void M_ChangeGender (int choice);
-static void M_ChangeSkin (int choice);
 static void M_ChangeAutoAim (int choice);
 bool M_DemoNoPlay;
 
@@ -344,7 +343,6 @@ enum psetup_t
 	playergreen,
 	playerblue,
 	playersex,
-	playerskin,
 	playeraim,
 	psetup_end
 } psetup_e;
@@ -357,7 +355,6 @@ oldmenuitem_t PlayerSetupMenu[] =
 	{ 2,"", M_SlidePlayerGreen, 'G' },
 	{ 2,"", M_SlidePlayerBlue, 'B' },
 	{ 2,"", M_ChangeGender, 'E' },
-	{ 2,"", M_ChangeSkin, 'S' },
 	{ 2,"", M_ChangeAutoAim, 'A' }
 };
 
@@ -1201,7 +1198,6 @@ static int PlayerTics;
 EXTERN_CVAR (cl_name)
 EXTERN_CVAR (cl_team)
 EXTERN_CVAR (cl_color)
-EXTERN_CVAR (cl_skin)
 EXTERN_CVAR (cl_gender)
 EXTERN_CVAR (cl_autoaim)
 
@@ -1424,9 +1420,8 @@ static void M_PlayerSetupDrawer (void)
 		}
 	}
 	{
-		unsigned skin = R_FindSkin(cl_skin.cstring());
-		spriteframe_t *sprframe =
-			&sprites[skins[skin].sprite].spriteframes[PlayerState->frame & FF_FRAMEMASK];
+		int spritenum = states[mobjinfo[MT_PLAYER].spawnstate].sprite;
+		spriteframe_t* sprframe = &sprites[spritenum].spriteframes[PlayerState->frame & FF_FRAMEMASK];
 
 		// [Nes] Color of player preview uses the unused translation table (player 0), instead
 		// of the table of the current player color. (Which is different in single, demo, and team)
@@ -1485,22 +1480,6 @@ static void M_PlayerSetupDrawer (void)
 		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_GREY, gender_str);
 	}
 
-	// Draw skin setting
-	{
-		if (sv_gametype != GM_CTF) // [Toke - CTF] Dont allow skin selection if in CTF or Teamplay mode
-		{
-			const char label_str[] = "Skin";
-			const char* skin_str = cl_skin.cstring();
-
-			int x = PSetupDef.x;
-			int y = PSetupDef.y + LINEHEIGHT*6;
-			menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, label_str);
-
-			x += menu_font->getTextWidth(label_str) / CleanXfac + 8;
-			menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_GREY, skin_str);
-		}
-	}
-
 	// Draw autoaim setting
 	{
 		const char label_str[] = "Autoaim";
@@ -1513,7 +1492,7 @@ static void M_PlayerSetupDrawer (void)
 			cl_autoaim <= 3 ? "Very High" : "Always";
 
 		int x = PSetupDef.x;
-		int y = PSetupDef.y + LINEHEIGHT*7;
+		int y = PSetupDef.y + LINEHEIGHT*6;
 		menu_font->printText(screen, M_CleanX(x), M_CleanY(y), CR_RED, label_str);
 
 		x += menu_font->getTextWidth(label_str) / CleanXfac + 8;
@@ -1560,18 +1539,6 @@ static void M_ChangeGender (int choice)
 		gender = (gender == 2) ? 0 : gender + 1;
 
 	cl_gender = genders[gender];
-}
-
-static void M_ChangeSkin (int choice) // [Toke - Skins]
-{
-	unsigned skin = R_FindSkin(cl_skin.cstring());
-
-	if (!choice)
-		skin = (skin == 0) ? numskins - 1 : skin - 1;
-	else
-		skin = (skin + 1 < numskins) ? skin + 1 : 0;
-
-	cl_skin = skins[skin].name;
 }
 
 static void M_ChangeAutoAim (int choice)
@@ -1935,12 +1902,7 @@ bool M_Responder (event_t* ev)
 			if (itemOn+1 > currentMenu->numitems-1)
 				itemOn = 0;
 			else
-			{
-				// [Toke - CTF]  Skip the skins item in CTF or Teamplay mode
-				if (sv_gametype == GM_CTF && currentMenu == &PSetupDef && itemOn == 5)
-					itemOn = itemOn + 2;
-				else	itemOn++;
-			}
+				itemOn++;
 			S_Sound (CHAN_INTERFACE, "plats/pt1_stop", 1, ATTN_NONE);
 		} while(currentMenu->menuitems[itemOn].status==-1);
 		return true;
@@ -1953,12 +1915,7 @@ bool M_Responder (event_t* ev)
 			if (!itemOn)
 				itemOn = currentMenu->numitems-1;
 			else
-			{
-				// [Toke - CTF]  Skip the skins item in CTF or Teamplay mode
-				if (sv_gametype == GM_CTF && currentMenu == &PSetupDef && itemOn == 7)
-					itemOn = itemOn - 2;
-				else itemOn--;
-			}
+				itemOn--;
 			S_Sound (CHAN_INTERFACE, "plats/pt1_stop", 1, ATTN_NONE);
 		} while(currentMenu->menuitems[itemOn].status==-1);
 		return true;
@@ -2205,15 +2162,9 @@ void M_Ticker (void)
 		whichSkull ^= 1;
 		skullAnimCounter = 8;
 	}
-	if (currentMenu == &PSetupDef)
-	{
-		// [Toke - CTF] skip skins selection
-		if (sv_gametype == GM_CTF)
-			if (itemOn == 6)
-				itemOn = 5;
 
+	if (currentMenu == &PSetupDef)
 		M_PlayerSetupTicker ();
-	}
 }
 
 
