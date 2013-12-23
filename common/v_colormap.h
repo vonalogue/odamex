@@ -28,18 +28,19 @@
 #include "doomtype.h"
 #include "doomdef.h"
 
+struct dyncolormap_t;
+class shademap_t;
+struct palette_t;
+
 // Number of diminishing brightness levels.
 // There a 0-31, i.e. 32 LUT in the COLORMAP lump.
 #define NUMCOLORMAPS			32
 
-// ----------------------------------------------------------------------------
-//
-// extern variables and functions
-//
-// ----------------------------------------------------------------------------
-
 extern argb_t translationRGB[MAXPLAYERS + 1][16];
+extern dyncolormap_t NormalLight;
 
+argb_t V_LightWithGamma(const dyncolormap_t* dyncolormap, argb_t color, int intensity);
+dyncolormap_t* V_FindDynamicColormap(const shademap_t* shademap);
 
 // ----------------------------------------------------------------------------
 //
@@ -110,10 +111,6 @@ struct shademap_t
 // shaderef_t
 //
 // ----------------------------------------------------------------------------
-
-struct dyncolormap_t;
-dyncolormap_t* V_FindDynamicColormap(const shademap_t* shademap);
-argb_t V_LightWithGamma(const dyncolormap_t* dyncolormap, argb_t color, int intensity);
 
 // This represents a clean reference to a map of both 8-bit colors and 32-bit shades.
 
@@ -269,6 +266,27 @@ struct dyncolormap_t
 	dyncolormap_t*	next;
 };
 
+
+// ----------------------------------------------------------------------------
+//
+// extern variables and functions
+//
+// ----------------------------------------------------------------------------
+
+extern shademap_t realcolormaps;		// [RH] make the colormaps externally visible
+extern int numfakecmaps;
+
+void V_InitColormaps();
+void V_SetDefaultColormap(const char* name);
+void V_ForceDefaultColormap(const char* name);
+void V_ReinitColormap();
+int V_ColormapNumForName(const char* name);
+argb_t V_BlendForColormap(int map);
+void V_DoBlending(argb_t* to, const argb_t* from, unsigned int count,
+					int tor, int tog, int tob, int toa);
+void V_DoBlending(argb_t* to, const argb_t* from, unsigned int count, argb_t blend_value);
+void V_BuildLightRamp(shademap_t& maps);
+void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps);
 
 
 #endif	// __V_COLORMAP_H__

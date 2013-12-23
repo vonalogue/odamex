@@ -43,13 +43,6 @@ extern "C" int			realviewwidth;
 extern "C" int			viewheight;
 extern "C" int			realviewheight;
 
-extern int				firstflat;
-
-// for global animation
-extern bool*			flatwarp;
-extern byte**			warpedflats;
-extern int*				flatwarpedwhen;
-
 // Sprite....
 extern int				firstspritelump;
 extern int				lastspritelump;

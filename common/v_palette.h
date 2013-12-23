@@ -27,8 +27,10 @@
 #include "doomtype.h"
 #include "r_defs.h"
 
-struct palette_s {
-	struct palette_s *next, *prev;
+struct palette_t
+{
+	palette_t*		next;
+	palette_t*		prev;
 
 	shademap_t      maps;
 	byte			*colormapsbase;
@@ -43,7 +45,6 @@ struct palette_s {
 	unsigned		shadeshift;
 	int				usecount;
 };
-typedef struct palette_s palette_t;
 
 // Generate shading ramps for lighting
 #define PALETTEB_SHADE		(0)
@@ -69,9 +70,14 @@ typedef struct palette_s palette_t;
 
 extern byte newgamma[256];
 
+void V_GammaCorrect(argb_t* to, const argb_t* from, unsigned int count);
+
 // Alpha blend between two RGB colors with only dest alpha value
 // 0 <=   toa <= 256
 argb_t alphablend1a(const argb_t from, const argb_t to, const int toa);
+
+palindex_t V_BestColor(const argb_t *palette, int r, int g, int b, int numcolors);
+palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors);
 
 // InitPalettes()
 //	input: name:  the name of the default palette lump

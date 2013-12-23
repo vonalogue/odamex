@@ -870,7 +870,7 @@ static void SetTextureNoErr(texhandle_t& texhandle, unsigned int& color, const c
 
 static void SetTexture(texhandle_t& texhandle, unsigned int& color, const char* name)
 {
-	color = R_ColormapNumForName(name);
+	color = V_ColormapNumForName(name);
 	if (color == 0)
 	{
 		SetTextureNoErr(texhandle, color, name);
@@ -1561,7 +1561,6 @@ void P_AllocStarts(void)
 //
 // P_SetupLevel
 //
-extern dyncolormap_t NormalLight;
 extern polyblock_t **PolyBlockMap;
 
 // [RH] position indicates the start spot to spawn at

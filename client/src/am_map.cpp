@@ -539,7 +539,7 @@ am_color_t AM_GetColorFromString(argb_t *palette, const char *colorstring)
 {
 	am_color_t c;
 	c.rgb = (argb_t) V_GetColorFromString(NULL, colorstring);
-	c.index = BestColor2(palette, c.rgb, 256);
+	c.index = V_BestColor(palette, c.rgb, 256);
 	return c;
 }
 
@@ -547,7 +547,7 @@ am_color_t AM_BestColor(argb_t *palette, const int r, const int g, const int b, 
 {
 	am_color_t c;
 	c.rgb = MAKERGB(r,g,b);
-	c.index = BestColor2(palette, c.rgb, 256);
+	c.index = V_BestColor(palette, c.rgb, 256);
 	return c;
 }
 
@@ -598,7 +598,7 @@ void AM_initColors (BOOL overlayed)
 			if (g < 0) g += 32;
 			if (b < 0) b += 32;
 			AlmostBackground.rgb = MAKERGB(r,g,b);
-			AlmostBackground.index = BestColor2(palette, AlmostBackground.rgb, 256);
+			AlmostBackground.index = V_BestColor(palette, AlmostBackground.rgb, 256);
 		}
 	}
 	else
@@ -1549,7 +1549,7 @@ void AM_drawPlayers(void)
 		} else {
 			int playercolor = CL_GetPlayerColor(p);
 			color.rgb = (argb_t)playercolor;
-			color.index = BestColor (GetDefaultPalette()->basecolors,
+			color.index = V_BestColor(GetDefaultPalette()->basecolors,
 							   RPART(playercolor),
 							   GPART(playercolor),
 							   BPART(playercolor),

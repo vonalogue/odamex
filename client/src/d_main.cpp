@@ -559,6 +559,8 @@ void D_Init()
 		I_Error("Could not reinitialize palette");
 	V_InitPalette();
 
+	V_InitColormaps();
+
 	if (first_time)
 		Printf(PRINT_HIGH, "R_InitTextureManager: Init image resource management.\n");
 	R_InitTextureManager();

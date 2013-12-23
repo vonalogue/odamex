@@ -506,7 +506,7 @@ int V_GetColorFromString (const argb_t *palette, const char *cstr)
 		}
 	}
 	if (palette)
-		return BestColor (palette, c[0]>>8, c[1]>>8, c[2]>>8, 256);
+		return V_BestColor(palette, c[0]>>8, c[1]>>8, c[2]>>8, 256);
 	else
 		return ((c[0] << 8) & 0xff0000) |
 			   ((c[1])      & 0x00ff00) |

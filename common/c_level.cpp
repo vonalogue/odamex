@@ -1089,8 +1089,6 @@ void G_DoWorldDone (void)
 }
 
 
-extern dyncolormap_t NormalLight;
-
 EXTERN_CVAR (sv_gravity)
 EXTERN_CVAR (sv_aircontrol)
 
@@ -1124,11 +1122,11 @@ void G_InitLevelLocals ()
 		info = (level_info_t *)pinfo;
 		strncpy (level.skypic2, pinfo->skypic2, 8);
 		level.fadeto = pinfo->fadeto;
-		if (level.fadeto) {
+		if (level.fadeto)
 			NormalLight.maps = shaderef_t(&GetDefaultPalette()->maps, 0);
-		} else {
-			R_ForceDefaultColormap (pinfo->fadetable);
-		}
+		else
+			V_ForceDefaultColormap(pinfo->fadetable);
+		
 		level.outsidefog = pinfo->outsidefog;
 		level.flags |= LEVEL_DEFINEDINMAPINFO;
 		if (pinfo->gravity != 0.f)
@@ -1145,7 +1143,7 @@ void G_InitLevelLocals ()
 		level.skypic2[0] = 0;
 		level.fadeto = 0;
 		level.outsidefog = 0xff000000;	// 0xff000000 signals not to handle it special
-		R_ForceDefaultColormap ("COLORMAP");
+		V_ForceDefaultColormap ("COLORMAP");
 	}
 
 	if (info->level_name) {

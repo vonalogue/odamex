@@ -363,7 +363,7 @@ void R_BuildPlayerTranslation (int player, int color)
 			(int)(b * 255.0f)
 		);
 
-		table[i] = BestColor (pal->basecolors,
+		table[i] = V_BestColor(pal->basecolors,
 							  (int)(r * 255.0f),
 							  (int)(g * 255.0f),
 							  (int)(b * 255.0f),

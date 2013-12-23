@@ -56,10 +56,7 @@ EXTERN_CVAR(r_painintensity)
 EXTERN_CVAR(sv_allowredscreen)
 
 void BuildColoredLights (byte *maps, int lr, int lg, int lb, int fr, int fg, int fb);
-static void DoBlending (argb_t *from, argb_t *to, unsigned count, int tor, int tog, int tob, int toa);
 void V_ForceBlend (int blendr, int blendg, int blendb, int blenda);
-
-dyncolormap_t NormalLight;
 
 static int lu_palette;
 static int current_palette;
@@ -102,6 +99,25 @@ CVAR_FUNC_IMPL(vid_gammatype)
 
 byte newgamma[256];
 static bool gamma_initialized = false;
+
+
+//
+// V_GammaCorrect
+//
+// Applies the current gamma correction table to an ARGB8888 buffer.
+//
+void V_GammaCorrect(argb_t* to, const argb_t* from, unsigned int count)
+{
+	for (unsigned int i = 0; i < count; i++, from++)
+	{
+		unsigned int a = APART(*from);
+		unsigned int r = RPART(*from);
+		unsigned int g = GPART(*from);
+		unsigned int b = BPART(*from);
+
+		*to++ = MAKEARGB(a, newgamma[r], newgamma[g], newgamma[b]);	
+	}
+}
 
 static void V_UpdateGammaLevel(float level)
 {
@@ -160,6 +176,41 @@ void V_RestoreScreenPalette(void)
 /****************************/
 /* Palette management stuff */
 /****************************/
+
+//
+// V_BestColor
+//
+// (borrowed from Quake2 source: utils3/qdata/images.c)
+// [SL] Also nearly identical to BestColor in dcolors.c in Doom utilites
+//
+palindex_t V_BestColor(const argb_t *palette, int r, int g, int b, int numcolors)
+{
+	int bestdistortion = 256*256*4;
+	int bestcolor = 0;		/// let any color go to 0 as a last resort
+
+	for (int i = 0; i < numcolors; i++)
+	{
+		int dr = r - RPART(palette[i]);
+		int dg = g - GPART(palette[i]);
+		int db = b - BPART(palette[i]);
+		int distortion = dr*dr + dg*dg + db*db;
+		if (distortion < bestdistortion)
+		{
+			if (!distortion)
+				return i;		// perfect match
+
+			bestdistortion = distortion;
+			bestcolor = i;
+		}
+	}
+
+	return bestcolor;
+}
+
+palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors)
+{
+	return V_BestColor(palette, RPART(color), GPART(color), BPART(color), numcolors);
+}
 
 bool InternalCreatePalette (palette_t *palette, const char *name, byte *colors,
 							unsigned numcolors, unsigned flags)
@@ -339,197 +390,7 @@ palette_t *FindPalette (char *name, unsigned flags)
 }
 
 
-// This is based (loosely) on the ColorShiftPalette()
-// function from the dcolors.c file in the Doom utilities.
-static void DoBlending (argb_t *from, argb_t *to, unsigned count, int tor, int tog, int tob, int toa)
-{
-	if (toa == 0)
-	{
-		if (from != to)
-			memcpy(to, from, count * sizeof(argb_t));
-	}
-	else
-	{
-		for (unsigned i = 0; i < count; i++)
-		{
-			int r = RPART(*from);
-			int g = GPART(*from);
-			int b = BPART(*from);
-			from++;
-			int dr = tor - r;
-			int dg = tog - g;
-			int db = tob - b;
-			*to++ = MAKERGB (r + ((dr*toa)>>8),
-							 g + ((dg*toa)>>8),
-							 b + ((db*toa)>>8));
-		}
-	}
-}
 
-static void DoBlendingWithGamma (DWORD *from, DWORD *to, unsigned count, int tor, int tog, int tob, int toa)
-{
-	for (unsigned i = 0; i < count; i++)
-	{
-		int r = RPART(*from);
-		int g = GPART(*from);
-		int b = BPART(*from);
-		from++;
-		int dr = tor - r;
-		int dg = tog - g;
-		int db = tob - b;
-		*to++ = MAKERGB (newgamma[r + ((dr*toa)>>8)],
-						 newgamma[g + ((dg*toa)>>8)],
-						 newgamma[b + ((db*toa)>>8)]);
-	}
-}
-
-
-argb_t V_LightWithGamma(const dyncolormap_t* dyncolormap, argb_t color, int intensity)
-{
-	argb_t lightcolor;
-
-	if (dyncolormap)
-		lightcolor = dyncolormap->color;			// use dynamic lighting if availible
-	else
-		lightcolor = MAKERGB(0xFF, 0xFF, 0xFF);		// white light
-
-	return MAKERGB(
-		newgamma[(RPART(color) * RPART(lightcolor) * intensity) >> 16],
-		newgamma[(GPART(color) * GPART(lightcolor) * intensity) >> 16],
-		newgamma[(BPART(color) * BPART(lightcolor) * intensity) >> 16]);
-}
-
-
-
-static const float lightScale(float a)
-{
-	// NOTE(jsd): Revised inverse logarithmic scale; near-perfect match to COLORMAP lump's scale
-	// 1 - ((Exp[1] - Exp[a*2 - 1]) / (Exp[1] - Exp[-1]))
-	static float e1 = exp(1.0f);
-	static float e1sube0 = e1 - exp(-1.0f);
-
-	float newa = clamp(1.0f - (e1 - (float)exp(a * 2.0f - 1.0f)) / e1sube0, 0.0f, 1.0f);
-	return newa;
-}
-
-
-//
-// V_FindDynamicColormap
-//
-// Finds the dynamic colormap that contains shademap
-//
-dyncolormap_t* V_FindDynamicColormap(const shademap_t* shademap)
-{
-	if (shademap != &GetDefaultPalette()->maps)
-	{
-		// Find the dynamic colormap by the shademap pointer:
-		dyncolormap_t* colormap = &NormalLight;
-
-		do
-		{
-			if (shademap == colormap->maps.map())
-				return colormap;
-		} while ( (colormap = colormap->next) );
-	}
-
-	return NULL;
-}
-
-
-void BuildLightRamp (shademap_t &maps)
-{
-	int l;
-	// Build light ramp:
-	for (l = 0; l < 256; ++l)
-	{
-		int a = (int)(255 * lightScale(l / 255.0f));
-		maps.ramp[l] = a;
-	}
-}
-
-void BuildDefaultColorAndShademap (palette_t *pal, shademap_t &maps)
-{
-	byte  *color;
-	argb_t *shade;
-	argb_t colors[256];
-
-	unsigned int r = RPART (level.fadeto);
-	unsigned int g = GPART (level.fadeto);
-	unsigned int b = BPART (level.fadeto);
-
-	BuildLightRamp(maps);
-
-	// build normal light mappings
-	for (unsigned int i = 0; i < NUMCOLORMAPS; i++)
-	{
-		byte a = maps.ramp[i * 255 / NUMCOLORMAPS];
-
-		DoBlending          (pal->basecolors, colors, pal->numcolors, r, g, b, a);
-		DoBlendingWithGamma (colors, maps.shademap + (i << pal->shadeshift), pal->numcolors, r, g, b, a);
-
-		color = maps.colormap + (i << pal->shadeshift);
-		for (unsigned int j = 0; j < pal->numcolors; j++)
-		{
-			color[j] = BestColor(
-					pal->basecolors,
-			  		RPART(colors[j]),
-					GPART(colors[j]),
-					BPART(colors[j]),
-					pal->numcolors);
-		}
-	}
-
-	// build special maps (e.g. invulnerability)
-	int grayint;
-	color = maps.colormap + (NUMCOLORMAPS << pal->shadeshift);
-	shade = maps.shademap + (NUMCOLORMAPS << pal->shadeshift);
-
-	for (unsigned int i = 0; i < pal->numcolors; i++)
-	{
-		grayint = (int)(255.0f * clamp(1.0f -
-						(RPART(pal->basecolors[i]) * 0.00116796875f +
-						 GPART(pal->basecolors[i]) * 0.00229296875f +
-			 			 BPART(pal->basecolors[i]) * 0.0005625f), 0.0f, 1.0f));
-		const int graygammaint = newgamma[grayint];
-		color[i] = BestColor (pal->basecolors, grayint, grayint, grayint, pal->numcolors);
-		shade[i] = MAKERGB(graygammaint, graygammaint, graygammaint);
-	}
-}
-
-void BuildDefaultShademap (palette_t *pal, shademap_t &maps)
-{
-	argb_t *shade;
-	argb_t colors[256];
-
-	unsigned int r = RPART(level.fadeto);
-	unsigned int g = GPART(level.fadeto);
-	unsigned int b = BPART(level.fadeto);
-
-	BuildLightRamp(maps);
-
-	// build normal light mappings
-	for (unsigned int i = 0; i < NUMCOLORMAPS; i++)
-	{
-		byte a = maps.ramp[i * 255 / NUMCOLORMAPS];
-
-		DoBlending          (pal->basecolors, colors, pal->numcolors, r, g, b, a);
-		DoBlendingWithGamma (colors, maps.shademap + (i << pal->shadeshift), pal->numcolors, r, g, b, a);
-	}
-
-	// build special maps (e.g. invulnerability)
-	int grayint;
-	shade = maps.shademap + (NUMCOLORMAPS << pal->shadeshift);
-
-	for (unsigned int i = 0; i < pal->numcolors; i++)
-	{
-		grayint = (int)(255.0f * clamp(1.0f -
-			(RPART(pal->basecolors[i]) * 0.00116796875f +
-			 GPART(pal->basecolors[i]) * 0.00229296875f +
-			 BPART(pal->basecolors[i]) * 0.0005625f), 0.0f, 1.0f));
-		const int graygammaint = newgamma[grayint];
-		shade[i] = MAKERGB(graygammaint, graygammaint, graygammaint);
-	}
-}
 
 void RefreshPalette (palette_t *pal)
 {
@@ -542,7 +403,7 @@ void RefreshPalette (palette_t *pal)
 		pal->maps.colormap = (byte *)(((ptrdiff_t)(pal->colormapsbase) + 255) & ~0xff);
 		pal->maps.shademap = (argb_t *)Realloc (pal->maps.shademap, (NUMCOLORMAPS + 1)*256*sizeof(argb_t) + 255);
 
-		BuildDefaultColorAndShademap(pal, pal->maps);
+		V_BuildDefaultColorAndShademap(pal, pal->maps);
 	}
 
 	if (pal == &DefPal)
@@ -567,19 +428,13 @@ void RefreshPalettes (void)
 
 void GammaAdjustPalette (palette_t *pal)
 {
-	unsigned i, color;
-
 	if (!(pal->colors && pal->basecolors))
 		return;
 
 	if (!gamma_initialized)
 		V_UpdateGammaLevel(gammalevel);
 
-	for (i = 0; i < pal->numcolors; i++)
-	{
-		color = pal->basecolors[i];
-		pal->colors[i] = MAKERGB(newgamma[RPART(color)], newgamma[GPART(color)], newgamma[BPART(color)]);
-	}
+	V_GammaCorrect(pal->colors, pal->basecolors, pal->numcolors);
 }
 
 void GammaAdjustPalettes (void)
@@ -640,7 +495,7 @@ void V_ForceBlend (int blendr, int blendg, int blendb, int blenda)
 	// in R_RenderPlayerView
 	if (screen->is8bit())
 	{
-		DoBlending(DefPal.colors, IndexedPalette, DefPal.numcolors,
+		V_DoBlending(IndexedPalette, DefPal.colors, DefPal.numcolors,
 					newgamma[BlendR], newgamma[BlendG], newgamma[BlendB], BlendA);
 		I_SetPalette(IndexedPalette);
 	}
@@ -788,7 +643,7 @@ void BuildColoredLights (shademap_t *maps, int lr, int lg, int lb, int r, int g,
 	if (!maps)
 		return;
 
-	BuildLightRamp(*maps);
+	V_BuildLightRamp(*maps);
 
 	// build normal (but colored) light mappings
 	for (l = 0; l < NUMCOLORMAPS; l++) {
@@ -796,24 +651,19 @@ void BuildColoredLights (shademap_t *maps, int lr, int lg, int lb, int r, int g,
 
 		// Write directly to the shademap for blending:
 		argb_t *colors = maps->shademap + (256 * l);
-		DoBlending (DefPal.basecolors, colors, DefPal.numcolors, r, g, b, a);
+		V_DoBlending(colors, DefPal.basecolors, DefPal.numcolors, r, g, b, a);
 
 		// Build the colormap and shademap:
 		color = maps->colormap + 256*l;
 		shade = maps->shademap + 256*l;
-		for (c = 0; c < 256; c++) {
+		for (c = 0; c < 256; c++)
+		{
 			shade[c] = MAKERGB(
 				newgamma[(RPART(colors[c])*lr)/255],
 				newgamma[(GPART(colors[c])*lg)/255],
 				newgamma[(BPART(colors[c])*lb)/255]
 			);
-			color[c] = BestColor(
-				DefPal.basecolors,
-				RPART(shade[c]),
-				GPART(shade[c]),
-				BPART(shade[c]),
-				256
-			);
+			color[c] = V_BestColor(DefPal.basecolors, shade[c], 256);
 		}
 	}
 }

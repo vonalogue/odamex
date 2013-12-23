@@ -45,14 +45,6 @@
 void R_InitData (void);
 void R_PrecacheLevel (void);
 
-int R_ColormapNumForName(const char *name);		// killough 4/4/98
-void R_ReinitColormap();
-void R_ForceDefaultColormap (const char *name);
-void R_SetDefaultColormap (const char *name);	// [RH] change normal fadetable
-unsigned int R_BlendForColormap (int map);		// [RH] return calculated blend for a colormap
-extern shademap_t realcolormaps;				// [RH] make the colormaps externally visible
-extern size_t numfakecmaps;
-
 unsigned int SlopeDiv(unsigned int num, unsigned int den);
 
 #endif

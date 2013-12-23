@@ -2786,16 +2786,12 @@ void CL_UpdateSector(void)
 	P_SetCeilingHeight(sector, ceilingheight << FRACBITS);	
 	P_SetFloorHeight(sector, floorheight << FRACBITS);
 
-	char lumpname[9];
+	int firstflat = W_GetNumForName("F_START") + 1;
 
-	W_GetLumpName(lumpname, fp + firstflat);
-	sector->floor_texhandle = texturemanager.getHandle(lumpname, Texture::TEX_FLAT);
-
-	W_GetLumpName(lumpname, cp + firstflat);
-	sector->ceiling_texhandle = texturemanager.getHandle(lumpname, Texture::TEX_FLAT);
+	sector->floor_texhandle = texturemanager.getHandle(firstflat + fp, Texture::TEX_FLAT);
+	sector->ceiling_texhandle = texturemanager.getHandle(firstflat + cp, Texture::TEX_FLAT);
 
 	sector->moveable = true;
-
 	P_ChangeSector(sector, false);
 	
 	SectorSnapshot snap(last_svgametic, sector);

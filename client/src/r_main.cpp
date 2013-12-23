@@ -58,7 +58,6 @@ void R_SpanInitData ();
 extern int *walllights;
 
 // [RH] Defined in d_main.cpp
-extern dyncolormap_t NormalLight;
 extern bool r_fakingunderwater;
 
 EXTERN_CVAR (r_flashhom)
@@ -1143,7 +1142,7 @@ static int32_t R_GetCosine30(angle_t ang)
 //
 void R_SetupFrame (player_t *player)
 {
-	unsigned int newblend;
+	argb_t newblend;
 
 	camera = player->camera;	// [RH] Use camera instead of viewplayer
 
@@ -1198,8 +1197,8 @@ void R_SetupFrame (player_t *player)
 					viewz > P_CeilingHeight(viewx, viewy, s) ? s->topmap : s->midmap;
 
 		if (!screen->is8bit())
-			newblend = R_BlendForColormap (newblend);
-		else if (APART(newblend) == 0 && newblend >= numfakecmaps)
+			newblend = V_BlendForColormap(newblend);
+		else if (APART(newblend) == 0 && (int)newblend >= numfakecmaps)
 			newblend = 0;
 	}
 	else

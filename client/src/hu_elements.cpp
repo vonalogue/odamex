@@ -652,11 +652,11 @@ void EAPlayerColors(int x, int y,
 		player_t* player = sortedPlayers()[i];
 		if (ingamePlayer(player)) {
 			int playercolor = CL_GetPlayerColor(player);
-			int color = BestColor(GetDefaultPalette()->basecolors,
-			                      RPART(playercolor),
-			                      GPART(playercolor),
-			                      BPART(playercolor),
-			                      GetDefaultPalette()->numcolors);
+			int color = V_BestColor(GetDefaultPalette()->basecolors,
+			                        RPART(playercolor),
+			                        GPART(playercolor),
+			                        BPART(playercolor),
+			                        GetDefaultPalette()->numcolors);
 
 			if (!screen->is8bit()) color = playercolor;
 
@@ -685,11 +685,11 @@ void EATeamPlayerColors(int x, int y,
 		player_t* player = sortedPlayers()[i];
 		if (inTeamPlayer(player, team)) {
 			int playercolor = CL_GetPlayerColor(player);
-			int color = BestColor(GetDefaultPalette()->basecolors,
-			                      RPART(playercolor),
-			                      GPART(playercolor),
-			                      BPART(playercolor),
-			                      GetDefaultPalette()->numcolors);
+			int color = V_BestColor(GetDefaultPalette()->basecolors,
+			                        RPART(playercolor),
+			                        GPART(playercolor),
+			                        BPART(playercolor),
+			                        GetDefaultPalette()->numcolors);
 
 			if (!screen->is8bit()) color = playercolor;
 

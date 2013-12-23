@@ -30,6 +30,7 @@
 #include "p_local.h"
 #include "g_level.h"
 #include "v_video.h"
+#include "v_palette.h"
 #include "m_random.h"
 #include "r_defs.h"
 #include "r_things.h"
@@ -89,8 +90,9 @@ void P_InitEffects (void)
 	DWORD *palette = GetDefaultPalette()->basecolors;
 	int numcolors = GetDefaultPalette()->numcolors;
 
-	while (color->color) {
-		*(color->color) = BestColor (palette, color->r, color->g, color->b, numcolors);
+	while (color->color)
+	{
+		*(color->color) = V_BestColor(palette, color->r, color->g, color->b, numcolors);
 		color++;
 	}
 }
