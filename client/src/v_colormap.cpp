@@ -163,46 +163,61 @@ void V_BuildLightRamp(shademap_t& maps)
 //
 // V_BuildDefaultColorAndShademap
 //
+// Generates NUMCOLORMAPS colormaps and shademaps based on the given palette.
+// The colormaps and shademaps will fade to the value level.fadeto, which is
+// typically black.
+//
+// Also generates the invulnerability colormap.
+//
 void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps)
 {
-	argb_t tempcolors[256];
-
-	unsigned int r = RPART(level.fadeto);
-	unsigned int g = GPART(level.fadeto);
-	unsigned int b = BPART(level.fadeto);
+	unsigned int fader = RPART(level.fadeto);
+	unsigned int fadeg = GPART(level.fadeto);
+	unsigned int fadeb = BPART(level.fadeto);
 
 	V_BuildLightRamp(maps);
 
 	// build normal light mappings
+	// [SL] Modified algorithm from RF_BuildLights in dcolors.c
+	// from Doom Utilities. Now accomodates level.fadeto.
 	for (unsigned int i = 0; i < NUMCOLORMAPS; i++)
 	{
-		byte a = maps.ramp[i * 255 / NUMCOLORMAPS];
-
-		V_DoBlending(tempcolors, pal->basecolors, pal->numcolors, r, g, b, a);
-
 		argb_t* shademap = maps.shademap + (i << pal->shadeshift);
-		V_DoBlending(shademap, tempcolors, pal->numcolors, r, g, b, a);
-		V_GammaCorrect(shademap, shademap, pal->numcolors);
-
 		palindex_t* colormap = maps.colormap + (i << pal->shadeshift);
-		for (unsigned int j = 0; j < pal->numcolors; j++)
-			colormap[j] = V_BestColor(pal->basecolors, tempcolors[j], pal->numcolors);
+
+		for (unsigned int c = 0; c < pal->numcolors; c++)
+		{
+			unsigned int r = RPART(pal->basecolors[c]);
+			unsigned int g = GPART(pal->basecolors[c]);
+			unsigned int b = BPART(pal->basecolors[c]);
+
+			argb_t color = MAKERGB(
+				r + ((fader - r) * i + NUMCOLORMAPS/2) / NUMCOLORMAPS,
+				g + ((fadeg - g) * i + NUMCOLORMAPS/2) / NUMCOLORMAPS,
+				b + ((fadeb - b) * i + NUMCOLORMAPS/2) / NUMCOLORMAPS);
+
+			shademap[c] = color;
+			colormap[c] = V_BestColor(pal->basecolors, color, pal->numcolors);
+		}
+
+		V_GammaCorrect(shademap, shademap, pal->numcolors);
 	}
 
 	// build special maps (e.g. invulnerability)
-	// see dcolors.c BuildSpecials()
+	// [SL] Modified algorithm from BuildSpecials in dcolors.c
+	// from Doom Utilities.
 	argb_t* shademap = maps.shademap + (NUMCOLORMAPS << pal->shadeshift);
 	palindex_t* colormap = maps.colormap + (NUMCOLORMAPS << pal->shadeshift);
 
-	for (unsigned int i = 0; i < pal->numcolors; i++)
+	for (unsigned int c = 0; c < pal->numcolors; c++)
 	{
 		int grayint = (int)(255.0f * clamp(1.0f -
-						(RPART(pal->basecolors[i]) * 0.00116796875f +
-						 GPART(pal->basecolors[i]) * 0.00229296875f +
-			 			 BPART(pal->basecolors[i]) * 0.0005625f), 0.0f, 1.0f));
+						(RPART(pal->basecolors[c]) * 0.00116796875f +
+						 GPART(pal->basecolors[c]) * 0.00229296875f +
+			 			 BPART(pal->basecolors[c]) * 0.0005625f), 0.0f, 1.0f));
 		const int graygammaint = newgamma[grayint];
-		shademap[i] = MAKERGB(graygammaint, graygammaint, graygammaint);
-		colormap[i] = V_BestColor(pal->basecolors, grayint, grayint, grayint, pal->numcolors);
+		shademap[c] = MAKERGB(graygammaint, graygammaint, graygammaint);
+		colormap[c] = V_BestColor(pal->basecolors, grayint, grayint, grayint, pal->numcolors);
 	}
 }
 
@@ -214,6 +229,7 @@ void V_ForceDefaultColormap(const char* name)
 {
 	V_BuildDefaultColorAndShademap(GetDefaultPalette(), realcolormaps);
 
+	// allow colormaps in PWAD to override the generated colormap
 	const byte* data = (byte*)W_CacheLumpName(name, PU_CACHE);
 	memcpy(realcolormaps.colormap, data, (NUMCOLORMAPS + 1) * 256);
 
