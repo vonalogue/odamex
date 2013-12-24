@@ -37,19 +37,19 @@
 //
 // ----------------------------------------------------------------------------
 
-static struct FakeCmap
+struct FakeColormap
 {
 	char name[9];
 	argb_t blend;
-} *fakecmaps;
+};
 
+static FakeColormap* fakecmaps;
 int numfakecmaps;
-int firstfakecmap;
-int lastusedcolormap;
+static int firstfakecmap;
 
 dyncolormap_t NormalLight;
 
-static shademap_t default_colormap;
+static shademap_t* default_colormap;
 
 
 // ----------------------------------------------------------------------------
@@ -59,11 +59,42 @@ static shademap_t default_colormap;
 // ----------------------------------------------------------------------------
 
 //
+// V_CreateColormap
+//
+// Allocates the memory for a new set of colormaps.
+//
+shademap_t* V_CreateColormap(unsigned int count)
+{
+	shademap_t* map = (shademap_t*)Z_Malloc(sizeof(shademap_t), PU_STATIC, 0);
+
+	static const int entries = 256 * (NUMCOLORMAPS + 1);
+	map->colormap = (palindex_t*)Z_Malloc(entries * sizeof(palindex_t) * count, PU_STATIC, 0);
+	map->shademap = (argb_t*)Z_Malloc(entries * sizeof(argb_t) * count, PU_STATIC, 0);
+
+	return map;
+}
+
+
+//
+// V_FreeColormap
+//
+void V_FreeColormap(shademap_t* map)
+{
+	if (map)
+	{
+		Z_Free(map->colormap);
+		Z_Free(map->shademap);
+		Z_Free(map);
+	}
+}
+
+
+//
 // V_GetDefaultColormap
 //
 shademap_t* V_GetDefaultColormap()
 {
-	return &default_colormap;
+	return default_colormap;
 }
 
 
@@ -287,21 +318,16 @@ void V_InitColormaps()
 	int lastfakecmap = W_CheckNumForName("C_END");
 	firstfakecmap = W_CheckNumForName("C_START");
 
-	if (firstfakecmap == -1 || lastfakecmap == -1)
+	if (firstfakecmap == -1 || lastfakecmap == -1 || firstfakecmap >= lastfakecmap)
 		numfakecmaps = 1;
 	else
-	{
-		if (firstfakecmap > lastfakecmap)
-			I_Error("no fake cmaps");
-
 		numfakecmaps = lastfakecmap - firstfakecmap;
-	}
 
-	default_colormap.colormap =
-			(byte*)Z_Malloc(256 * (NUMCOLORMAPS + 1) * numfakecmaps, PU_STATIC, 0);
-	default_colormap.shademap =
-			(argb_t*)Z_Malloc(256 * sizeof(argb_t) * (NUMCOLORMAPS + 1) * numfakecmaps, PU_STATIC, 0);
-	fakecmaps = (FakeCmap*)Z_Malloc(sizeof(*fakecmaps) * numfakecmaps, PU_STATIC, 0);
+	if (default_colormap)
+		V_FreeColormap(default_colormap);
+	default_colormap = V_CreateColormap(numfakecmaps);
+
+	fakecmaps = (FakeColormap*)Z_Malloc(sizeof(*fakecmaps) * numfakecmaps, PU_STATIC, 0);
 
 	fakecmaps[0].name[0] = 0;
 	V_ForceDefaultColormap("COLORMAP");
@@ -317,8 +343,8 @@ void V_InitColormaps()
 			{
 				const byte* map = (byte*)W_CacheLumpNum(i, PU_CACHE);
 
-				byte* colormap = default_colormap.colormap + (NUMCOLORMAPS + 1) * 256 * j;
-				argb_t* shademap = default_colormap.shademap + (NUMCOLORMAPS + 1) * 256 * j;
+				byte* colormap = default_colormap->colormap + (NUMCOLORMAPS + 1) * 256 * j;
+				argb_t* shademap = default_colormap->shademap + (NUMCOLORMAPS + 1) * 256 * j;
 
 				// Copy colormap data:
 				memcpy(colormap, map, (NUMCOLORMAPS + 1) * 256);
@@ -356,6 +382,17 @@ void V_InitColormaps()
 			}
 		}
 	}
+}
+
+
+//
+// V_ShutdownColormaps
+//
+void STACK_ARGS V_ShutdownColormaps()
+{
+	if (default_colormap)
+		V_FreeColormap(default_colormap);
+	default_colormap = NULL;
 }
 
 

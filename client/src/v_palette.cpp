@@ -549,32 +549,25 @@ dyncolormap_t* GetSpecialLights(int lr, int lg, int lb, int fr, int fg, int fb)
 {
 	argb_t lightcolor = MAKERGB(lr, lg, lb);
 	argb_t fadecolor= MAKERGB(fr, fg, fb);
-	dyncolormap_t* colormap = &NormalLight;
 
 	// Bah! Simple linear search because I want to get this done.
-	while (colormap)
+	for (dyncolormap_t* colormap = &NormalLight; colormap; colormap = colormap->next)
 	{
 		if (lightcolor == colormap->color && fadecolor == colormap->fade)
 			return colormap;
-		else
-			colormap = colormap->next;
 	}
 
 	// Not found. Create it.
-	colormap = (dyncolormap_t*)Z_Malloc(sizeof(*colormap), PU_LEVEL, 0);
-	shademap_t* maps = (shademap_t*)Z_Malloc(sizeof(shademap_t), PU_LEVEL, 0);
-	maps->colormap = (byte*)Z_Malloc(NUMCOLORMAPS*256*sizeof(byte)+3+255, PU_LEVEL, 0);
-	maps->colormap = (byte*)(((ptrdiff_t)maps->colormap + 255) & ~0xff);
-	maps->shademap = (argb_t*)Z_Malloc(NUMCOLORMAPS*256*sizeof(argb_t)+3+255, PU_LEVEL, 0);
-	maps->shademap = (argb_t*)(((ptrdiff_t)maps->shademap + 255) & ~0xff);
+	dyncolormap_t* colormap = (dyncolormap_t*)Z_Malloc(sizeof(*colormap), PU_LEVEL, 0);
 
-	colormap->maps = shaderef_t(maps, 0);
 	colormap->color = lightcolor;
 	colormap->fade = fadecolor;
 	colormap->next = NormalLight.next;
 	NormalLight.next = colormap;
 
+	shademap_t* maps = V_CreateColormap(1);
 	V_BuildDefaultColorAndShademap(maps, V_GetDefaultPalette(), lightcolor, fadecolor);
+	colormap->maps = shaderef_t(maps, 0);
 
 	return colormap;
 }

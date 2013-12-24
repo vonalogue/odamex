@@ -276,16 +276,22 @@ struct dyncolormap_t
 extern int numfakecmaps;
 
 shademap_t* V_GetDefaultColormap();
+shademap_t* V_CreateColormap(unsigned int count);
+void V_FreeColormap(shademap_t* map);
 
 void V_InitColormaps();
+void STACK_ARGS V_ShutdownColormaps();
+
 void V_SetDefaultColormap(const char* name);
 void V_ForceDefaultColormap(const char* name);
 void V_ReinitColormap();
 int V_ColormapNumForName(const char* name);
 argb_t V_BlendForColormap(int map);
+
 void V_DoBlending(argb_t* to, const argb_t* from, unsigned int count,
 				int tor, int tog, int tob, int toa);
 void V_DoBlending(argb_t* to, const argb_t* from, unsigned int count, argb_t blend_value);
+
 void V_BuildDefaultColorAndShademap(shademap_t* maps, const palette_t* pal,
 				argb_t lightcolor, argb_t fadecolor);
 

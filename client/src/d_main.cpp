@@ -668,6 +668,8 @@ void STACK_ARGS D_Shutdown()
 
 	R_ShutdownTextureManager();
 
+	V_ShutdownColormaps();
+
 	// reset the Zone memory manager
 	Z_Close();
 }
