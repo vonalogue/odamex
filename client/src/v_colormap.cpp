@@ -201,11 +201,9 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
 				g + ((fadeg - g) * i + NUMCOLORMAPS/2) / NUMCOLORMAPS,
 				b + ((fadeb - b) * i + NUMCOLORMAPS/2) / NUMCOLORMAPS);
 
-			shademap[c] = color;
+			shademap[c] = V_GammaCorrect(color);
 			colormap[c] = V_BestColor(pal->basecolors, color, pal->numcolors);
 		}
-
-		V_GammaCorrectBuffer(shademap, shademap, pal->numcolors);
 	}
 
 	// build special maps (e.g. invulnerability)

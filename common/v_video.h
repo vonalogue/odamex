@@ -177,10 +177,6 @@ public:
 	void Lock ();
 	void Unlock ();
 
-	// Palette control (unused)
-	void AttachPalette (palette_t *pal);
-	void DetachPalette ();
-
 	// Output some text with wad heads-up font
 	inline void DrawText (int normalcolor, int x, int y, const byte *string) const;
 	inline void DrawTextLuc (int normalcolor, int x, int y, const byte *string) const;

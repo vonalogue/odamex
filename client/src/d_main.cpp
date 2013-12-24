@@ -282,24 +282,23 @@ void D_Display (void)
 			if (!gametic)
 				break;
 
-			// denis - freshen the borders (ffs..)
-			R_DrawViewBorder ();    // erase old menu stuff
-
+			V_DoPaletteEffects();
 			if (viewactive)
-				R_RenderPlayerView (&displayplayer());
+				R_RenderPlayerView(&displayplayer());
 			if (automapactive)
-				AM_Drawer ();
+				AM_Drawer();
+			V_RestorePalettes();
+			R_DrawViewBorder();
 			C_DrawMid ();
 			C_DrawGMid();
 			CTF_DrawHud ();
 			ST_Drawer ();
 			HU_Drawer ();
-			V_DoPaletteEffects();
 			break;
 
 		case GS_INTERMISSION:
 			if (viewactive)
-				R_RenderPlayerView (&displayplayer());
+				R_RenderPlayerView(&displayplayer());
 			C_DrawMid ();
 			CTF_DrawHud ();
 			WI_Drawer ();

@@ -445,8 +445,6 @@ void SDLVideo::ReleaseSurface(DCanvas *scrn)
 		scrn->m_Private = NULL;
 	}
 
-	scrn->DetachPalette ();
-
 	delete scrn;
 
 	delete [] framebuffer;

@@ -679,26 +679,5 @@ void V_Init (void)
         AddCommandString("checkres");
 }
 
-void DCanvas::AttachPalette (palette_t *pal)
-{
-	if (m_Palette == pal)
-		return;
-
-	DetachPalette ();
-
-	pal->usecount++;
-	m_Palette = pal;
-}
-
-
-void DCanvas::DetachPalette ()
-{
-	if (m_Palette)
-	{
-		V_FreePalette(m_Palette);
-		m_Palette = NULL;
-	}
-}
-
 VERSION_CONTROL (v_video_cpp, "$Id$")
 

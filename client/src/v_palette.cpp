@@ -62,7 +62,6 @@ static int current_palette;
 static float current_blend[4];
 
 static palette_t DefPal;
-static palette_t* FirstPal;
 
 argb_t IndexedPalette[256];
 
@@ -203,9 +202,6 @@ static void V_GammaAdjustPalette(palette_t* pal)
 void V_GammaAdjustPalettes()
 {
 	V_GammaAdjustPalette(&DefPal);
-
-	for (palette_t* pal = FirstPal; pal; pal = pal->next)
-		V_GammaAdjustPalette(pal);
 }
 
 
@@ -255,23 +251,21 @@ palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors)
 	return V_BestColor(palette, RPART(color), GPART(color), BPART(color), numcolors);
 }
 
-static bool V_InternalCreatePalette(palette_t* palette, const char* name, byte *colors,
-							unsigned numcolors, unsigned flags)
-{
-	if (numcolors == 0)
-		return false;
-	else if (numcolors > 256)
-		numcolors = 256;
 
-	strncpy(palette->name.name, name, 8);
+//
+// V_InternalCreatePalette
+//
+static void V_InternalCreatePalette(palette_t* palette, const byte* colors, unsigned flags)
+{
+	const int numcolors = 256;
+
 	palette->flags = flags;
-	palette->usecount = 1;
 	palette->maps.colormap = NULL;
 	palette->maps.shademap = NULL;
 
 	M_Free(palette->basecolors);
 
-	palette->basecolors = (argb_t *)Malloc(numcolors * 2 * sizeof(argb_t));
+	palette->basecolors = (argb_t*)Malloc(numcolors * 2 * sizeof(argb_t));
 	palette->colors = palette->basecolors + numcolors;
 	palette->numcolors = numcolors;
 
@@ -281,55 +275,56 @@ static bool V_InternalCreatePalette(palette_t* palette, const char* name, byte *
 		palette->basecolors[i] = MAKERGB(colors[0], colors[1], colors[2]);
 
 	V_GammaAdjustPalette(palette);
-
-	return true;
 }
 
+
+//
+// V_InitPalettes
+//
 palette_t* V_InitPalettes(const char* name)
 {
 	current_palette = -1;
 	current_blend[0] = current_blend[1] = current_blend[2] = current_blend[3] = 255.0f;
 
-    lu_palette = W_GetNumForName("PLAYPAL");
-	byte* colors = (byte*)W_CacheLumpName(name, PU_CACHE);
-	if (colors)
-	{
-		unsigned int flags = PALETTEF_SHADE | PALETTEF_BLEND | PALETTEF_DEFAULT;
-		if (V_InternalCreatePalette(&DefPal, name, colors, 256, flags))
-			return &DefPal;
-	}
+	lu_palette = W_GetNumForName(name);
+	if (lu_palette == -1)
+		return NULL;
 
-	return NULL;
+	byte* colors = (byte*)W_CacheLumpNum(lu_palette, PU_CACHE);
+	unsigned int flags = PALETTEF_SHADE | PALETTEF_BLEND | PALETTEF_DEFAULT;
+	V_InternalCreatePalette(&DefPal, colors, flags);
+
+	return &DefPal;
 }
 
+
+//
+// V_RestorePalettes
+//
+void V_RestorePalettes()
+{
+}
+
+
+//
+// V_GetDefaultPalette
+//
 palette_t* V_GetDefaultPalette()
 {
 	return &DefPal;
 }
 
+
 //
 // V_FreePalette
 //
-// input:	palette: the palette to free
-//
-// This function decrements the palette's usecount and frees it
-// when it hits zero.
-//
 void V_FreePalette(palette_t* palette)
 {
-	if (!(--palette->usecount))
+	if (!(palette->flags & PALETTEF_DEFAULT))
 	{
-		if (!(palette->flags & PALETTEF_DEFAULT))
-		{
-			if (!palette->prev)
-				FirstPal = palette->next;
-			else
-				palette->prev->next = palette->next;
-
-			M_Free(palette->basecolors);
-			M_Free(palette->colormapsbase);
-			M_Free(palette);
-		}
+		M_Free(palette->basecolors);
+		M_Free(palette->colormapsbase);
+		M_Free(palette);
 	}
 }
 
@@ -339,6 +334,8 @@ void V_FreePalette(palette_t* palette)
 //
 static void V_RefreshPalette(palette_t* pal)
 {
+	const argb_t whitecolor = MAKERGB(255, 255, 255);
+
 	if (pal->flags & PALETTEF_SHADE)
 	{
 		if (pal->maps.colormap && pal->maps.colormap - pal->colormapsbase >= 256)
@@ -346,17 +343,17 @@ static void V_RefreshPalette(palette_t* pal)
 			M_Free(pal->maps.colormap);
 		}
 
-		pal->colormapsbase = (byte *)Realloc(pal->colormapsbase, (NUMCOLORMAPS + 1) * 256 + 255);
-		pal->maps.colormap = (byte *)(((ptrdiff_t)(pal->colormapsbase) + 255) & ~0xff);
-		pal->maps.shademap = (argb_t *)Realloc(pal->maps.shademap, (NUMCOLORMAPS + 1)*256*sizeof(argb_t) + 255);
+		pal->colormapsbase = (byte*)Realloc(pal->colormapsbase, (NUMCOLORMAPS + 1) * 256 + 255);
+		pal->maps.colormap = (byte*)(((ptrdiff_t)(pal->colormapsbase) + 255) & ~0xff);
+		pal->maps.shademap = (argb_t*)Realloc(pal->maps.shademap, (NUMCOLORMAPS + 1)*256*sizeof(argb_t) + 255);
 
-		V_BuildDefaultColorAndShademap(pal, pal->maps, MAKERGB(255, 255, 255), level.fadeto);
+		V_BuildDefaultColorAndShademap(pal, pal->maps, whitecolor, level.fadeto);
 	}
 
 	if (pal == &DefPal)
 	{
 		NormalLight.maps = shaderef_t(&DefPal.maps, 0);
-		NormalLight.color = MAKERGB(255,255,255);
+		NormalLight.color = whitecolor;
 		NormalLight.fade = level.fadeto;
 	}
 }
@@ -368,9 +365,6 @@ static void V_RefreshPalette(palette_t* pal)
 void V_RefreshPalettes()
 {
 	V_RefreshPalette(&DefPal);
-
-	for (palette_t* pal = FirstPal; pal; pal = pal->next)
-		V_RefreshPalette(pal);
 }
 
 
@@ -707,11 +701,15 @@ void V_DoPaletteEffects()
 					(int)(blend[2] * 255.0f), (int)(blend[3] * 256.0f));
 
 /*
-		argb_t blendcolor = MAKERGB(BlendR, BlendG, BlendB);
+		if (BlendA)
+		{
+			argb_t* colors = DefPal.basecolors;
+			argb_t blendcolor = MAKERGB(BlendR, BlendG, BlendB);
 
-		for (unsigned int c = 0; c < DefPal.numcolors; c++)
-			DefPal.basecolors[c] = rt_blend2(DefPal.basecolors[c], 255 - BlendA, blendcolor, BlendA);
-		V_RefreshPalette(&DefPal);
+			for (unsigned int c = 0; c < DefPal.numcolors; c++)
+				colors[c] = rt_blend2(colors[c], 255 - BlendA, blendcolor, BlendA);
+			V_RefreshPalette(&DefPal);
+		}
 */
 	}
 }

@@ -29,21 +29,13 @@
 
 struct palette_t
 {
-	palette_t*		next;
-	palette_t*		prev;
-
-	shademap_t      maps;
-	byte			*colormapsbase;
-	union {
-		char		name[8];
-		int			nameint[2];
-	} name;
-	argb_t			*colors;		// gamma corrected colors
-	argb_t			*basecolors;	// non-gamma corrected colors
+	shademap_t		maps;
+	byte*			colormapsbase;
+	argb_t*			colors;		// gamma corrected colors
+	argb_t*			basecolors;	// non-gamma corrected colors
 	unsigned		numcolors;
 	unsigned		flags;
 	unsigned		shadeshift;
-	int				usecount;
 };
 
 // Generate shading ramps for lighting
@@ -75,6 +67,8 @@ palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors);
 //
 // Returns a pointer to the default palette.
 palette_t* V_InitPalettes(const char* name);
+
+void V_RestorePalettes();
 
 // GetDefaultPalette()
 //
