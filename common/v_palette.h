@@ -58,19 +58,9 @@ struct palette_t
 #define PALETTEB_DEFAULT	(30)
 #define PALETTEF_DEFAULT	(1<<PALETTEB_DEFAULT)
 
-
-
-// Type values for LoadAttachedPalette():
-#define LAP_PALETTE			(~0)	// Just pass thru to LoadPalette()
-#define LAP_PATCH			(0)
-#define LAP_SPRITE			(1)
-#define LAP_FLAT			(2)
-#define LAP_TEXTURE			(3)
-
-
-extern byte newgamma[256];
-
-void V_GammaCorrect(argb_t* to, const argb_t* from, unsigned int count);
+argb_t V_GammaCorrect(int r, int g, int b);
+argb_t V_GammaCorrect(argb_t value);
+void V_GammaCorrectBuffer(argb_t* to, const argb_t* from, unsigned int count);
 
 // Alpha blend between two RGB colors with only dest alpha value
 // 0 <=   toa <= 256
@@ -84,12 +74,12 @@ palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors);
 //				  (normally GAMEPAL)
 //
 // Returns a pointer to the default palette.
-palette_t *InitPalettes (const char *name);
+palette_t* V_InitPalettes(const char* name);
 
 // GetDefaultPalette()
 //
-//	Returns the palette created through InitPalettes()
-palette_t *GetDefaultPalette (void);
+//	Returns the palette created through V_InitPalettes()
+palette_t* V_GetDefaultPalette();
 
 //
 // V_RestoreScreenPalette
@@ -97,71 +87,10 @@ palette_t *GetDefaultPalette (void);
 // Restore original screen palette from current gamma level
 void V_RestoreScreenPalette(void);
 
-// MakePalette()
-//	input: colors: ptr to 256 3-byte RGB values
-//		   name:   the palette's name (not checked for duplicates)
-//		   flags:  the flags for the new palette
-//
-palette_t *MakePalette (byte *colors, char *name, unsigned flags);
+void V_FreePalette(palette_t* palette);
 
-// LoadPalette()
-//	input: name:  the name of the palette lump
-//		   flags: the flags for the palette
-//
-//	This function will try and find an already loaded
-//	palette and return that if possible.
-palette_t *LoadPalette (char *name, unsigned flags);
-
-// LoadAttachedPalette()
-//	input: name:  the name of a graphic whose palette should be loaded
-//		   type:  the type of graphic whose palette is being requested
-//		   flags: the flags for the palette
-//
-//	This function looks through the PALETTES lump for a palette
-//	associated with the given graphic and returns that if possible.
-palette_t *LoadAttachedPalette (char *name, int type, unsigned flags);
-
-// FreePalette()
-//	input: palette: the palette to free
-//
-//	This function decrements the palette's usecount and frees it
-//	when it hits zero.
-void FreePalette (palette_t *palette);
-
-// FindPalette()
-//	input: name:  the name of the palette
-//		   flags: the flags to match on (~0 if it doesn't matter)
-//
-palette_t *FindPalette (char *name, unsigned flags);
-
-// RefreshPalette()
-//	input: pal: the palette to refresh
-//
-// Generates all colormaps or shadings for the specified palette
-// with the current blending levels.
-void RefreshPalette (palette_t *pal);
-
-// Sets up the default colormaps and shademaps based on the given palette:
-void BuildDefaultColorAndShademap (palette_t *pal, shademap_t &maps);
-// Sets up the default shademaps (no colormaps) based on the given palette:
-void BuildDefaultShademap (palette_t *pal, shademap_t &maps);
-
-// RefreshPalettes()
-//
-// Calls RefreshPalette() for all palettes.
-void RefreshPalettes (void);
-
-// GammaAdjustPalette()
-//
-// Builds the colors table for the specified palette based
-// on the current gamma correction setting. It will not rebuild
-// the shading table if the palette has one.
-void GammaAdjustPalette (palette_t *pal);
-
-// GammaAdjustPalettes()
-//
-// Calls GammaAdjustPalette() for all palettes.
-void GammaAdjustPalettes (void);
+void V_RefreshPalettes();
+void V_GammaAdjustPalettes();
 
 // V_SetBlend()
 //	input: blendr: red component of blend

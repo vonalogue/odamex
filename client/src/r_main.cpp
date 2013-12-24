@@ -1230,7 +1230,7 @@ void R_SetupFrame (player_t *player)
 
 	fixedcolormap = shaderef_t();
 	fixedlightlev = 0;
-	palette_t *pal = GetDefaultPalette();
+	palette_t* pal = V_GetDefaultPalette();
 
 	if (camera == player->mo && player->fixedcolormap)
 	{
@@ -1445,7 +1445,7 @@ void R_RenderPlayerView (player_t *player)
 	extern int BlendA, BlendR, BlendG, BlendB;
 	if (BlendA != 0)
 	{
-		unsigned int blend_rgb = MAKERGB(newgamma[BlendR], newgamma[BlendG], newgamma[BlendB]);
+		argb_t blend_rgb = V_GammaCorrect(BlendR, BlendG, BlendB);
 		r_dimpatchD(screen, blend_rgb, BlendA, viewwindowx, viewwindowy, viewwidth, viewheight);
 	}
 

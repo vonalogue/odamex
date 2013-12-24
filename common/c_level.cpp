@@ -1123,7 +1123,7 @@ void G_InitLevelLocals ()
 		strncpy (level.skypic2, pinfo->skypic2, 8);
 		level.fadeto = pinfo->fadeto;
 		if (level.fadeto)
-			NormalLight.maps = shaderef_t(&GetDefaultPalette()->maps, 0);
+			NormalLight.maps = shaderef_t(&V_GetDefaultPalette()->maps, 0);
 		else
 			V_ForceDefaultColormap(pinfo->fadetable);
 		
@@ -1174,7 +1174,7 @@ void G_InitLevelLocals ()
 //	memset (level.vars, 0, sizeof(level.vars));
 
 	if (oldfade != level.fadeto)
-		RefreshPalettes ();
+		V_RefreshPalettes();
 
 	movingsectors.clear();
 }

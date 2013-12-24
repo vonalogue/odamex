@@ -1303,9 +1303,9 @@ void M_DrawColoredSlider(int x, int y, float leftval, float rightval, float cur,
 
 	screen->DrawTextureClean(R_LoadTexture("GSLIDE"), x + 5 + (int)(dist * 78.0), y);
 
-	V_ColorFill = V_BestColor(GetDefaultPalette()->basecolors,
+	V_ColorFill = V_BestColor(V_GetDefaultPalette()->basecolors,
 	                          RPART(color), GPART(color), BPART(color),
-	                          GetDefaultPalette()->numcolors);
+	                          V_GetDefaultPalette()->numcolors);
 
 	screen->DrawColoredTextureClean(R_LoadTexture("OSLIDE"), x + 5 + (int)(dist * 78.0), y);
 }

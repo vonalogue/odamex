@@ -63,7 +63,7 @@ static int crosshair_color_custom = 0xb0;
 EXTERN_CVAR (hud_crosshaircolor)
 CVAR_FUNC_IMPL (hud_crosshaircolor)
 {
-	DWORD *palette = GetDefaultPalette()->colors;
+	argb_t* palette = V_GetDefaultPalette()->colors;
 	crosshair_color_custom = V_GetColorFromString(palette, hud_crosshaircolor.cstring());
 }
 

@@ -256,8 +256,6 @@ void R_RenderSkyRange(visplane_t* pl)
 
 	R_ResetDrawFuncs();
 
-	palette_t *pal = GetDefaultPalette();
-
 	const Texture* texture = texturemanager.getTexture(skytexhandle);
 
 	dcol.iscale = skyiscale >> skystretch;
@@ -268,7 +266,7 @@ void R_RenderSkyRange(visplane_t* pl)
 	// set up the appropriate colormap for the sky
 	if (fixedlightlev)
 	{
-		dcol.colormap = shaderef_t(&pal->maps, fixedlightlev);
+		dcol.colormap = shaderef_t(&V_GetDefaultPalette()->maps, fixedlightlev);
 	}
 	else if (fixedcolormap.isValid() && r_skypalette)
 	{
@@ -278,7 +276,7 @@ void R_RenderSkyRange(visplane_t* pl)
 	{
 		// [SL] 2011-06-28 - Emulate vanilla Doom's handling of skies
 		// when the player has the invulnerability powerup
-		dcol.colormap = shaderef_t(&pal->maps, 0);
+		dcol.colormap = shaderef_t(&V_GetDefaultPalette()->maps, 0);
 	}
 
 	static shaderef_t colormap_table[MAXWIDTH];

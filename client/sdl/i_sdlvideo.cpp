@@ -273,11 +273,12 @@ void SDLVideo::SetPalette(argb_t *palette)
 
 void SDLVideo::SetOldPalette(byte *doompalette)
 {
-	for (int i = 0; i < 256; ++i)
+	for (int i = 0; i < 256; ++i, doompalette += 3)
 	{
-		newPalette[i].r = newgamma[*doompalette++];
-		newPalette[i].g = newgamma[*doompalette++];
-		newPalette[i].b = newgamma[*doompalette++];
+		argb_t color = V_GammaCorrect(doompalette[0], doompalette[1], doompalette[2]);
+		newPalette[i].r = RPART(color);
+		newPalette[i].g = GPART(color);
+		newPalette[i].b = BPART(color); 
 	}
 	palettechanged = true;
 }

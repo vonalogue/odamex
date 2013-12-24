@@ -159,7 +159,7 @@ void DCanvas::Dim(int x1, int y1, int w, int h, const char* color, float famount
 		fixed_t amount = (fixed_t)(famount * 64.0f);
 		argb_t *fg2rgb = Col2RGB8[amount];
 		argb_t *bg2rgb = Col2RGB8[64-amount];
-		unsigned int fg = fg2rgb[V_GetColorFromString(GetDefaultPalette()->basecolors, color)];
+		unsigned int fg = fg2rgb[V_GetColorFromString(V_GetDefaultPalette()->basecolors, color)];
 
 		byte *dest = buffer + y1 * pitch + x1;
 		int gap = pitch - w;
@@ -476,8 +476,8 @@ static bool V_DoModeSetup(int width, int height, int bits)
 	screen = I_AllocateScreen(width + cache_fudge, height, bits, primary);
 
 	V_ForceBlend (0,0,0,0);
-	GammaAdjustPalettes ();
-	RefreshPalettes();
+	V_GammaAdjustPalettes();
+	V_RefreshPalettes();
 	V_ReinitColormap();
 
 	R_InitColumnDrawers();
@@ -602,18 +602,18 @@ END_COMMAND (checkres)
 void V_InitPalette (void)
 {
 	// [RH] Initialize palette subsystem
-	if (!(InitPalettes ("PLAYPAL")))
+	if (!(V_InitPalettes("PLAYPAL")))
 		I_FatalError ("Could not initialize palette");
 
-	BuildTransTable(GetDefaultPalette()->basecolors);
+	BuildTransTable(V_GetDefaultPalette()->basecolors);
 
-	V_ForceBlend (0, 0, 0, 0);
+	V_ForceBlend(0, 0, 0, 0);
 
-	RefreshPalettes ();
+	V_RefreshPalettes();
 
-	assert(GetDefaultPalette()->maps.colormap != NULL);
-	assert(GetDefaultPalette()->maps.shademap != NULL);
-	V_Palette = shaderef_t(&GetDefaultPalette()->maps, 0); // (unsigned int *)DefaultPalette->colors;
+	assert(V_GetDefaultPalette()->maps.colormap != NULL);
+	assert(V_GetDefaultPalette()->maps.shademap != NULL);
+	V_Palette = shaderef_t(&V_GetDefaultPalette()->maps, 0);
 }
 
 //
@@ -695,7 +695,7 @@ void DCanvas::DetachPalette ()
 {
 	if (m_Palette)
 	{
-		FreePalette (m_Palette);
+		V_FreePalette(m_Palette);
 		m_Palette = NULL;
 	}
 }

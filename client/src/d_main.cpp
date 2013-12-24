@@ -555,7 +555,7 @@ void D_Init()
 	// start the Zone memory manager
 	Z_Init();
 
-	if (!(InitPalettes("PLAYPAL")))
+	if (!(V_InitPalettes("PLAYPAL")))
 		I_Error("Could not reinitialize palette");
 	V_InitPalette();
 

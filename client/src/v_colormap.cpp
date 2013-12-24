@@ -103,10 +103,10 @@ argb_t V_LightWithGamma(const dyncolormap_t* dyncolormap, argb_t color, int inte
 	else
 		lightcolor = MAKERGB(0xFF, 0xFF, 0xFF);		// white light
 
-	return MAKERGB(
-		newgamma[(RPART(color) * RPART(lightcolor) * intensity) >> 16],
-		newgamma[(GPART(color) * GPART(lightcolor) * intensity) >> 16],
-		newgamma[(BPART(color) * BPART(lightcolor) * intensity) >> 16]);
+	return V_GammaCorrect(
+		(RPART(color) * RPART(lightcolor) * intensity) >> 16,
+		(GPART(color) * GPART(lightcolor) * intensity) >> 16,
+		(BPART(color) * BPART(lightcolor) * intensity) >> 16);
 }
 
 
@@ -117,7 +117,7 @@ argb_t V_LightWithGamma(const dyncolormap_t* dyncolormap, argb_t color, int inte
 //
 dyncolormap_t* V_FindDynamicColormap(const shademap_t* shademap)
 {
-	if (shademap != &GetDefaultPalette()->maps)
+	if (shademap != &V_GetDefaultPalette()->maps)
 	{
 		// Find the dynamic colormap by the shademap pointer:
 		dyncolormap_t* colormap = &NormalLight;
@@ -205,7 +205,7 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
 			colormap[c] = V_BestColor(pal->basecolors, color, pal->numcolors);
 		}
 
-		V_GammaCorrect(shademap, shademap, pal->numcolors);
+		V_GammaCorrectBuffer(shademap, shademap, pal->numcolors);
 	}
 
 	// build special maps (e.g. invulnerability)
@@ -220,8 +220,8 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
 						(RPART(pal->basecolors[c]) * 0.00116796875f +
 						 GPART(pal->basecolors[c]) * 0.00229296875f +
 			 			 BPART(pal->basecolors[c]) * 0.0005625f), 0.0f, 1.0f));
-		const int graygammaint = newgamma[grayint];
-		shademap[c] = MAKERGB(graygammaint, graygammaint, graygammaint);
+
+		shademap[c] = V_GammaCorrect(grayint, grayint, grayint);
 		colormap[c] = V_BestColor(pal->basecolors, grayint, grayint, grayint, pal->numcolors);
 	}
 }
@@ -232,7 +232,7 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
 //
 void V_ForceDefaultColormap(const char* name)
 {
-	V_BuildDefaultColorAndShademap(GetDefaultPalette(), realcolormaps,
+	V_BuildDefaultColorAndShademap(V_GetDefaultPalette(), realcolormaps,
 				MAKERGB(255, 255, 255), level.fadeto);
 
 	// allow colormaps in PWAD to override the generated colormap
@@ -300,7 +300,7 @@ void V_InitColormaps()
 
 	if (numfakecmaps > 1)
 	{
-		palette_t *pal = GetDefaultPalette();
+		palette_t* pal = V_GetDefaultPalette();
 		shaderef_t defpal = shaderef_t(&pal->maps, 0);
 
 		for (int i = ++firstfakecmap, j = 1; j < numfakecmaps; i++, j++)

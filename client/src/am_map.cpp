@@ -554,7 +554,7 @@ am_color_t AM_BestColor(argb_t *palette, const int r, const int g, const int b, 
 void AM_initColors (BOOL overlayed)
 {
 	// Look up the colors in the current palette:
-	argb_t *palette = GetDefaultPalette()->colors;
+	argb_t* palette = V_GetDefaultPalette()->colors;
 
 	if (overlayed && !am_ovshare)
 	{
@@ -1304,7 +1304,7 @@ void AM_drawWalls(void)
 	int i, r, g, b;
 	static mline_t l;
 	float rdif, gdif, bdif;
-	palette_t *pal = GetDefaultPalette();
+	palette_t* pal = V_GetDefaultPalette();
 
 
 	for (i=0;i<numlines;i++) {
@@ -1500,8 +1500,7 @@ void AM_drawPlayers(void)
 {
 	angle_t angle;
 	player_t &conplayer = displayplayer();
-	argb_t *palette;
-	palette = GetDefaultPalette()->colors;
+	argb_t* palette = V_GetDefaultPalette()->colors;
 
 	if (!multiplayer)
 	{
@@ -1549,11 +1548,11 @@ void AM_drawPlayers(void)
 		} else {
 			int playercolor = CL_GetPlayerColor(p);
 			color.rgb = (argb_t)playercolor;
-			color.index = V_BestColor(GetDefaultPalette()->basecolors,
+			color.index = V_BestColor(V_GetDefaultPalette()->basecolors,
 							   RPART(playercolor),
 							   GPART(playercolor),
 							   BPART(playercolor),
-							   GetDefaultPalette()->numcolors);
+							   V_GetDefaultPalette()->numcolors);
 		}
 
 		pt.x = p->mo->x;

@@ -61,8 +61,8 @@ static int lu_palette;
 static int current_palette;
 static float current_blend[4];
 
-palette_t DefPal;
-palette_t *FirstPal;
+static palette_t DefPal;
+static palette_t* FirstPal;
 
 argb_t IndexedPalette[256];
 
@@ -70,13 +70,19 @@ argb_t IndexedPalette[256];
 /* Current color blending values */
 int		BlendR, BlendG, BlendB, BlendA;
 
-/**************************/
-/* Gamma correction stuff */
-/**************************/
+// ----------------------------------------------------------------------------
+//
+// Gamma Correction functions
+//
+// ----------------------------------------------------------------------------
+
+static byte gammatable[256];
+static bool gamma_initialized = false;
 
 static DoomGammaStrategy doomgammastrat;
 static ZDoomGammaStrategy zdoomgammastrat;
 GammaStrategy* gammastrat = &doomgammastrat;
+
 
 CVAR_FUNC_IMPL(vid_gammatype)
 {
@@ -96,27 +102,38 @@ CVAR_FUNC_IMPL(vid_gammatype)
 	}
 }
 
-byte newgamma[256];
-static bool gamma_initialized = false;
-
 
 //
 // V_GammaCorrect
 //
+// Applies the current gamma correction table to the given color.
+//
+argb_t V_GammaCorrect(int r, int g, int b)
+{
+	return MAKERGB(gammatable[r], gammatable[g], gammatable[b]);
+}
+
+argb_t V_GammaCorrect(argb_t value)
+{
+	unsigned int a = APART(value);
+	unsigned int r = RPART(value);
+	unsigned int g = GPART(value);
+	unsigned int b = BPART(value);
+
+	return MAKEARGB(a, gammatable[r], gammatable[g], gammatable[b]);
+}
+
+//
+// V_GammaCorrectBuffer
+//
 // Applies the current gamma correction table to an ARGB8888 buffer.
 //
-void V_GammaCorrect(argb_t* to, const argb_t* from, unsigned int count)
+void V_GammaCorrectBuffer(argb_t* to, const argb_t* from, unsigned int count)
 {
 	for (unsigned int i = 0; i < count; i++, from++)
-	{
-		unsigned int a = APART(*from);
-		unsigned int r = RPART(*from);
-		unsigned int g = GPART(*from);
-		unsigned int b = BPART(*from);
-
-		*to++ = MAKEARGB(a, newgamma[r], newgamma[g], newgamma[b]);	
-	}
+		*to++ = V_GammaCorrect(*from);
 }
+
 
 static void V_UpdateGammaLevel(float level)
 {
@@ -132,15 +149,15 @@ static void V_UpdateGammaLevel(float level)
 		lastgammalevel = level;
 		lasttype = type;
 
-		gammastrat->generateGammaTable(newgamma, level);
-		GammaAdjustPalettes();
+		gammastrat->generateGammaTable(gammatable, level);
+		V_GammaAdjustPalettes();
 
 		if (!screen)
 			return;
 		if (screen->is8bit())
 			V_ForceBlend(BlendR, BlendG, BlendB, BlendA);
 		else
-			RefreshPalettes();
+			V_RefreshPalettes();
 	}
 }
 
@@ -163,6 +180,33 @@ BEGIN_COMMAND(bumpgamma)
 	    Printf (PRINT_HIGH, "Gamma correction level %g\n", gammalevel.value());
 }
 END_COMMAND(bumpgamma)
+
+
+//
+// V_GammaAdjustPalette
+//
+static void V_GammaAdjustPalette(palette_t* pal)
+{
+	if (!(pal->colors && pal->basecolors))
+		return;
+
+	if (!gamma_initialized)
+		V_UpdateGammaLevel(gammalevel);
+
+	V_GammaCorrectBuffer(pal->colors, pal->basecolors, pal->numcolors);
+}
+
+
+//
+// V_GammaAdjustPalettes
+//
+void V_GammaAdjustPalettes()
+{
+	V_GammaAdjustPalette(&DefPal);
+
+	for (palette_t* pal = FirstPal; pal; pal = pal->next)
+		V_GammaAdjustPalette(pal);
+}
 
 
 // [Russell] - Restore original screen palette from current gamma level
@@ -211,17 +255,15 @@ palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors)
 	return V_BestColor(palette, RPART(color), GPART(color), BPART(color), numcolors);
 }
 
-bool InternalCreatePalette (palette_t *palette, const char *name, byte *colors,
+static bool V_InternalCreatePalette(palette_t* palette, const char* name, byte *colors,
 							unsigned numcolors, unsigned flags)
 {
-	unsigned i;
-
-	if (numcolors > 256)
-		numcolors = 256;
-	else if (numcolors == 0)
+	if (numcolors == 0)
 		return false;
+	else if (numcolors > 256)
+		numcolors = 256;
 
-	strncpy (palette->name.name, name, 8);
+	strncpy(palette->name.name, name, 8);
 	palette->flags = flags;
 	palette->usecount = 1;
 	palette->maps.colormap = NULL;
@@ -229,169 +271,73 @@ bool InternalCreatePalette (palette_t *palette, const char *name, byte *colors,
 
 	M_Free(palette->basecolors);
 
-	palette->basecolors = (argb_t *)Malloc (numcolors * 2 * sizeof(argb_t));
+	palette->basecolors = (argb_t *)Malloc(numcolors * 2 * sizeof(argb_t));
 	palette->colors = palette->basecolors + numcolors;
 	palette->numcolors = numcolors;
 
-	if (numcolors == 1)
-		palette->shadeshift = 0;
-	else if (numcolors <= 2)
-		palette->shadeshift = 1;
-	else if (numcolors <= 4)
-		palette->shadeshift = 2;
-	else if (numcolors <= 8)
-		palette->shadeshift = 3;
-	else if (numcolors <= 16)
-		palette->shadeshift = 4;
-	else if (numcolors <= 32)
-		palette->shadeshift = 5;
-	else if (numcolors <= 64)
-		palette->shadeshift = 6;
-	else if (numcolors <= 128)
-		palette->shadeshift = 7;
-	else
-		palette->shadeshift = 8;
+	palette->shadeshift = Log2(numcolors);
 
-	for (i = 0; i < numcolors; i++, colors += 3)
-		palette->basecolors[i] = MAKERGB(colors[0],colors[1],colors[2]);
+	for (unsigned int i = 0; i < numcolors; i++, colors += 3)
+		palette->basecolors[i] = MAKERGB(colors[0], colors[1], colors[2]);
 
-	GammaAdjustPalette (palette);
+	V_GammaAdjustPalette(palette);
 
 	return true;
 }
 
-palette_t *InitPalettes (const char *name)
+palette_t* V_InitPalettes(const char* name)
 {
-	byte *colors;
-
-	//if (DefPal.usecount)
-	//	return &DefPal;
-
 	current_palette = -1;
 	current_blend[0] = current_blend[1] = current_blend[2] = current_blend[3] = 255.0f;
 
-    lu_palette = W_GetNumForName ("PLAYPAL");
-
-	if ( (colors = (byte *)W_CacheLumpName (name, PU_CACHE)) )
-		if (InternalCreatePalette (&DefPal, name, colors, 256,
-									PALETTEF_SHADE|PALETTEF_BLEND|PALETTEF_DEFAULT)) {
+    lu_palette = W_GetNumForName("PLAYPAL");
+	byte* colors = (byte*)W_CacheLumpName(name, PU_CACHE);
+	if (colors)
+	{
+		unsigned int flags = PALETTEF_SHADE | PALETTEF_BLEND | PALETTEF_DEFAULT;
+		if (V_InternalCreatePalette(&DefPal, name, colors, 256, flags))
 			return &DefPal;
-		}
+	}
+
 	return NULL;
 }
 
-palette_t *GetDefaultPalette (void)
+palette_t* V_GetDefaultPalette()
 {
 	return &DefPal;
 }
 
-// MakePalette()
-//	input: colors: ptr to 256 3-byte RGB values
-//		   flags:  the flags for the new palette
 //
-palette_t *MakePalette (byte *colors, char *name, unsigned flags)
+// V_FreePalette
+//
+// input:	palette: the palette to free
+//
+// This function decrements the palette's usecount and frees it
+// when it hits zero.
+//
+void V_FreePalette(palette_t* palette)
 {
-	palette_t *pal;
-
-	pal = (palette_t *)Malloc (sizeof (palette_t));
-
-	if (InternalCreatePalette (pal, name, colors, 256, flags)) {
-		pal->next = FirstPal;
-		pal->prev = NULL;
-		FirstPal = pal;
-
-		return pal;
-	} else {
-		M_Free(pal);
-		return NULL;
-	}
-}
-
-// LoadPalette()
-//	input: name:  the name of the palette lump
-//		   flags: the flags for the palette
-//
-//	This function will try and find an already loaded
-//	palette and return that if possible.
-palette_t *LoadPalette (char *name, unsigned flags)
-{
-	palette_t *pal;
-
-	if (!(pal = FindPalette (name, flags))) {
-		// Palette doesn't already exist. Create a new one.
-		byte *colors = (byte *)W_CacheLumpName (name, PU_CACHE);
-
-		pal = MakePalette (colors, name, flags);
-	} else {
-		pal->usecount++;
-	}
-	return pal;
-}
-
-// LoadAttachedPalette()
-//	input: name:  the name of a graphic whose palette should be loaded
-//		   type:  the type of graphic whose palette is being requested
-//		   flags: the flags for the palette
-//
-//	This function looks through the PALETTES lump for a palette
-//	associated with the given graphic and returns that if possible.
-palette_t *LoadAttachedPalette (char *name, int type, unsigned flags);
-
-// FreePalette()
-//	input: palette: the palette to free
-//
-//	This function decrements the palette's usecount and frees it
-//	when it hits zero.
-void FreePalette (palette_t *palette)
-{
-	if (!(--palette->usecount)) {
-		if (!(palette->flags & PALETTEF_DEFAULT)) {
+	if (!(--palette->usecount))
+	{
+		if (!(palette->flags & PALETTEF_DEFAULT))
+		{
 			if (!palette->prev)
 				FirstPal = palette->next;
 			else
 				palette->prev->next = palette->next;
 
 			M_Free(palette->basecolors);
-
 			M_Free(palette->colormapsbase);
-
 			M_Free(palette);
 		}
 	}
 }
 
 
-palette_t *FindPalette (char *name, unsigned flags)
-{
-	palette_t *pal = FirstPal;
-	union {
-		char	s[9];
-		int		x[2];
-	} name8;
-
-	int			v1;
-	int			v2;
-
-	// make the name into two integers for easy compares
-	strncpy (name8.s,name,8);
-
-	v1 = name8.x[0];
-	v2 = name8.x[1];
-
-	while (pal) {
-		if (pal->name.nameint[0] == v1 && pal->name.nameint[1] == v2) {
-			if ((flags == (unsigned)~0) || (flags == pal->flags))
-				return pal;
-		}
-		pal = pal->next;
-	}
-	return NULL;
-}
-
-
-
-
-void RefreshPalette(palette_t* pal)
+//
+// V_RefreshPalette
+//
+static void V_RefreshPalette(palette_t* pal)
 {
 	if (pal->flags & PALETTEF_SHADE)
 	{
@@ -415,40 +361,18 @@ void RefreshPalette(palette_t* pal)
 	}
 }
 
-void RefreshPalettes (void)
-{
-	palette_t *pal = FirstPal;
 
-	RefreshPalette (&DefPal);
-	while (pal) {
-		RefreshPalette (pal);
-		pal = pal->next;
-	}
+//
+// V_RefreshPalettes
+//
+void V_RefreshPalettes()
+{
+	V_RefreshPalette(&DefPal);
+
+	for (palette_t* pal = FirstPal; pal; pal = pal->next)
+		V_RefreshPalette(pal);
 }
 
-
-void GammaAdjustPalette (palette_t *pal)
-{
-	if (!(pal->colors && pal->basecolors))
-		return;
-
-	if (!gamma_initialized)
-		V_UpdateGammaLevel(gammalevel);
-
-	V_GammaCorrect(pal->colors, pal->basecolors, pal->numcolors);
-}
-
-void GammaAdjustPalettes (void)
-{
-	palette_t *pal = FirstPal;
-
-	GammaAdjustPalette(&DefPal);
-	while (pal)
-	{
-		GammaAdjustPalette(pal);
-		pal = pal->next;
-	}
-}
 
 //
 // V_AddBlend
@@ -497,7 +421,7 @@ void V_ForceBlend (int blendr, int blendg, int blendb, int blenda)
 	if (screen->is8bit())
 	{
 		V_DoBlending(IndexedPalette, DefPal.colors, DefPal.numcolors,
-					newgamma[BlendR], newgamma[BlendG], newgamma[BlendB], BlendA);
+					gammatable[BlendR], gammatable[BlendG], gammatable[BlendB], BlendA);
 		I_SetPalette(IndexedPalette);
 	}
 }
@@ -548,7 +472,7 @@ BEGIN_COMMAND (testfade)
 		else
 			level.fadeto = V_GetColorFromString(NULL, argv[1]);
 
-		RefreshPalettes();
+		V_RefreshPalettes();
 		NormalLight.maps = shaderef_t(&DefPal.maps, 0);
 	}
 }
@@ -781,6 +705,14 @@ void V_DoPaletteEffects()
 
 		V_SetBlend ((int)(blend[0] * 255.0f), (int)(blend[1] * 255.0f),
 					(int)(blend[2] * 255.0f), (int)(blend[3] * 256.0f));
+
+/*
+		argb_t blendcolor = MAKERGB(BlendR, BlendG, BlendB);
+
+		for (unsigned int c = 0; c < DefPal.numcolors; c++)
+			DefPal.basecolors[c] = rt_blend2(DefPal.basecolors[c], 255 - BlendA, blendcolor, BlendA);
+		V_RefreshPalette(&DefPal);
+*/
 	}
 }
 
