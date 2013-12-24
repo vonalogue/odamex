@@ -169,11 +169,16 @@ void V_BuildLightRamp(shademap_t& maps)
 //
 // Also generates the invulnerability colormap.
 //
-void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps)
+void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
+		argb_t lightcolor, argb_t fadecolor)
 {
-	unsigned int fader = RPART(level.fadeto);
-	unsigned int fadeg = GPART(level.fadeto);
-	unsigned int fadeb = BPART(level.fadeto);
+	unsigned int fader = RPART(fadecolor);
+	unsigned int fadeg = GPART(fadecolor);
+	unsigned int fadeb = BPART(fadecolor);
+
+	unsigned int lightr = RPART(lightcolor);
+	unsigned int lightg = GPART(lightcolor);
+	unsigned int lightb = BPART(lightcolor);
 
 	V_BuildLightRamp(maps);
 
@@ -187,9 +192,9 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps)
 
 		for (unsigned int c = 0; c < pal->numcolors; c++)
 		{
-			unsigned int r = RPART(pal->basecolors[c]);
-			unsigned int g = GPART(pal->basecolors[c]);
-			unsigned int b = BPART(pal->basecolors[c]);
+			unsigned int r = RPART(pal->basecolors[c]) * lightr / 255;
+			unsigned int g = GPART(pal->basecolors[c]) * lightg / 255;
+			unsigned int b = BPART(pal->basecolors[c]) * lightb / 255;
 
 			argb_t color = MAKERGB(
 				r + ((fader - r) * i + NUMCOLORMAPS/2) / NUMCOLORMAPS,
@@ -227,7 +232,8 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps)
 //
 void V_ForceDefaultColormap(const char* name)
 {
-	V_BuildDefaultColorAndShademap(GetDefaultPalette(), realcolormaps);
+	V_BuildDefaultColorAndShademap(GetDefaultPalette(), realcolormaps,
+				MAKERGB(255, 255, 255), level.fadeto);
 
 	// allow colormaps in PWAD to override the generated colormap
 	const byte* data = (byte*)W_CacheLumpName(name, PU_CACHE);

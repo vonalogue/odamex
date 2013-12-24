@@ -55,7 +55,6 @@ EXTERN_CVAR(vid_gammatype)
 EXTERN_CVAR(r_painintensity)
 EXTERN_CVAR(sv_allowredscreen)
 
-void BuildColoredLights (byte *maps, int lr, int lg, int lb, int fr, int fg, int fb);
 void V_ForceBlend (int blendr, int blendg, int blendb, int blenda);
 
 static int lu_palette;
@@ -392,18 +391,20 @@ palette_t *FindPalette (char *name, unsigned flags)
 
 
 
-void RefreshPalette (palette_t *pal)
+void RefreshPalette(palette_t* pal)
 {
 	if (pal->flags & PALETTEF_SHADE)
 	{
-		if (pal->maps.colormap && pal->maps.colormap - pal->colormapsbase >= 256) {
+		if (pal->maps.colormap && pal->maps.colormap - pal->colormapsbase >= 256)
+		{
 			M_Free(pal->maps.colormap);
 		}
-		pal->colormapsbase = (byte *)Realloc (pal->colormapsbase, (NUMCOLORMAPS + 1) * 256 + 255);
-		pal->maps.colormap = (byte *)(((ptrdiff_t)(pal->colormapsbase) + 255) & ~0xff);
-		pal->maps.shademap = (argb_t *)Realloc (pal->maps.shademap, (NUMCOLORMAPS + 1)*256*sizeof(argb_t) + 255);
 
-		V_BuildDefaultColorAndShademap(pal, pal->maps);
+		pal->colormapsbase = (byte *)Realloc(pal->colormapsbase, (NUMCOLORMAPS + 1) * 256 + 255);
+		pal->maps.colormap = (byte *)(((ptrdiff_t)(pal->colormapsbase) + 255) & ~0xff);
+		pal->maps.shademap = (argb_t *)Realloc(pal->maps.shademap, (NUMCOLORMAPS + 1)*256*sizeof(argb_t) + 255);
+
+		V_BuildDefaultColorAndShademap(pal, pal->maps, MAKERGB(255, 255, 255), level.fadeto);
 	}
 
 	if (pal == &DefPal)
@@ -535,22 +536,18 @@ END_COMMAND (testblend)
 
 BEGIN_COMMAND (testfade)
 {
-
-	int color;
-
 	if (argc < 2)
 	{
 		Printf (PRINT_HIGH, "testfade <color>\n");
 	}
 	else
 	{
-		std::string colorstring = V_GetColorStringByName (argv[1]);
-		if (colorstring.length())
-			color = V_GetColorFromString (NULL, colorstring.c_str());
+		std::string colorstring = V_GetColorStringByName(argv[1]);
+		if (!colorstring.empty())
+			level.fadeto = V_GetColorFromString(NULL, colorstring.c_str());
 		else
-			color = V_GetColorFromString (NULL, argv[1]);
+			level.fadeto = V_GetColorFromString(NULL, argv[1]);
 
-		level.fadeto = color;
 		RefreshPalettes();
 		NormalLight.maps = shaderef_t(&DefPal.maps, 0);
 	}
@@ -630,96 +627,57 @@ void HSVtoRGB (float *r, float *g, float *b, float h, float s, float v)
 	}
 }
 
-/****** Colored Lighting Stuffs (Sorry, 8-bit only) ******/
-
-// Builds NUMCOLORMAPS colormaps lit with the specified color
-void BuildColoredLights (shademap_t *maps, int lr, int lg, int lb, int r, int g, int b)
+dyncolormap_t* GetSpecialLights(int lr, int lg, int lb, int fr, int fg, int fb)
 {
-	unsigned int l,c;
-	byte	*color;
-	argb_t  *shade;
-
-	// The default palette is assumed to contain the maps for white light.
-	if (!maps)
-		return;
-
-	V_BuildLightRamp(*maps);
-
-	// build normal (but colored) light mappings
-	for (l = 0; l < NUMCOLORMAPS; l++) {
-		byte a = maps->ramp[l * 255 / NUMCOLORMAPS];
-
-		// Write directly to the shademap for blending:
-		argb_t *colors = maps->shademap + (256 * l);
-		V_DoBlending(colors, DefPal.basecolors, DefPal.numcolors, r, g, b, a);
-
-		// Build the colormap and shademap:
-		color = maps->colormap + 256*l;
-		shade = maps->shademap + 256*l;
-		for (c = 0; c < 256; c++)
-		{
-			shade[c] = MAKERGB(
-				newgamma[(RPART(colors[c])*lr)/255],
-				newgamma[(GPART(colors[c])*lg)/255],
-				newgamma[(BPART(colors[c])*lb)/255]
-			);
-			color[c] = V_BestColor(DefPal.basecolors, shade[c], 256);
-		}
-	}
-}
-
-dyncolormap_t *GetSpecialLights (int lr, int lg, int lb, int fr, int fg, int fb)
-{
-	unsigned int color = MAKERGB (lr, lg, lb);
-	unsigned int fade = MAKERGB (fr, fg, fb);
-	dyncolormap_t *colormap = &NormalLight;
+	argb_t lightcolor = MAKERGB(lr, lg, lb);
+	argb_t fadecolor= MAKERGB(fr, fg, fb);
+	dyncolormap_t* colormap = &NormalLight;
 
 	// Bah! Simple linear search because I want to get this done.
-	while (colormap) {
-		if (color == colormap->color && fade == colormap->fade)
+	while (colormap)
+	{
+		if (lightcolor == colormap->color && fadecolor == colormap->fade)
 			return colormap;
 		else
 			colormap = colormap->next;
 	}
 
 	// Not found. Create it.
-	colormap = (dyncolormap_t *)Z_Malloc (sizeof(*colormap), PU_LEVEL, 0);
-	shademap_t *maps = new shademap_t();
-	maps->colormap = (byte *)Z_Malloc (NUMCOLORMAPS*256*sizeof(byte)+3+255, PU_LEVEL, 0);
-	maps->colormap = (byte *)(((ptrdiff_t)maps->colormap + 255) & ~0xff);
-	maps->shademap = (argb_t *)Z_Malloc (NUMCOLORMAPS*256*sizeof(argb_t)+3+255, PU_LEVEL, 0);
-	maps->shademap = (argb_t *)(((ptrdiff_t)maps->shademap + 255) & ~0xff);
+	colormap = (dyncolormap_t*)Z_Malloc(sizeof(*colormap), PU_LEVEL, 0);
+	shademap_t* maps = (shademap_t*)Z_Malloc(sizeof(shademap_t), PU_LEVEL, 0);
+	maps->colormap = (byte*)Z_Malloc(NUMCOLORMAPS*256*sizeof(byte)+3+255, PU_LEVEL, 0);
+	maps->colormap = (byte*)(((ptrdiff_t)maps->colormap + 255) & ~0xff);
+	maps->shademap = (argb_t*)Z_Malloc(NUMCOLORMAPS*256*sizeof(argb_t)+3+255, PU_LEVEL, 0);
+	maps->shademap = (argb_t*)(((ptrdiff_t)maps->shademap + 255) & ~0xff);
 
 	colormap->maps = shaderef_t(maps, 0);
-	colormap->color = color;
-	colormap->fade = fade;
+	colormap->color = lightcolor;
+	colormap->fade = fadecolor;
 	colormap->next = NormalLight.next;
 	NormalLight.next = colormap;
 
-	BuildColoredLights (maps, lr, lg, lb, fr, fg, fb);
+	V_BuildDefaultColorAndShademap(&DefPal, *maps, lightcolor, fadecolor);
 
 	return colormap;
 }
 
 BEGIN_COMMAND (testcolor)
 {
-	int color;
-
 	if (argc < 2)
 	{
 		Printf (PRINT_HIGH, "testcolor <color>\n");
 	}
 	else
 	{
-		std::string colorstring = V_GetColorStringByName (argv[1]);
+		std::string colorstring = V_GetColorStringByName(argv[1]);
+		argb_t color;
 
-		if (colorstring.length())
-			color = V_GetColorFromString (NULL, colorstring.c_str());
+		if (!colorstring.empty())
+			color = V_GetColorFromString(NULL, colorstring.c_str());
 		else
-			color = V_GetColorFromString (NULL, argv[1]);
+			color = V_GetColorFromString(NULL, argv[1]);
 
-		BuildColoredLights ((shademap_t *)NormalLight.maps.map(), RPART(color), GPART(color), BPART(color),
-			RPART(level.fadeto), GPART(level.fadeto), BPART(level.fadeto));
+		V_BuildDefaultColorAndShademap(&DefPal, *(shademap_t*)NormalLight.maps.map(), color, level.fadeto);
 	}
 }
 END_COMMAND (testcolor)
