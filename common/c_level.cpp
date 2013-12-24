@@ -1101,8 +1101,7 @@ void G_InitLevelLocals ()
 	int i;
 
 	BaseBlendA = 0.0f;		// Remove underwater blend effect, if any
-	NormalLight.maps = shaderef_t(&realcolormaps, 0);
-	//NormalLight.maps = shaderef_t(&DefaultPalette->maps, 0);
+	NormalLight.maps = shaderef_t(V_GetDefaultColormap(), 0);
 	r_underwater = false;
 
 	level.gravity = sv_gravity;

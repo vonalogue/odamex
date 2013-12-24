@@ -58,10 +58,10 @@ EXTERN_CVAR(sv_allowredscreen)
 void V_ForceBlend (int blendr, int blendg, int blendb, int blenda);
 
 static int lu_palette;
-static int current_palette;
+static int current_palette_num;
 static float current_blend[4];
 
-static palette_t DefPal;
+static palette_t default_palette;
 
 argb_t IndexedPalette[256];
 
@@ -201,7 +201,7 @@ static void V_GammaAdjustPalette(palette_t* pal)
 //
 void V_GammaAdjustPalettes()
 {
-	V_GammaAdjustPalette(&DefPal);
+	V_GammaAdjustPalette(&default_palette);
 }
 
 
@@ -283,7 +283,7 @@ static void V_InternalCreatePalette(palette_t* palette, const byte* colors, unsi
 //
 palette_t* V_InitPalettes(const char* name)
 {
-	current_palette = -1;
+	current_palette_num = -1;
 	current_blend[0] = current_blend[1] = current_blend[2] = current_blend[3] = 255.0f;
 
 	lu_palette = W_GetNumForName(name);
@@ -292,9 +292,9 @@ palette_t* V_InitPalettes(const char* name)
 
 	byte* colors = (byte*)W_CacheLumpNum(lu_palette, PU_CACHE);
 	unsigned int flags = PALETTEF_SHADE | PALETTEF_BLEND | PALETTEF_DEFAULT;
-	V_InternalCreatePalette(&DefPal, colors, flags);
+	V_InternalCreatePalette(&default_palette, colors, flags);
 
-	return &DefPal;
+	return &default_palette;
 }
 
 
@@ -311,7 +311,7 @@ void V_RestorePalettes()
 //
 palette_t* V_GetDefaultPalette()
 {
-	return &DefPal;
+	return &default_palette;
 }
 
 
@@ -347,12 +347,12 @@ static void V_RefreshPalette(palette_t* pal)
 		pal->maps.colormap = (byte*)(((ptrdiff_t)(pal->colormapsbase) + 255) & ~0xff);
 		pal->maps.shademap = (argb_t*)Realloc(pal->maps.shademap, (NUMCOLORMAPS + 1)*256*sizeof(argb_t) + 255);
 
-		V_BuildDefaultColorAndShademap(pal, pal->maps, whitecolor, level.fadeto);
+		V_BuildDefaultColorAndShademap(&pal->maps, pal, whitecolor, level.fadeto);
 	}
 
-	if (pal == &DefPal)
+	if (pal == &default_palette)
 	{
-		NormalLight.maps = shaderef_t(&DefPal.maps, 0);
+		NormalLight.maps = shaderef_t(&default_palette.maps, 0);
 		NormalLight.color = whitecolor;
 		NormalLight.fade = level.fadeto;
 	}
@@ -364,7 +364,7 @@ static void V_RefreshPalette(palette_t* pal)
 //
 void V_RefreshPalettes()
 {
-	V_RefreshPalette(&DefPal);
+	V_RefreshPalette(&default_palette);
 }
 
 
@@ -414,7 +414,7 @@ void V_ForceBlend (int blendr, int blendg, int blendb, int blenda)
 	// in R_RenderPlayerView
 	if (screen->is8bit())
 	{
-		V_DoBlending(IndexedPalette, DefPal.colors, DefPal.numcolors,
+		V_DoBlending(IndexedPalette, default_palette.colors, default_palette.numcolors,
 					gammatable[BlendR], gammatable[BlendG], gammatable[BlendB], BlendA);
 		I_SetPalette(IndexedPalette);
 	}
@@ -467,7 +467,7 @@ BEGIN_COMMAND (testfade)
 			level.fadeto = V_GetColorFromString(NULL, argv[1]);
 
 		V_RefreshPalettes();
-		NormalLight.maps = shaderef_t(&DefPal.maps, 0);
+		NormalLight.maps = shaderef_t(&default_palette.maps, 0);
 	}
 }
 END_COMMAND (testfade)
@@ -574,7 +574,7 @@ dyncolormap_t* GetSpecialLights(int lr, int lg, int lb, int fr, int fg, int fb)
 	colormap->next = NormalLight.next;
 	NormalLight.next = colormap;
 
-	V_BuildDefaultColorAndShademap(&DefPal, *maps, lightcolor, fadecolor);
+	V_BuildDefaultColorAndShademap(maps, V_GetDefaultPalette(), lightcolor, fadecolor);
 
 	return colormap;
 }
@@ -595,7 +595,8 @@ BEGIN_COMMAND (testcolor)
 		else
 			color = V_GetColorFromString(NULL, argv[1]);
 
-		V_BuildDefaultColorAndShademap(&DefPal, *(shademap_t*)NormalLight.maps.map(), color, level.fadeto);
+		V_BuildDefaultColorAndShademap((shademap_t*)NormalLight.maps.map(), V_GetDefaultPalette(),
+						color, level.fadeto);
 	}
 }
 END_COMMAND (testcolor)
@@ -612,7 +613,7 @@ void V_DoPaletteEffects()
 
 	if (screen->is8bit())
 	{
-		int		palette;
+		int	palette_num;
 
 		float cnt = (float)plyr->damagecount;
 		if (!multiplayer || sv_allowredscreen)
@@ -624,39 +625,39 @@ void V_DoPaletteEffects()
 
 		if (cnt)
 		{
-			palette = ((int)cnt + 7) >> 3;
+			palette_num = ((int)cnt + 7) >> 3;
 
 			if (gamemode == retail_chex)
-				palette = RADIATIONPAL;
+				palette_num = RADIATIONPAL;
 			else
 			{
-				if (palette >= NUMREDPALS)
-					palette = NUMREDPALS-1;
+				if (palette_num >= NUMREDPALS)
+					palette_num = NUMREDPALS-1;
 
-				palette += STARTREDPALS;
+				palette_num += STARTREDPALS;
 
-				if (palette < 0)
-					palette = 0;
+				if (palette_num < 0)
+					palette_num = 0;
 			}
 		}
 		else if (plyr->bonuscount)
 		{
-			palette = (plyr->bonuscount+7)>>3;
+			palette_num = (plyr->bonuscount+7)>>3;
 
-			if (palette >= NUMBONUSPALS)
-				palette = NUMBONUSPALS-1;
+			if (palette_num >= NUMBONUSPALS)
+				palette_num = NUMBONUSPALS-1;
 
-			palette += STARTBONUSPALS;
+			palette_num += STARTBONUSPALS;
 		}
 		else if (plyr->powers[pw_ironfeet] > 4*32 || plyr->powers[pw_ironfeet] & 8)
-			palette = RADIATIONPAL;
+			palette_num = RADIATIONPAL;
 		else
-			palette = 0;
+			palette_num = 0;
 
-		if (palette != current_palette)
+		if (palette_num != current_palette_num)
 		{
-			current_palette = palette;
-			byte* pal = (byte *)W_CacheLumpNum(lu_palette, PU_CACHE) + palette * 768;
+			current_palette_num = palette_num;
+			byte* pal = (byte *)W_CacheLumpNum(lu_palette, PU_CACHE) + palette_num * 768;
 			I_SetOldPalette(pal);
 		}
 	}
@@ -703,12 +704,12 @@ void V_DoPaletteEffects()
 /*
 		if (BlendA)
 		{
-			argb_t* colors = DefPal.basecolors;
+			argb_t* colors = default_palette.basecolors;
 			argb_t blendcolor = MAKERGB(BlendR, BlendG, BlendB);
 
-			for (unsigned int c = 0; c < DefPal.numcolors; c++)
+			for (unsigned int c = 0; c < default_palette.numcolors; c++)
 				colors[c] = rt_blend2(colors[c], 255 - BlendA, blendcolor, BlendA);
-			V_RefreshPalette(&DefPal);
+			V_RefreshPalette(&default_palette);
 		}
 */
 	}

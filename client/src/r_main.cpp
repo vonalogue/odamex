@@ -1218,11 +1218,11 @@ void R_SetupFrame (player_t *player)
 			BaseBlendG = GPART(newblend);
 			BaseBlendB = BPART(newblend);
 			BaseBlendA = APART(newblend) / 255.0f;
-			NormalLight.maps = shaderef_t(&realcolormaps, 0);
+			NormalLight.maps = shaderef_t(V_GetDefaultColormap(), 0);
 		}
 		else
 		{
-			NormalLight.maps = shaderef_t(&realcolormaps, (NUMCOLORMAPS+1)*newblend);
+			NormalLight.maps = shaderef_t(V_GetDefaultColormap(), (NUMCOLORMAPS+1)*newblend);
 			BaseBlendR = BaseBlendG = BaseBlendB = 0;
 			BaseBlendA = 0.0f;
 		}

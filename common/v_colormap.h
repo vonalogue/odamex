@@ -273,8 +273,9 @@ struct dyncolormap_t
 //
 // ----------------------------------------------------------------------------
 
-extern shademap_t realcolormaps;		// [RH] make the colormaps externally visible
 extern int numfakecmaps;
+
+shademap_t* V_GetDefaultColormap();
 
 void V_InitColormaps();
 void V_SetDefaultColormap(const char* name);
@@ -283,11 +284,10 @@ void V_ReinitColormap();
 int V_ColormapNumForName(const char* name);
 argb_t V_BlendForColormap(int map);
 void V_DoBlending(argb_t* to, const argb_t* from, unsigned int count,
-					int tor, int tog, int tob, int toa);
+				int tor, int tog, int tob, int toa);
 void V_DoBlending(argb_t* to, const argb_t* from, unsigned int count, argb_t blend_value);
-void V_BuildLightRamp(shademap_t& maps);
-void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
-		argb_t lightcolor, argb_t fadecolor);
+void V_BuildDefaultColorAndShademap(shademap_t* maps, const palette_t* pal,
+				argb_t lightcolor, argb_t fadecolor);
 
 
 #endif	// __V_COLORMAP_H__

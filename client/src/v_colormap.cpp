@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: v_colormap.h $
+// $Id: v_colormap.cpp $
 //
 // Copyright (C) 1998-2006 by Randy Heit (ZDoom 1.22).
 // Copyright (C) 2006-2013 by The Odamex Team.
@@ -45,10 +45,11 @@ static struct FakeCmap
 
 int numfakecmaps;
 int firstfakecmap;
-shademap_t realcolormaps;
 int lastusedcolormap;
 
 dyncolormap_t NormalLight;
+
+static shademap_t default_colormap;
 
 
 // ----------------------------------------------------------------------------
@@ -56,6 +57,15 @@ dyncolormap_t NormalLight;
 // General functions
 //
 // ----------------------------------------------------------------------------
+
+//
+// V_GetDefaultColormap
+//
+shademap_t* V_GetDefaultColormap()
+{
+	return &default_colormap;
+}
+
 
 //
 // V_DoBlending
@@ -153,10 +163,10 @@ static int V_LightScale(int value)
 //
 // V_BuildLightRamp
 //
-void V_BuildLightRamp(shademap_t& maps)
+static void V_BuildLightRamp(shademap_t* maps)
 {
 	for (int i = 0; i < 256; i++)
-		maps.ramp[i] = V_LightScale(i);
+		maps->ramp[i] = V_LightScale(i);
 }
 
 
@@ -169,7 +179,7 @@ void V_BuildLightRamp(shademap_t& maps)
 //
 // Also generates the invulnerability colormap.
 //
-void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
+void V_BuildDefaultColorAndShademap(shademap_t* maps, const palette_t* pal,
 		argb_t lightcolor, argb_t fadecolor)
 {
 	unsigned int fader = RPART(fadecolor);
@@ -187,8 +197,8 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
 	// from Doom Utilities. Now accomodates level.fadeto.
 	for (unsigned int i = 0; i < NUMCOLORMAPS; i++)
 	{
-		argb_t* shademap = maps.shademap + (i << pal->shadeshift);
-		palindex_t* colormap = maps.colormap + (i << pal->shadeshift);
+		argb_t* shademap = maps->shademap + (i << pal->shadeshift);
+		palindex_t* colormap = maps->colormap + (i << pal->shadeshift);
 
 		for (unsigned int c = 0; c < pal->numcolors; c++)
 		{
@@ -209,8 +219,8 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
 	// build special maps (e.g. invulnerability)
 	// [SL] Modified algorithm from BuildSpecials in dcolors.c
 	// from Doom Utilities.
-	argb_t* shademap = maps.shademap + (NUMCOLORMAPS << pal->shadeshift);
-	palindex_t* colormap = maps.colormap + (NUMCOLORMAPS << pal->shadeshift);
+	argb_t* shademap = maps->shademap + (NUMCOLORMAPS << pal->shadeshift);
+	palindex_t* colormap = maps->colormap + (NUMCOLORMAPS << pal->shadeshift);
 
 	for (unsigned int c = 0; c < pal->numcolors; c++)
 	{
@@ -230,12 +240,12 @@ void V_BuildDefaultColorAndShademap(const palette_t* pal, shademap_t& maps,
 //
 void V_ForceDefaultColormap(const char* name)
 {
-	V_BuildDefaultColorAndShademap(V_GetDefaultPalette(), realcolormaps,
+	V_BuildDefaultColorAndShademap(V_GetDefaultColormap(), V_GetDefaultPalette(),
 				MAKERGB(255, 255, 255), level.fadeto);
 
 	// allow colormaps in PWAD to override the generated colormap
 	const byte* data = (byte*)W_CacheLumpName(name, PU_CACHE);
-	memcpy(realcolormaps.colormap, data, (NUMCOLORMAPS + 1) * 256);
+	memcpy(V_GetDefaultColormap()->colormap, data, (NUMCOLORMAPS + 1) * 256);
 
 	strncpy(fakecmaps[0].name, name, 9); // denis - todo - string limit?
 	std::transform(fakecmaps[0].name, fakecmaps[0].name + strlen(fakecmaps[0].name), fakecmaps[0].name, toupper);
@@ -287,9 +297,9 @@ void V_InitColormaps()
 		numfakecmaps = lastfakecmap - firstfakecmap;
 	}
 
-	realcolormaps.colormap =
+	default_colormap.colormap =
 			(byte*)Z_Malloc(256 * (NUMCOLORMAPS + 1) * numfakecmaps, PU_STATIC, 0);
-	realcolormaps.shademap =
+	default_colormap.shademap =
 			(argb_t*)Z_Malloc(256 * sizeof(argb_t) * (NUMCOLORMAPS + 1) * numfakecmaps, PU_STATIC, 0);
 	fakecmaps = (FakeCmap*)Z_Malloc(sizeof(*fakecmaps) * numfakecmaps, PU_STATIC, 0);
 
@@ -307,8 +317,8 @@ void V_InitColormaps()
 			{
 				const byte* map = (byte*)W_CacheLumpNum(i, PU_CACHE);
 
-				byte* colormap = realcolormaps.colormap + (NUMCOLORMAPS + 1) * 256 * j;
-				argb_t* shademap = realcolormaps.shademap + (NUMCOLORMAPS + 1) * 256 * j;
+				byte* colormap = default_colormap.colormap + (NUMCOLORMAPS + 1) * 256 * j;
+				argb_t* shademap = default_colormap.shademap + (NUMCOLORMAPS + 1) * 256 * j;
 
 				// Copy colormap data:
 				memcpy(colormap, map, (NUMCOLORMAPS + 1) * 256);
@@ -352,7 +362,7 @@ void V_InitColormaps()
 //
 // V_ColormapNumForName
 //
-// [RH] Returns an index into realcolormaps. Multiply it by
+// [RH] Returns an index into default_colormap. Multiply it by
 //		256*(NUMCOLORMAPS+1) to find the start of the colormap to use.
 //		WATERMAP is an exception and returns a blending value instead.
 int V_ColormapNumForName(const char* name)
