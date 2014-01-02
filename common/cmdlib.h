@@ -69,9 +69,9 @@ size_t  StdStringRFind(const std::string& haystack, const std::string& needle,
     size_t pos, size_t n, bool CIS);
 
 std::string StdStringToLower(const std::string&);
-std::string StdStringToLower(const char*);
+std::string StdStringToLower(const char*, size_t n = std::string::npos);
 std::string StdStringToUpper(const std::string&);
-std::string StdStringToUpper(const char*);
+std::string StdStringToUpper(const char*, size_t n = std::string::npos);
 
 std::string &TrimString(std::string &s);
 std::string &TrimStringStart(std::string &s);

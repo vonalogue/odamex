@@ -781,45 +781,40 @@ void TextureManager::addTextureDirectory(const char* lumpname)
 
 	int* texoffs = (int*)(lumpdata + 4);
 
-	// keep track of the number of texture errors
-	int errors = 0;
-
 	int count = LELONG(*((int*)(lumpdata + 0)));
 	for (int i = 0; i < count; i++)
 	{
 		maptexture_t* mtexdef = (maptexture_t*)((byte*)lumpdata + LELONG(texoffs[i]));
-		
-		size_t texdefsize = sizeof(texdef_t) + sizeof(texdefpatch_t) * (SAFESHORT(mtexdef->patchcount) - 1);
-		texdef_t* texdef = (texdef_t*)(new byte[texdefsize]); 	
+		OString uname(StdStringToUpper(mtexdef->name, 8));
 
-		texdef->width = SAFESHORT(mtexdef->width);
-		texdef->height = SAFESHORT(mtexdef->height);
-		texdef->patchcount = SAFESHORT(mtexdef->patchcount);
-		texdef->scalex = mtexdef->scalex;
-		texdef->scaley = mtexdef->scaley;
-
-		char uname[9];
-		for (int c = 0; c < 8; c++)
-			uname[c] = toupper(mtexdef->name[c]);
-		uname[8] = 0;
-
-		mappatch_t* mpatch = &mtexdef->patches[0];
-		texdefpatch_t* patch = &texdef->patches[0];
-
-		for (int j = 0; j < texdef->patchcount; j++, mpatch++, patch++)
+		// [SL] If there are duplicated texture names, the first instance takes precedence.
+		// Are there any ports besides ZDoom that handle duplicated texture names?
+		if (mTextureNameTranslationMap.find(uname) == mTextureNameTranslationMap.end())
 		{
-			patch->originx = LESHORT(mpatch->originx);
-			patch->originy = LESHORT(mpatch->originy);
-			patch->patch = mPNameLookup[LESHORT(mpatch->patch)];
-			if (patch->patch == -1)
-			{
-				Printf(PRINT_HIGH, "R_InitTextures: Missing patch in texture %s\n", uname);
-				errors++;
-			}
-		}
+			size_t texdefsize = sizeof(texdef_t) + sizeof(texdefpatch_t) * (SAFESHORT(mtexdef->patchcount) - 1);
+			texdef_t* texdef = (texdef_t*)(new byte[texdefsize]); 	
 
-		mTextureDefinitions.push_back(texdef);
-		mTextureNameTranslationMap[uname] = mTextureDefinitions.size() - 1;
+			texdef->width = SAFESHORT(mtexdef->width);
+			texdef->height = SAFESHORT(mtexdef->height);
+			texdef->patchcount = SAFESHORT(mtexdef->patchcount);
+			texdef->scalex = mtexdef->scalex;
+			texdef->scaley = mtexdef->scaley;
+
+			mappatch_t* mpatch = &mtexdef->patches[0];
+			texdefpatch_t* patch = &texdef->patches[0];
+
+			for (int j = 0; j < texdef->patchcount; j++, mpatch++, patch++)
+			{
+				patch->originx = LESHORT(mpatch->originx);
+				patch->originy = LESHORT(mpatch->originy);
+				patch->patch = mPNameLookup[LESHORT(mpatch->patch)];
+				if (patch->patch == -1)
+					Printf(PRINT_HIGH, "R_InitTextures: Missing patch in texture %s\n", uname.c_str());
+			}
+
+			mTextureDefinitions.push_back(texdef);
+			mTextureNameTranslationMap[uname] = mTextureDefinitions.size() - 1;
+		}
 	}
 
 	delete [] lumpdata;

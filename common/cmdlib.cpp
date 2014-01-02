@@ -261,7 +261,7 @@ std::string StdStringToLower(const std::string& str)
 	return StdStringToLowerBase(lower);
 }
 
-std::string StdStringToLower(const char* str)
+std::string StdStringToLower(const char* str, size_t n)
 {
 	std::string lower(str);
 	return StdStringToLowerBase(lower);
@@ -279,9 +279,9 @@ std::string StdStringToUpper(const std::string& str)
 	return StdStringToUpperBase(upper);
 }
 
-std::string StdStringToUpper(const char* str)
+std::string StdStringToUpper(const char* str, size_t n)
 {
-	std::string upper(str);
+	std::string upper(str, n);
 	return StdStringToUpperBase(upper);
 }
 
