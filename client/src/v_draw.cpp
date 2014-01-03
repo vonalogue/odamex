@@ -126,7 +126,9 @@ void DCanvas::DrawSWrapper(EWrapperCode drawer, const Texture* texture, int x0, 
 	dcol.texturefrac = 0;
 	dcol.textureheight = texheight << FRACBITS;
 
-	for (fixed_t colnum = 0; colnum < destwidth * xinc; colnum += xinc)
+	const fixed_t max_colnum = MIN(destwidth * xinc, texture->getWidth() << FRACBITS);
+
+	for (fixed_t colnum = 0; colnum < max_colnum; colnum += xinc)
 	{
 		int pixel_offset = texheight * (colnum >> FRACBITS);
 		dcol.source = texture->getData() + pixel_offset;
