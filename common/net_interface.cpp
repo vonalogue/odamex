@@ -346,6 +346,150 @@ void NetInterface::service()
 // Private low-level socket functions
 // ----------------------------------------------------------------------------
 
+#ifdef ODA_HAVE_MINIUPNP
+
+// ----------------------------------------------------------------------------
+// miniupnp
+// ----------------------------------------------------------------------------
+
+EXTERN_CVAR(sv_upnp)
+EXTERN_CVAR(sv_upnp_discovertimeout)
+EXTERN_CVAR(sv_upnp_description)
+EXTERN_CVAR(sv_upnp_internalip)
+EXTERN_CVAR(sv_upnp_externalip)
+
+static struct UPNPUrls upnp_urls;
+static struct IGDdatas upnp_data;
+static bool UPNPInitialized = false;
+
+
+//
+// Net_UPNPInit
+//
+static bool Net_UPNPInit(const SocketAddress& local_address)
+{
+	int res = 0;
+
+	memset(&upnp_urls, 0, sizeof(struct UPNPUrls));
+	memset(&upnp_data, 0, sizeof(struct IGDdatas));
+
+	Net_Printf("UPnP: Discovering router (max 1 unit supported).");
+
+	struct UPNPDev* devlist = upnpDiscover(sv_upnp_discovertimeout.asInt(), NULL, NULL, 0, 0, &res);
+
+	if (!devlist || res != UPNPDISCOVER_SUCCESS)
+	{
+		Net_Printf("UPnP: Router not found or timed out, error %d.", res);
+		return false;
+	}
+
+	struct UPNPDev* dev = devlist;
+
+	while (dev)
+	{
+		if (strstr(dev->st, "InternetGatewayDevice"))
+			break;
+		dev = dev->pNext;
+	}
+
+	if (!dev)
+		dev = devlist;	// defaulting to first device
+
+	int descXMLsize = 0;
+	char* descXML = (char *)miniwget(dev->descURL, &descXMLsize, 0);
+
+	if (descXML)
+	{
+		parserootdesc(descXML, descXMLsize, &upnp_data);
+		free(descXML);
+		descXML = NULL;
+		GetUPNPUrls(&upnp_urls, &upnp_data, dev->descURL, 0);
+	}
+
+	freeUPNPDevlist(devlist);
+
+	char IPAddress[40];
+	if (UPNP_GetExternalIPAddress(upnp_urls.controlURL, upnp_data.first.servicetype, IPAddress) == 0)
+	{
+		Net_Printf("UPnP: Router found, external IP address is: %s.", IPAddress);
+
+		// Store ip address just in case admin wants it
+		sv_upnp_externalip.ForceSet(IPAddress);
+		return true;
+	}
+	else
+	{
+		Net_Printf("UPnP: Router found but unable to get external IP address.");
+		return false;
+	}
+
+	if (upnp_urls.controlURL == NULL)
+		return false;
+
+	char port_str[16], ip_str[40];
+	sprintf(port_str, "%d", local_address.getPort());
+	sprintf(ip_str, "%d.%d.%d.%d",
+			(local_address.getIPAddress() >> 24) & 0xFF,
+			(local_address.getIPAddress() >> 16) & 0xFF,
+			(local_address.getIPAddress() >> 8 ) & 0xFF,
+			(local_address.getIPAddress()      ) & 0xFF);
+
+	sv_upnp_internalip.Set(ip_str);
+
+	// Set a description if none exists
+	if (!sv_upnp_description.cstring()[0])
+	{
+		char desc[40];
+		sprintf(desc, "Odasrv (%s:%s)", ip_str, port_str);
+		sv_upnp_description.Set(desc);
+	}
+
+	res = UPNP_AddPortMapping(upnp_urls.controlURL, upnp_data.first.servicetype,
+            port_str, port_str, ip_str, sv_upnp_description.cstring(), "UDP", NULL, 0);
+
+	if (res == 0)
+	{
+		Net_Printf("UPnP: Port mapping added to router: %s", sv_upnp_description.cstring());
+		Net_Printf("NetInterface: Initialized uPnP.");
+		return true;
+	}
+	else
+	{
+		Net_Printf("UPnP: AddPortMapping failed: %d", res);
+		return false;
+	}
+}
+
+
+//
+// Net_UPNPClose
+//
+static bool Net_UPNPClose(const SocketAddress& local_address)
+{
+	if (upnp_urls.controlURL == NULL)
+		return false;
+
+	char port_str[16];
+	sprintf(port_str, "%d", local_address.getPort());
+
+	int res = UPNP_DeletePortMapping(upnp_urls.controlURL, upnp_data.first.servicetype, port_str, "UDP", 0);
+	if (res == 0)
+	{
+		return true;
+	}
+	else
+	{
+		Net_Printf("UPnP: DeletePortMapping failed: %d", res);
+		return false;
+    }
+}
+#endif
+
+
+// ----------------------------------------------------------------------------
+// NetInterface
+// ----------------------------------------------------------------------------
+
 //
 // NetInterface::openInterface
 //
@@ -384,23 +528,13 @@ void NetInterface::openInterface(const OString& ip_string, uint16_t desired_port
 	Net_Printf("NetInterface: Opened socket at %s.", mLocalAddress.getCString());
 
 	#ifdef ODA_HAVE_MINIUPNP
-	// TODO: add UPNP support
-/*
-	init_upnp();
-
-	OString str = mLocalAddress;
-	OString ipstr = str.substr(0, str.find(':', 0));
-	OString portstr = str.substr(str.find(':', 0) + 1, npos);
-
-	sv_upnp_internalip.Set(ipstr.c_str());
-	upnp_add_redir(ipstr.c_str(), portstr);
-
-	Net_Printf("NetInterface: Initialized uPnP.\n");
-*/
+	if (mHostType == HOST_SERVER && sv_upnp)
+		UPNPInitialized = Net_UPNPInit(mLocalAddress);
 	#endif
 
 	mInitialized = true;
 }
+
 
 //
 // NetInterace::closeInterface
@@ -413,8 +547,11 @@ void NetInterface::closeInterface()
 		return;
 
 	#ifdef ODA_HAVE_MINIUPNP
-	// TODO: add UPNP support
-//	upnp_rem_redir(mLocalAddress.getPort());
+	if (UPNPInitialized)
+	{
+		Net_UPNPClose(mLocalAddress);
+		UPNPInitialized = false;
+	}
 	#endif
 
 	closeSocket();
