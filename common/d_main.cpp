@@ -4,7 +4,7 @@
 // $Id: d_main.cpp 3426 2012-11-19 17:25:28Z dr_sean $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2013 by The Odamex Team.
+// Copyright (C) 2006-2014 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -548,13 +548,14 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 {
 	gamemode = undetermined;
 
-	static const int NUM_CHECKLUMPS = 10;
+	static const int NUM_CHECKLUMPS = 11;
 	static const char checklumps[NUM_CHECKLUMPS][8] = {
 		"E1M1", "E2M1", "E4M1", "MAP01",
 		{ 'A','N','I','M','D','E','F','S'},
 		"FINAL2", "REDTNT2", "CAMO1",
 		{ 'E','X','T','E','N','D','E','D'},
-		{ 'D','M','E','N','U','P','I','C'}
+		{ 'D','M','E','N','U','P','I','C'},
+		{ 'F','R','E','E','D','O','O','M'}
 	};
 
 	int lumpsfound[NUM_CHECKLUMPS];
@@ -565,8 +566,11 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 	if ( (f = fopen(iwad_filename.c_str(), "rb")) )
 	{
 		fread(&header, sizeof(header), 1, f);
+
+		// [SL] Allow both IWAD & PWAD identifiers since chex.wad is a PWAD
 		header.identification = LELONG(header.identification);
-		if (header.identification == IWAD_ID)
+		if (header.identification == IWAD_ID ||
+			header.identification == PWAD_ID)
 		{
 			header.numlumps = LELONG(header.numlumps);
 			if (0 == fseek(f, LELONG(header.infotableofs), SEEK_SET))
@@ -586,6 +590,25 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 		fclose(f);
 	}
 
+	// [SL] Check for FreeDoom / Ultimate FreeDoom
+	if (lumpsfound[10])
+	{
+		if (lumpsfound[0])
+		{
+			gamemode = retail;
+			gameinfo = RetailGameInfo;
+			gamemission = retail_freedoom;
+		}
+		else
+		{
+			gamemode = commercial;
+			gameinfo = CommercialGameInfo;
+			gamemission = commercial_freedoom;
+		}
+		return;
+	}
+
+	// Check for Doom 2 or TNT / Plutonia
 	if (lumpsfound[3])
 	{
 		if (lumpsfound[9])
@@ -605,8 +628,12 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 			gamemission = pack_plut;
 		else
 			gamemission = doom2;
+
+		return;
 	}
-	else if (lumpsfound[0])
+
+	// Check for Registered Doom / Ultimate Doom / Chex Quest / Shareware Doom
+	if (lumpsfound[0])
 	{
 		gamemission = doom;
 		if (lumpsfound[1])
@@ -625,12 +652,16 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 				}
 				else
 				{
-					gamemode = retail;
-
 					if (lumpsfound[9])
+					{
+						gamemode = retail_bfg;
 						gameinfo = RetailBFGGameInfo;
+					}
 					else
+					{
+						gamemode = retail;
 						gameinfo = RetailGameInfo;
+					}
 				}
 			}
 			else
@@ -644,6 +675,8 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 			gamemode = shareware;
 			gameinfo = SharewareGameInfo;
 		}
+
+		return;
 	}
 
 	if (gamemode == undetermined)
@@ -664,6 +697,10 @@ static std::string D_GetTitleString()
 		return "DOOM 2: Plutonia Experiment";
 	if (gamemission == chex)
 		return "Chex Quest";
+	if (gamemission == retail_freedoom)
+		return "Ultimate FreeDoom";
+	if (gamemission == commercial_freedoom)
+		return "FreeDoom";
 
 	return gameinfo.titleString;
 }
@@ -708,9 +745,6 @@ static std::string D_CheckIWAD(const std::string& suggestion)
 			}
 		}
 	}
-
-	// Now scan the contents of the IWAD to determine which one it is
-	D_ConfigureGameInfo(iwad);
 
 	return iwad;
 }
@@ -928,6 +962,9 @@ void D_LoadResourceFiles(
 
 	wadfiles.push_back(iwad_filename);
 
+	// Now scan the contents of the IWAD to determine which one it is
+	D_ConfigureGameInfo(iwad_filename);
+
 	// print info about the IWAD to the console
 	D_PrintIWADIdentity();
 
@@ -1107,93 +1144,196 @@ void D_AddDehCommandLineFiles(std::vector<std::string>& filenames)
 	D_AddCommandLineOptionFiles(filenames, "-deh", ".BEX");
 }
 
+
+// ============================================================================
+//
+// TaskScheduler class
+//
+// ============================================================================
+//
+// Attempts to schedule a task (indicated by the function pointer passed to
+// the concrete constructor) at a specified interval. For uncapped rates, that
+// interval is simply as often as possible. For capped rates, the interval is
+// specified by the rate parameter.
+//
+
+class TaskScheduler
+{
+public:
+	virtual ~TaskScheduler() { }
+	virtual void run() = 0;
+	virtual uint64_t getNextTime() const = 0;
+	virtual float getRemainder() const = 0;
+};
+
+class UncappedTaskScheduler : public TaskScheduler
+{
+public:
+	UncappedTaskScheduler(void (*task)()) :
+		mTask(task)
+	{ }
+
+	virtual ~UncappedTaskScheduler() { }
+
+	virtual void run()
+	{
+		mTask();
+	}
+
+	virtual uint64_t getNextTime() const
+	{
+		return I_GetTime();
+	}
+
+	virtual float getRemainder() const
+	{
+		return 0.0f;
+	}
+
+private:
+	void				(*mTask)();
+};
+
+class CappedTaskScheduler : public TaskScheduler
+{
+public:
+	CappedTaskScheduler(void (*task)(), float rate, int max_count) :
+		mTask(task), mMaxCount(max_count),
+		mFrameDuration(I_ConvertTimeFromMs(1000) / rate),
+		mAccumulator(mFrameDuration),
+		mPreviousFrameStartTime(I_GetTime())
+	{
+	}
+
+	virtual ~CappedTaskScheduler() { }
+
+	virtual void run()
+	{
+		mFrameStartTime = I_GetTime();
+		mAccumulator += mFrameStartTime - mPreviousFrameStartTime;
+		mPreviousFrameStartTime = mFrameStartTime;
+
+		int count = mMaxCount;
+
+		while (mAccumulator >= mFrameDuration && count--)
+		{
+			mTask();
+			mAccumulator -= mFrameDuration;
+		}
+	}
+
+	virtual uint64_t getNextTime() const
+	{
+		return mFrameStartTime + mFrameDuration - mAccumulator;
+	}
+
+	virtual float getRemainder() const
+	{
+		// mAccumulator can be greater than mFrameDuration so only get the
+		// time remaining until the next frame
+		uint64_t remaining_time = mAccumulator % mFrameDuration;
+		return (float)(double(remaining_time) / mFrameDuration);
+	}
+
+private:
+	void				(*mTask)();
+	const int			mMaxCount;
+	const uint64_t		mFrameDuration;
+	uint64_t			mAccumulator;
+	uint64_t			mFrameStartTime;
+	uint64_t			mPreviousFrameStartTime;
+};
+
+static TaskScheduler* simulation_scheduler;
+static TaskScheduler* display_scheduler;
+
+//
+// D_InitTaskSchedulers
+//
+// Checks for external changes to the rate for the simulation and display
+// tasks and instantiates the appropriate TaskSchedulers.
+//
+static void D_InitTaskSchedulers(void (*sim_func)(), void(*display_func)())
+{
+	bool capped_simulation = !timingdemo;
+	bool capped_display = !timingdemo && capfps;
+
+	static bool previous_capped_simulation = !capped_simulation;
+	static bool previous_capped_display = !capped_display;
+	static float previous_maxfps = -1.0f;
+
+	if (capped_simulation != previous_capped_simulation)
+	{
+		previous_capped_simulation = capped_simulation;
+
+		delete simulation_scheduler;
+
+		if (capped_simulation)
+			simulation_scheduler = new CappedTaskScheduler(sim_func, TICRATE, 4);
+		else
+			simulation_scheduler = new UncappedTaskScheduler(sim_func);
+	}
+
+	if (capped_display != previous_capped_display || maxfps != previous_maxfps)
+	{
+		previous_capped_display = capped_display;
+		previous_maxfps = maxfps;
+
+		delete display_scheduler;
+
+		if (capped_display)
+			display_scheduler = new CappedTaskScheduler(display_func, maxfps, 1);
+		else
+			display_scheduler = new UncappedTaskScheduler(display_func);
+	}
+}
+
+void STACK_ARGS D_ClearTaskSchedulers()
+{
+	delete simulation_scheduler;
+	delete display_scheduler;
+	simulation_scheduler = NULL;
+	display_scheduler = NULL;
+}
+
 //
 // D_RunTics
 //
 // The core of the main game loop.
-// This loop allows the game simulation timing to be decoupled from the renderer
+// This loop allows the game simulation timing to be decoupled from the display
 // timing. If the the user selects a capped framerate and isn't using the
-// -timedemo parameter, both the simulation and render functions will be called
+// -timedemo parameter, both the simulation and display functions will be called
 // TICRATE times a second. If the framerate is uncapped, the simulation function
-// will still be called TICRATE times a second but the render function will
+// will still be called TICRATE times a second but the display function will
 // be called as often as possible. After each iteration through the loop,
 // the program yields briefly to the operating system.
 //
-void D_RunTics(void (*sim_func)(), void(*render_func)())
+void D_RunTics(void (*sim_func)(), void(*display_func)())
 {
-	static const uint64_t sim_dt = I_ConvertTimeFromMs(1000) / TICRATE;
+	D_InitTaskSchedulers(sim_func, display_func);
 
-	static uint64_t previous_time = I_GetTime();
-	uint64_t current_time = I_GetTime();
+	simulation_scheduler->run();
 
-	// reset the rendering interpolation
-	render_lerp_amount = FRACUNIT;
+	// Use linear interpolation for rendering entities if the display
+	// framerate is not synced with the simulation frequency.
+	if ((maxfps == TICRATE && capfps) || timingdemo || paused || menuactive || step_mode)
+		render_lerp_amount = FRACUNIT;
+	else
+		render_lerp_amount = simulation_scheduler->getRemainder() * FRACUNIT;
 
-	static uint64_t accumulator = sim_dt;
+	display_scheduler->run();
 
-	if (!timingdemo)	// run simulation function at 35Hz?
+	if (timingdemo)
+		return;
+
+	// Sleep until the next scheduled task.
+	uint64_t simulation_wake_time = simulation_scheduler->getNextTime();
+	uint64_t display_wake_time = display_scheduler->getNextTime();
+
+	do
 	{
-		// Run upto 4 simulation frames. Limit the number because there's already a
-		// slowdown and running more will only make things worse.
-		accumulator += MIN(current_time - previous_time, 4 * sim_dt);
-
-		// calculate how late the start of the frame is (for debugging)
-		uint64_t late_time_ms = current_time - previous_time > sim_dt ?
-			I_ConvertTimeToMs(current_time - previous_time - sim_dt) : 0;
-
-		if (late_time_ms > 2)
-			DPrintf("Warning: frame start is %ums late!\n", late_time_ms);
-
-		while (accumulator >= sim_dt)
-		{
-			sim_func();
-			accumulator -= sim_dt;
-		}
-
-		// Use linear interpolation for rendering entities if the renderer
-		// framerate is not synced with the physics frequency.
-		if (maxfps != TICRATE && !(paused || menuactive || step_mode))
-			render_lerp_amount = (fixed_t)(accumulator * FRACUNIT / sim_dt);
-	}
-	else			// run simulation function as fast as possible
-	{
-		sim_func();
-		accumulator = 0;
-	}
-
-	render_func();
-
-	static float previous_maxfps = -1;
-
-	if (!timingdemo && capfps)		// render at a capped framerate?
-	{
-		static uint64_t render_dt, previous_block;
-		uint64_t current_block;
-
-		// The capped framerate has changed so recalculate some stuff
-		if (maxfps != previous_maxfps)
-		{
-			render_dt = I_ConvertTimeFromMs(1000) / maxfps;
-			previous_block = current_time / render_dt;
-		}
-
-		// With capped framerates, frames are rendered within fixed blocks of time
-		// and at the end of a frame, sleep until the start of the next block.
-		do
-			I_Yield();
-		while ( (current_block = I_GetTime() / render_dt) <= previous_block);
-
-		previous_block = current_block;
-		previous_maxfps = maxfps;
-	}
-	else if (!timingdemo)			// render at an unlimited framerate (but still yield)
-	{
-		// sleep for 1ms to allow the operating system some time
 		I_Yield();
-		previous_maxfps = -1;
-	}
-
-	previous_time = current_time;
+	} while (I_GetTime() < MIN(simulation_wake_time, display_wake_time));			
 }
 
 VERSION_CONTROL (d_main_cpp, "$Id: d_main.cpp 3426 2012-11-19 17:25:28Z dr_sean $")

@@ -5,7 +5,7 @@
 //
 // Copyright (C) 1998-2006 by Randy Heit (ZDoom).
 // Copyright (C) 2000-2006 by Sergey Makovkin (CSDoom .62).
-// Copyright (C) 2006-2013 by The Odamex Team.
+// Copyright (C) 2006-2014 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -147,7 +147,6 @@ EXTERN_CVAR (sv_weaponstay)
 
 EXTERN_CVAR (cl_name)
 EXTERN_CVAR (cl_color)
-EXTERN_CVAR (cl_skin)
 EXTERN_CVAR (cl_gender)
 EXTERN_CVAR (cl_interp)
 EXTERN_CVAR (cl_predictsectors)
@@ -753,9 +752,9 @@ void CL_StepTics(unsigned int count)
 }
 
 //
-// CL_RenderTics
+// CL_DisplayTics
 //
-void CL_RenderTics()
+void CL_DisplayTics()
 {
 	D_Display();
 }
@@ -875,7 +874,6 @@ BEGIN_COMMAND (playerinfo)
 	Printf (PRINT_HIGH, " userinfo.netname     - %s \n",	player->userinfo.netname.c_str());
 	Printf (PRINT_HIGH, " userinfo.team        - %d \n",	player->userinfo.team);
 	Printf (PRINT_HIGH, " userinfo.color       - #%06x \n",	player->userinfo.color);
-	Printf (PRINT_HIGH, " userinfo.skin        - %s \n",	skins[player->userinfo.skin].name);
 	Printf (PRINT_HIGH, " userinfo.gender      - %d \n",	player->userinfo.gender);
 	Printf (PRINT_HIGH, " spectator            - %d \n",	player->spectator);
 	Printf (PRINT_HIGH, " time                 - %d \n",	player->GameTime);
@@ -1213,7 +1211,7 @@ BEGIN_COMMAND(netrecord)
 	else
 		filename = CL_GenerateNetDemoFileName();
 
-	CL_NetDemoRecord(filename.c_str());
+	CL_NetDemoRecord(filename);
 	netdemo.writeMapChange();
 }
 END_COMMAND(netrecord)
@@ -1352,7 +1350,10 @@ void CL_SendUserInfo(void)
 	MSG_WriteByte	(&net_buffer, coninfo->team); // [Toke]
 	MSG_WriteLong	(&net_buffer, coninfo->gender);
 	MSG_WriteLong	(&net_buffer, coninfo->color);
-	MSG_WriteString	(&net_buffer, (char *)skins[coninfo->skin].name); // [Toke - skins]
+
+	// [SL] place holder for deprecated skins
+	MSG_WriteString	(&net_buffer, "");
+
 	MSG_WriteLong	(&net_buffer, coninfo->aimdist);
 	MSG_WriteBool	(&net_buffer, coninfo->unlag);  // [SL] 2011-05-11
 	MSG_WriteBool	(&net_buffer, coninfo->predict_weapons);
@@ -1405,15 +1406,14 @@ void CL_SetupUserInfo(void)
 	p->userinfo.team	= (team_t)MSG_ReadByte();
 	p->userinfo.gender	= (gender_t)MSG_ReadLong();
 	p->userinfo.color	= MSG_ReadLong();
-	p->userinfo.skin	= R_FindSkin(MSG_ReadString());
+	
+	// [SL] place holder for deprecated skins
+	MSG_ReadString();
 
 	p->GameTime			= MSG_ReadShort();
 
 	if(p->userinfo.gender >= NUMGENDER)
 		p->userinfo.gender = GENDER_NEUTER;
-
-	if (p->mo)
-		p->mo->sprite = skins[p->userinfo.skin].sprite;
 
 	// [SL] 2012-04-30 - Were we looking through a teammate's POV who changed
 	// to the other team?
@@ -2331,12 +2331,6 @@ void CL_SpawnPlayer()
 	mobj->player = p;
 	mobj->health = p->health;
 	P_SetThingId(mobj, netid);
-
-	// [RH] Set player sprite based on skin
-	if(p->userinfo.skin >= numskins)
-		p->userinfo.skin = 0;
-
-	mobj->sprite = skins[p->userinfo.skin].sprite;
 
 	p->mo = p->camera = mobj->ptr();
 	p->fov = 90.0f;

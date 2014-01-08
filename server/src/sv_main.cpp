@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 2000-2006 by Sergey Makovkin (CSDoom .62).
-// Copyright (C) 2006-2013 by The Odamex Team.
+// Copyright (C) 2006-2014 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -888,7 +888,10 @@ void SV_SendUserInfo (player_t &player, client_t* cl)
 	MSG_WriteByte	(&cl->reliablebuf, p->userinfo.team);
 	MSG_WriteLong	(&cl->reliablebuf, p->userinfo.gender);
 	MSG_WriteLong	(&cl->reliablebuf, p->userinfo.color);
-	MSG_WriteString	(&cl->reliablebuf, skins[p->userinfo.skin].name);  // [Toke - skins]
+
+	// [SL] place holder for deprecated skins
+	MSG_WriteString	(&cl->reliablebuf, "");
+
 	MSG_WriteShort	(&cl->reliablebuf, time(NULL) - p->JoinTime);
 }
 
@@ -926,12 +929,9 @@ bool SV_SetupUserInfo(player_t &player)
 
 	gender_t		gender = static_cast<gender_t>(MSG_ReadLong());
 	int				color = MSG_ReadLong();
-	std::string		skin(MSG_ReadString());
 
-	if (!ValidString(skin)) {
-		SV_InvalidateClient(player, "Skin contains invalid characters");
-		return false;
-	}
+	// [SL] place holder for deprecated skins
+	MSG_ReadString();
 
 	fixed_t			aimdist = MSG_ReadLong();
 	bool			unlag = MSG_ReadBool();
@@ -984,7 +984,6 @@ bool SV_SetupUserInfo(player_t &player)
 	}
 
 	player.userinfo.gender			= gender;
-	player.userinfo.skin			= R_FindSkin(skin.c_str());
 	player.userinfo.team			= new_team;
 	player.userinfo.color			= color;
 	player.prefcolor				= color;
@@ -3026,7 +3025,7 @@ void SV_UpdateMonsters(player_t &pl)
 		if ((gametic+mo->netid) % 7)
 			continue;
 
-		if (SV_IsPlayerAllowedToSee(pl, mo))
+		if (SV_IsPlayerAllowedToSee(pl, mo) && mo->target)
 		{
 			client_t *cl = &pl.client;
 
@@ -3049,12 +3048,9 @@ void SV_UpdateMonsters(player_t &pl)
 			MSG_WriteByte(&cl->netbuf, mo->movedir);
 			MSG_WriteLong(&cl->netbuf, mo->movecount);
 
-			if (mo->target)
-			{
-				MSG_WriteMarker(&cl->netbuf, svc_actor_target);
-				MSG_WriteShort(&cl->netbuf, mo->netid);
-				MSG_WriteShort(&cl->netbuf, mo->target->netid);
-			}
+			MSG_WriteMarker(&cl->netbuf, svc_actor_target);
+			MSG_WriteShort(&cl->netbuf, mo->netid);
+			MSG_WriteShort(&cl->netbuf, mo->target->netid);
 
 			if (cl->netbuf.cursize >= 1024)
 			{
@@ -3605,20 +3601,6 @@ void SV_ChangeTeam (player_t &player)  // [Toke - Teams]
 	player.userinfo.team = team;
 
 	SV_BroadcastPrintf (PRINT_HIGH, "%s has joined the %s team.\n", player.userinfo.netname.c_str(), team_names[team]);
-
-	switch (player.userinfo.team)
-	{
-		case TEAM_BLUE:
-			player.userinfo.skin = R_FindSkin ("BlueTeam");
-			break;
-
-		case TEAM_RED:
-			player.userinfo.skin = R_FindSkin ("RedTeam");
-			break;
-
-		default:
-			break;
-	}
 
 	if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
 		if (player.mo && player.userinfo.team != old_team)
@@ -4588,11 +4570,11 @@ void SV_StepTics(QWORD count)
 }
 
 //
-// SV_RenderTics
+// SV_DisplayTics
 //
-// Nothing to render...
+// Nothing to display...
 //
-void SV_RenderTics()
+void SV_DisplayTics()
 {
 }
 
@@ -4680,7 +4662,6 @@ BEGIN_COMMAND (playerinfo)
 	Printf (PRINT_HIGH, " userinfo.aimdist - %d \n",		  player->userinfo.aimdist);
 	Printf (PRINT_HIGH, " userinfo.unlag   - %d \n",          player->userinfo.unlag);
 	Printf (PRINT_HIGH, " userinfo.color   - %d \n",		  player->userinfo.color);
-	Printf (PRINT_HIGH, " userinfo.skin    - %s \n",		  skins[player->userinfo.skin].name);
 	Printf (PRINT_HIGH, " userinfo.gender  - %d \n",		  player->userinfo.gender);
 	Printf (PRINT_HIGH, " time             - %d \n",		  player->GameTime);
 	Printf (PRINT_HIGH, "--------------------------------------- \n");

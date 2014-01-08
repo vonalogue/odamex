@@ -3,7 +3,7 @@
 //
 // $Id$
 //
-// Copyright (C) 2006-2013 by The Odamex Team.
+// Copyright (C) 2006-2014 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -376,6 +376,12 @@ static DWORD IntQrySendResponse(const WORD &TagId,
     DWORD EqVersion = MSG_ReadLong();
     DWORD EqProtocolVersion = MSG_ReadLong();
     DWORD EqTime = MSG_ReadLong();
+
+    // Prevent possible divide by zero
+    if (!EqVersion)
+    {
+        return 0;
+    }
 
     // Override other packet types for older enquirer version response
     if (VERSIONMAJOR(EqVersion) < VERSIONMAJOR(GAMEVER) || 

@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2013 by The Odamex Team.
+// Copyright (C) 2006-2014 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -680,8 +680,8 @@ bool ST_Responder (event_t *ev)
             if (CheckCheatmode ())
                 return false;
 
-            if ((gamemode != shareware) && (gamemode != registered) &&
-                (gamemode != retail))
+            if (gamemode != shareware && gamemode != registered &&
+                gamemode != retail && gamemode != retail_bfg)
                 return false;
 
             AddCommandString("noclip");
@@ -1592,19 +1592,12 @@ static patch_t *LoadFaceGraphic (char *name, int namespc)
 
 void ST_loadGraphics(void)
 {
-	playerskin_t *skin;
 	int i, j;
 	int namespc;
 	int facenum;
 	char namebuf[9];
 
-	player_t *plyr = &displayplayer();
-
 	namebuf[8] = 0;
-	if (plyr)
-		skin = &skins[plyr->userinfo.skin];
-	else
-		skin = &skins[consoleplayer().userinfo.skin];
 
 	// Load the numbers, tall and short
 	for (i=0;i<10;i++)
@@ -1671,16 +1664,8 @@ void ST_loadGraphics(void)
 	// face states
 	facenum = 0;
 
-	// [RH] Use face specified by "skin"
-	if (skin->face[0]) {
-		// The skin has its own face
-		strncpy (namebuf, skin->face, 3);
-		namespc = skin->namespc;
-	} else {
-		// The skin doesn't have its own face; use the normal one
-		namebuf[0] = 'S'; namebuf[1] = 'T'; namebuf[2] = 'F';
-		namespc = ns_global;
-	}
+	namebuf[0] = 'S'; namebuf[1] = 'T'; namebuf[2] = 'F';
+	namespc = ns_global;
 
 	for (i = 0; i < ST_NUMPAINFACES; i++)
 	{
