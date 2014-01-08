@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2013 by The Odamex Team.
+// Copyright (C) 2006-2014 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -283,17 +283,15 @@ void DCanvas::DrawTextureFullScreen(const Texture* texture) const
 //
 void DCanvas::Clear(int left, int top, int right, int bottom, int color) const
 {
-	int x, y;
-
 	if (is8bit())
 	{
 		byte *dest;
 
 		dest = buffer + top * pitch + left;
-		x = right - left;
-		for (y = top; y < bottom; y++)
+		int x = right - left;
+		for (int y = top; y < bottom; y++)
 		{
-			memset (dest, color, x);
+			memset(dest, color, x);
 			dest += pitch;
 		}
 	}
@@ -304,12 +302,11 @@ void DCanvas::Clear(int left, int top, int right, int bottom, int color) const
 		dest = (unsigned int *)(buffer + top * pitch + (left << 2));
 		right -= left;
 
-		for (y = top; y < bottom; y++)
+		for (int y = top; y < bottom; y++)
 		{
-			for (x = 0; x < right; x++)
-			{
+			for (int x = 0; x < right; x++)
 				dest[x] = color;
-			}
+
 			dest += pitch >> 2;
 		}
 	}
