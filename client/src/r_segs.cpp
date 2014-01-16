@@ -689,7 +689,7 @@ void R_StoreWallRange(drawseg_t* ds, int start, int stop)
 			ds->invzstep = 0;
 
 			ds->scale1 = ds->scale2 = rw.scale1 + clipx1 * rw.scalestep;
-			rw.scalestep = 0;
+			ds->scalestep = 0;
 
 			ds->uinvz1 = ds->uinvz2 = rw.uinvz1 + clipx1 * rw.uinvzstep;
 			ds->uinvzstep = 0;
