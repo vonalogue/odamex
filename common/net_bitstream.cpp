@@ -55,7 +55,6 @@ BitStream::BitStream(const BitStream &other) :
 	mWriteOverflow(other.mWriteOverflow),
 	mReadOverflow(other.mReadOverflow)
 {
-	delete [] mBuffer;
 	const uint16_t bufsize = (mCapacity + 0x07) >> 3;
 	mBuffer = new uint8_t[bufsize];
 	memcpy(mBuffer, other.mBuffer, other.bytesWritten());
@@ -213,6 +212,9 @@ void BitStream::writeBits(int val, uint16_t bitcount)
 //
 int BitStream::peekBits(uint16_t bitcount) const
 {
+	if (bitcount > 32)
+		bitcount = 32;
+
 	if (mCheckReadOverflow(bitcount))
 		return 0;
 
@@ -246,6 +248,9 @@ int BitStream::peekBits(uint16_t bitcount) const
 //
 int BitStream::readBits(uint16_t bitcount)
 {
+	if (bitcount > 32)
+		bitcount = 32;
+
 	if (mCheckReadOverflow(bitcount))
 		return 0;
 
@@ -259,9 +264,9 @@ void BitStream::writeBit(int val)
 	writeBits(val, 1);
 }
 
-int BitStream::readBit()
+bool BitStream::readBit()
 {
-	return readBits(1);
+	return static_cast<bool>(readBits(1));
 }
 
 void BitStream::writeS8(int val)
@@ -513,11 +518,11 @@ void BitStream::readBlob(uint8_t *data, uint16_t size)
 }
 
 
-//
-// BitStream::peekS8
-//
-// Reads the next 8 bits without advancing the buffer's read pointer.
-//
+bool BitStream::peekBit() const
+{
+	return static_cast<bool>(peekBits(1));
+}
+
 int8_t BitStream::peekS8() const
 {
 	return static_cast<int8_t>(peekBits(8));

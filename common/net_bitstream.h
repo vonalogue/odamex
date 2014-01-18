@@ -60,7 +60,7 @@ public:
 	void writeString(const OString& str);
 	
 	int readBits(uint16_t bitcount);
-	int readBit();
+	bool readBit();
 	int8_t readS8();
 	uint8_t readU8();
 	int16_t readS16();
@@ -71,6 +71,7 @@ public:
 	OString readString();
 
 	int peekBits(uint16_t bitcount) const;
+	bool peekBit() const;
 	int8_t peekS8() const;
 	uint8_t peekU8() const;
 	int16_t peekS16() const;
