@@ -70,25 +70,26 @@ public:
 	float readFloat();
 	OString readString();
 
-	int8_t peekS8();
-	uint8_t peekU8();
-	int16_t peekS16();
-	uint16_t peekU16();
-	int32_t peekS32();
-	uint32_t peekU32();
+	int peekBits(uint16_t bitcount) const;
+	int8_t peekS8() const;
+	uint8_t peekU8() const;
+	int16_t peekS16() const;
+	uint16_t peekU16() const;
+	int32_t peekS32() const;
+	uint32_t peekU32() const;
 
 private:
 	static const uint16_t MAX_CAPACITY = 65535;		// in bits
 
-	bool mCheckReadOverflow(uint16_t size);
-	bool mCheckWriteOverflow(uint16_t size);
+	bool mCheckReadOverflow(uint16_t size) const;
+	bool mCheckWriteOverflow(uint16_t size) const;
 	
 	uint16_t		mCapacity;
 	uint16_t		mWritten;
 	uint16_t		mRead;
 
-	bool			mWriteOverflow;
-	bool			mReadOverflow;
+	mutable bool	mWriteOverflow;
+	mutable bool	mReadOverflow;
 
 	uint8_t			*mBuffer;
 };

@@ -204,6 +204,40 @@ void BitStream::writeBits(int val, uint16_t bitcount)
 	}
 }
 
+
+//
+// BitStream::peekBits
+//
+// Examines bitcount bits from the buffer, most significant bit first. This
+// does not advance the read position.
+//
+int BitStream::peekBits(uint16_t bitcount) const
+{
+	if (mCheckReadOverflow(bitcount))
+		return 0;
+
+	int val = 0;
+	uint16_t readpos = mRead;
+
+	while (bitcount)
+	{
+		uint16_t startbit = (readpos & 0x07);
+		uint16_t bitstoread = MIN<uint16_t>(8 - startbit, bitcount);
+
+		const uint8_t* ptr = mBuffer + (readpos >> 3);
+	
+		uint8_t mask = ((1 << bitstoread) - 1) << (8 - startbit - bitstoread);
+
+		val |= ((*ptr & mask) << (bitcount - bitstoread)) >> (8 - startbit - bitstoread);
+
+		bitcount -= bitstoread;
+		readpos += bitstoread;
+	}
+
+	return val;
+}
+
+
 //
 // BitStream::readBits
 //
@@ -215,23 +249,8 @@ int BitStream::readBits(uint16_t bitcount)
 	if (mCheckReadOverflow(bitcount))
 		return 0;
 
-	int val = 0;
-
-	while (bitcount)
-	{
-		uint16_t startbit = (mRead & 0x07);
-		uint16_t bitstoread = MIN<uint16_t>(8 - startbit, bitcount);
-
-		uint8_t *ptr = mBuffer + (mRead >> 3);
-	
-		uint8_t mask = ((1 << bitstoread) - 1) << (8 - startbit - bitstoread);
-
-		val |= ((*ptr & mask) << (bitcount - bitstoread)) >> (8 - startbit - bitstoread);
-
-		bitcount -= bitstoread;
-		mRead += bitstoread;
-	}
-
+	int val = peekBits(bitcount);
+	mRead += bitcount;
 	return val;
 }
 
@@ -498,79 +517,35 @@ void BitStream::readBlob(uint8_t *data, uint16_t size)
 // BitStream::peekS8
 //
 // Reads the next 8 bits without advancing the buffer's read pointer.
-// TODO: reuse readBits so that it does not advance mRead
-// this should be a const member function!
 //
-int8_t BitStream::peekS8()
+int8_t BitStream::peekS8() const
 {
-	const uint16_t count = 8;
-	if (mCheckReadOverflow(count))
-		return 0;
-
-	int8_t val = static_cast<int8_t>(readBits(count));
-	mRead -= count;
-
-	return val;
+	return static_cast<int8_t>(peekBits(8));
 }
 
-uint8_t BitStream::peekU8()
+uint8_t BitStream::peekU8() const
 {
-	const uint16_t count = 8;
-	if (mCheckReadOverflow(count))
-		return 0;
-
-	uint8_t val = static_cast<uint8_t>(readBits(count));
-	mRead -= count;
-
-	return val;
+	return static_cast<uint8_t>(peekBits(8));
 }
 
-int16_t BitStream::peekS16()
+int16_t BitStream::peekS16() const
 {
-	const uint16_t count = 16;
-	if (mCheckReadOverflow(count))
-		return 0;
-
-	int8_t val = static_cast<int8_t>(readBits(count));
-	mRead -= count;
-
-	return val;
+	return static_cast<int8_t>(peekBits(16));
 }
 
-uint16_t BitStream::peekU16()
+uint16_t BitStream::peekU16() const
 {
-	const uint16_t count = 16;
-	if (mCheckReadOverflow(count))
-		return 0;
-
-	uint16_t val = static_cast<uint16_t>(readBits(count));
-	mRead -= count;
-
-	return val;
+	return static_cast<uint16_t>(peekBits(16));
 }
 
-int32_t BitStream::peekS32()
+int32_t BitStream::peekS32() const
 {
-	const uint16_t count = 32;
-	if (mCheckReadOverflow(count))
-		return 0;
-
-	int32_t val = static_cast<int32_t>(readBits(count));
-	mRead -= count;
-
-	return val;
+	return static_cast<int32_t>(peekBits(32));
 }
 
-uint32_t BitStream::peekU32()
+uint32_t BitStream::peekU32() const
 {
-	const uint16_t count = 32;
-	if (mCheckReadOverflow(count))
-		return 0;
-
-	uint32_t val = static_cast<uint32_t>(readBits(count));
-	mRead -= count;
-
-	return val;
+	return static_cast<uint32_t>(peekBits(32));
 }
 
 // ----------------------------------------------------------------------------
@@ -583,7 +558,7 @@ uint32_t BitStream::peekU32()
 // Returns true and sets mWriteOverflow if writing s bits would write past the
 // end of the buffer.
 //
-bool BitStream::mCheckWriteOverflow(uint16_t s)
+bool BitStream::mCheckWriteOverflow(uint16_t s) const
 {
 	if (mWritten + s > mCapacity)
 		mWriteOverflow = true;
@@ -597,7 +572,7 @@ bool BitStream::mCheckWriteOverflow(uint16_t s)
 // Returns true and sets mReadOverflow if reading s bits would read past the
 // end of the buffer.
 //
-bool BitStream::mCheckReadOverflow(uint16_t s)
+bool BitStream::mCheckReadOverflow(uint16_t s) const
 {
 	if (mRead + s > mCapacity)
 		mReadOverflow = true;
