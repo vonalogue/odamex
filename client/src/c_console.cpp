@@ -825,7 +825,7 @@ void C_DrawConsole (void)
 			strncpy(str, (char*)&CmdLine[2 + CmdLine[259]], len);
 			str[len] = 0;
 	
-			console_font->printText(screen, left + prompt_width, input_row, CR_GREEN, str);
+			console_font->printText(screen, left + prompt_width, input_row, CR_GREY, str);
 
 			// print the blinking cursor
 			if (cursoron)
