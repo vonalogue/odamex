@@ -213,6 +213,8 @@ static void V_BuildLightRamp(shademap_t* maps)
 void V_BuildDefaultColorAndShademap(shademap_t* maps, const palette_t* pal,
 		argb_t lightcolor, argb_t fadecolor)
 {
+	const int numcolors = 256;
+
 	unsigned int fader = RPART(fadecolor);
 	unsigned int fadeg = GPART(fadecolor);
 	unsigned int fadeb = BPART(fadecolor);
@@ -231,7 +233,7 @@ void V_BuildDefaultColorAndShademap(shademap_t* maps, const palette_t* pal,
 		argb_t* shademap = maps->shademap + (i << pal->shadeshift);
 		palindex_t* colormap = maps->colormap + (i << pal->shadeshift);
 
-		for (unsigned int c = 0; c < pal->numcolors; c++)
+		for (unsigned int c = 0; c < numcolors; c++)
 		{
 			unsigned int r = RPART(pal->basecolors[c]) * lightr / 255;
 			unsigned int g = GPART(pal->basecolors[c]) * lightg / 255;
@@ -243,7 +245,7 @@ void V_BuildDefaultColorAndShademap(shademap_t* maps, const palette_t* pal,
 				b + ((fadeb - b) * i + NUMCOLORMAPS/2) / NUMCOLORMAPS);
 
 			shademap[c] = V_GammaCorrect(color);
-			colormap[c] = V_BestColor(pal->basecolors, color, pal->numcolors);
+			colormap[c] = V_BestColor(pal->basecolors, color);
 		}
 	}
 
@@ -253,7 +255,7 @@ void V_BuildDefaultColorAndShademap(shademap_t* maps, const palette_t* pal,
 	argb_t* shademap = maps->shademap + (NUMCOLORMAPS << pal->shadeshift);
 	palindex_t* colormap = maps->colormap + (NUMCOLORMAPS << pal->shadeshift);
 
-	for (unsigned int c = 0; c < pal->numcolors; c++)
+	for (unsigned int c = 0; c < numcolors; c++)
 	{
 		int grayint = (int)(255.0f * clamp(1.0f -
 						(RPART(pal->basecolors[c]) * 0.00116796875f +
@@ -261,7 +263,7 @@ void V_BuildDefaultColorAndShademap(shademap_t* maps, const palette_t* pal,
 			 			 BPART(pal->basecolors[c]) * 0.0005625f), 0.0f, 1.0f));
 
 		shademap[c] = V_GammaCorrect(grayint, grayint, grayint);
-		colormap[c] = V_BestColor(pal->basecolors, grayint, grayint, grayint, pal->numcolors);
+		colormap[c] = V_BestColor(pal->basecolors, grayint, grayint, grayint);
 	}
 }
 

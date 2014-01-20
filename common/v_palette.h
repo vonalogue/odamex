@@ -33,7 +33,6 @@ struct palette_t
 	byte*			colormapsbase;
 	argb_t*			colors;		// gamma corrected colors
 	argb_t*			basecolors;	// non-gamma corrected colors
-	unsigned		numcolors;
 	unsigned		flags;
 	unsigned		shadeshift;
 };
@@ -58,8 +57,8 @@ void V_GammaCorrectBuffer(argb_t* to, const argb_t* from, unsigned int count);
 // 0 <=   toa <= 256
 argb_t alphablend1a(const argb_t from, const argb_t to, const int toa);
 
-palindex_t V_BestColor(const argb_t *palette, int r, int g, int b, int numcolors);
-palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors);
+palindex_t V_BestColor(const argb_t* palette, int r, int g, int b);
+palindex_t V_BestColor(const argb_t* palette, argb_t color);
 
 // InitPalettes()
 //	input: name:  the name of the default palette lump

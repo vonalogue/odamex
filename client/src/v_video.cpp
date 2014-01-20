@@ -295,7 +295,7 @@ static void BuildTransTable (argb_t *palette)
 	for (int r = 0; r < 32; r++)
 		for (int g = 0; g < 32; g++)
 			for (int b = 0; b < 32; b++)
-				RGB32k[r][g][b] = V_BestColor(palette, (r<<3)|(r>>2), (g<<3)|(g>>2), (b<<3)|(b>>2), 256);
+				RGB32k[r][g][b] = V_BestColor(palette, (r<<3)|(r>>2), (g<<3)|(g>>2), (b<<3)|(b>>2));
 
 	for (int x = 0; x < 65; x++)
 		for (int y = 0; y < 256; y++)
@@ -475,10 +475,14 @@ static bool V_DoModeSetup(int width, int height, int bits)
 	
 	screen = I_AllocateScreen(width + cache_fudge, height, bits, primary);
 
-	V_ForceBlend (0,0,0,0);
-	V_GammaAdjustPalettes();
-	V_RefreshPalettes();
-	V_ReinitColormap();
+	// adjust the palettes if they've already been loaded
+	if (V_GetDefaultPalette()->colors != NULL)
+	{
+		V_ForceBlend(0, 0, 0, 0);
+		V_GammaAdjustPalettes();
+		V_RefreshPalettes();
+		V_ReinitColormap();
+	}
 
 	R_InitColumnDrawers();
 	R_MultiresInit();

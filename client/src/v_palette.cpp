@@ -39,7 +39,14 @@
 #include "g_level.h"
 #include "st_stuff.h"
 
-/* Reimplement old way of doing red/gold colors, from Chocolate Doom - ML */
+static const int numcolors = 256;
+static palette_t default_palette = {};
+static int lu_palette;
+static int current_palette_num;
+static float current_blend[4];
+
+int		BlendR, BlendG, BlendB, BlendA;		// Current color blending values
+
 
 // Palette indices.
 // For damage/bonus red-/gold-shifts
@@ -55,19 +62,11 @@ EXTERN_CVAR(vid_gammatype)
 EXTERN_CVAR(r_painintensity)
 EXTERN_CVAR(sv_allowredscreen)
 
-void V_ForceBlend (int blendr, int blendg, int blendb, int blenda);
 
-static int lu_palette;
-static int current_palette_num;
-static float current_blend[4];
+argb_t IndexedPalette[numcolors];
 
-static palette_t default_palette;
+void V_ForceBlend(int blendr, int blendg, int blendb, int blenda);
 
-argb_t IndexedPalette[256];
-
-
-/* Current color blending values */
-int		BlendR, BlendG, BlendB, BlendA;
 
 // ----------------------------------------------------------------------------
 //
@@ -75,7 +74,7 @@ int		BlendR, BlendG, BlendB, BlendA;
 //
 // ----------------------------------------------------------------------------
 
-static byte gammatable[256];
+static byte gammatable[numcolors];
 static bool gamma_initialized = false;
 
 static DoomGammaStrategy doomgammastrat;
@@ -192,7 +191,7 @@ static void V_GammaAdjustPalette(palette_t* pal)
 	if (!gamma_initialized)
 		V_UpdateGammaLevel(gammalevel);
 
-	V_GammaCorrectBuffer(pal->colors, pal->basecolors, pal->numcolors);
+	V_GammaCorrectBuffer(pal->colors, pal->basecolors, numcolors);
 }
 
 
@@ -216,15 +215,34 @@ void V_RestoreScreenPalette(void)
 /* Palette management stuff */
 /****************************/
 
+void V_ForceBlend(int blendr, int blendg, int blendb, int blenda)
+{
+	BlendR = blendr;
+	BlendG = blendg;
+	BlendB = blendb;
+	BlendA = blenda;
+
+	// blend the palette for 8-bit mode
+	// shademap_t::shade takes care of blending
+	// [SL] actually, an alpha overlay is drawn on top of the rendered screen
+	// in R_RenderPlayerView
+	if (screen->is8bit())
+	{
+		V_DoBlending(IndexedPalette, default_palette.colors, numcolors,
+					gammatable[BlendR], gammatable[BlendG], gammatable[BlendB], BlendA);
+		I_SetPalette(IndexedPalette);
+	}
+}
+
 //
 // V_BestColor
 //
 // (borrowed from Quake2 source: utils3/qdata/images.c)
 // [SL] Also nearly identical to BestColor in dcolors.c in Doom utilites
 //
-palindex_t V_BestColor(const argb_t *palette, int r, int g, int b, int numcolors)
+palindex_t V_BestColor(const argb_t *palette, int r, int g, int b)
 {
-	int bestdistortion = 256*256*4;
+	int bestdistortion = numcolors * numcolors * 4;
 	int bestcolor = 0;		/// let any color go to 0 as a last resort
 
 	for (int i = 0; i < numcolors; i++)
@@ -246,9 +264,9 @@ palindex_t V_BestColor(const argb_t *palette, int r, int g, int b, int numcolors
 	return bestcolor;
 }
 
-palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors)
+palindex_t V_BestColor(const argb_t *palette, argb_t color)
 {
-	return V_BestColor(palette, RPART(color), GPART(color), BPART(color), numcolors);
+	return V_BestColor(palette, RPART(color), GPART(color), BPART(color));
 }
 
 
@@ -257,8 +275,6 @@ palindex_t V_BestColor(const argb_t *palette, argb_t color, int numcolors)
 //
 static void V_InternalCreatePalette(palette_t* palette, const byte* colors, unsigned flags)
 {
-	const int numcolors = 256;
-
 	palette->flags = flags;
 	palette->maps.colormap = NULL;
 	palette->maps.shademap = NULL;
@@ -267,7 +283,6 @@ static void V_InternalCreatePalette(palette_t* palette, const byte* colors, unsi
 
 	palette->basecolors = (argb_t*)Malloc(numcolors * 2 * sizeof(argb_t));
 	palette->colors = palette->basecolors + numcolors;
-	palette->numcolors = numcolors;
 
 	palette->shadeshift = Log2(numcolors);
 
@@ -399,25 +414,6 @@ void V_SetBlend (int blendr, int blendg, int blendb, int blenda)
 		return;
 
 	V_ForceBlend(blendr, blendg, blendb, blenda);
-}
-
-void V_ForceBlend (int blendr, int blendg, int blendb, int blenda)
-{
-	BlendR = blendr;
-	BlendG = blendg;
-	BlendB = blendb;
-	BlendA = blenda;
-
-	// blend the palette for 8-bit mode
-	// shademap_t::shade takes care of blending
-	// [SL] actually, an alpha overlay is drawn on top of the rendered screen
-	// in R_RenderPlayerView
-	if (screen->is8bit())
-	{
-		V_DoBlending(IndexedPalette, default_palette.colors, default_palette.numcolors,
-					gammatable[BlendR], gammatable[BlendG], gammatable[BlendB], BlendA);
-		I_SetPalette(IndexedPalette);
-	}
 }
 
 BEGIN_COMMAND (testblend)
@@ -700,7 +696,7 @@ void V_DoPaletteEffects()
 			argb_t* colors = default_palette.basecolors;
 			argb_t blendcolor = MAKERGB(BlendR, BlendG, BlendB);
 
-			for (unsigned int c = 0; c < default_palette.numcolors; c++)
+			for (unsigned int c = 0; c < numcolors; c++)
 				colors[c] = rt_blend2(colors[c], 255 - BlendA, blendcolor, BlendA);
 			V_RefreshPalette(&default_palette);
 		}

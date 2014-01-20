@@ -422,7 +422,7 @@ void CTF_DrawHud (void)
 		if (tintColor != 0)
 		{
 			if (screen->is8bit())
-				TintScreen(V_BestColor(pal->basecolors, tintColor, pal->numcolors));
+				TintScreen(V_BestColor(pal->basecolors, tintColor));
 			else
 				TintScreen(tintColor);
 		}

@@ -538,16 +538,16 @@ void AM_initVariables(void)
 am_color_t AM_GetColorFromString(argb_t *palette, const char *colorstring)
 {
 	am_color_t c;
-	c.rgb = (argb_t) V_GetColorFromString(NULL, colorstring);
-	c.index = V_BestColor(palette, c.rgb, 256);
+	c.rgb = (argb_t)V_GetColorFromString(NULL, colorstring);
+	c.index = V_BestColor(palette, c.rgb);
 	return c;
 }
 
-am_color_t AM_BestColor(argb_t *palette, const int r, const int g, const int b, const int numcolors)
+am_color_t AM_BestColor(argb_t *palette, const int r, const int g, const int b)
 {
 	am_color_t c;
-	c.rgb = MAKERGB(r,g,b);
-	c.index = V_BestColor(palette, c.rgb, 256);
+	c.rgb = MAKERGB(r, g, b);
+	c.index = V_BestColor(palette, r, g, b);
 	return c;
 }
 
@@ -598,7 +598,7 @@ void AM_initColors (BOOL overlayed)
 			if (g < 0) g += 32;
 			if (b < 0) b += 32;
 			AlmostBackground.rgb = MAKERGB(r,g,b);
-			AlmostBackground.index = V_BestColor(palette, AlmostBackground.rgb, 256);
+			AlmostBackground.index = V_BestColor(palette, r, g, b);
 		}
 	}
 	else
@@ -1374,21 +1374,16 @@ void AM_drawWalls(void)
                             bdif = (0 - b)/30;
                         }
 
-                        if (lockglow < 30) {
-                            AM_drawMline (&l, AM_BestColor (pal->basecolors, r + ((int)rdif*lockglow),
-                                          g + ((int)gdif*lockglow), b + ((int)bdif*lockglow),
-                                          pal->numcolors));
-                        } else if (lockglow < 60) {
-                            AM_drawMline (&l, AM_BestColor (pal->basecolors, r + ((int)rdif*(60-lockglow)),
-                                          g + ((int)gdif*(60-lockglow)), b + ((int)bdif*(60-lockglow)),
-                                          pal->numcolors));
-                        } else {
-                            AM_drawMline (&l, AM_BestColor (pal->basecolors, r, g, b,
-                                          pal->numcolors));
-                        }
+                        if (lockglow < 30)
+                            AM_drawMline(&l, AM_BestColor(pal->basecolors, r + ((int)rdif*lockglow),
+                                          g + ((int)gdif*lockglow), b + ((int)bdif*lockglow)));
+                        else if (lockglow < 60)
+                            AM_drawMline(&l, AM_BestColor(pal->basecolors, r + ((int)rdif*(60-lockglow)),
+                                          g + ((int)gdif*(60-lockglow)), b + ((int)bdif*(60-lockglow))));
+                        else
+                            AM_drawMline(&l, AM_BestColor(pal->basecolors, r, g, b));
 				    } else {
-                        AM_drawMline (&l, AM_BestColor (pal->basecolors, r, g, b,
-                                      pal->numcolors));
+                        AM_drawMline(&l, AM_BestColor(pal->basecolors, r, g, b));
                     }
                 }
 				else if (lines[i].backsector->floorheight
@@ -1536,23 +1531,25 @@ void AM_drawPlayers(void)
 		}
 
 		if (p->powers[pw_invisibility])
+		{
 			color = AlmostBackground;
-		else if (demoplayback && democlassic) {
-			switch (it->id) {
-				case 1: color = AM_GetColorFromString (palette, "00 FF 00"); break;
-				case 2: color = AM_GetColorFromString (palette, "60 60 B0"); break;
-				case 3: color = AM_GetColorFromString (palette, "B0 B0 30"); break;
-				case 4: color = AM_GetColorFromString (palette, "C0 00 00"); break;
+		}
+		else if (demoplayback && democlassic)
+		{
+			switch (it->id)
+			{
+				case 1: color = AM_GetColorFromString(palette, "00 FF 00"); break;
+				case 2: color = AM_GetColorFromString(palette, "60 60 B0"); break;
+				case 3: color = AM_GetColorFromString(palette, "B0 B0 30"); break;
+				case 4: color = AM_GetColorFromString(palette, "C0 00 00"); break;
 				default: break;
 			}
-		} else {
+		}
+		else
+		{
 			int playercolor = CL_GetPlayerColor(p);
 			color.rgb = (argb_t)playercolor;
-			color.index = V_BestColor(V_GetDefaultPalette()->basecolors,
-							   RPART(playercolor),
-							   GPART(playercolor),
-							   BPART(playercolor),
-							   V_GetDefaultPalette()->numcolors);
+			color.index = V_BestColor(V_GetDefaultPalette()->basecolors, playercolor);
 		}
 
 		pt.x = p->mo->x;

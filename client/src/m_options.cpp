@@ -1285,7 +1285,7 @@ void M_DrawSlider (int x, int y, float leftval, float rightval, float cur)
 	screen->DrawTextureClean(R_LoadTexture("CSLIDE"), x + 5 + (int)(dist * 78.0), y);
 }
 
-void M_DrawColoredSlider(int x, int y, float leftval, float rightval, float cur, int color)
+void M_DrawColoredSlider(int x, int y, float leftval, float rightval, float cur, argb_t color)
 {
 	if (leftval < rightval)
 		cur = clamp(cur, leftval, rightval);
@@ -1303,9 +1303,7 @@ void M_DrawColoredSlider(int x, int y, float leftval, float rightval, float cur,
 
 	screen->DrawTextureClean(R_LoadTexture("GSLIDE"), x + 5 + (int)(dist * 78.0), y);
 
-	V_ColorFill = V_BestColor(V_GetDefaultPalette()->basecolors,
-	                          RPART(color), GPART(color), BPART(color),
-	                          V_GetDefaultPalette()->numcolors);
+	V_ColorFill = V_BestColor(V_GetDefaultPalette()->basecolors, color);
 
 	screen->DrawColoredTextureClean(R_LoadTexture("OSLIDE"), x + 5 + (int)(dist * 78.0), y);
 }

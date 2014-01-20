@@ -478,34 +478,40 @@ void DCanvas::GetTransposedBlock(int x, int y, int _width, int _height, byte* de
 		V_GetTransposedBlockGeneric<argb_t>(this, x, y, _width, _height, destbuffer);
 }
 
-int V_GetColorFromString (const argb_t *palette, const char *cstr)
+int V_GetColorFromString(const argb_t* palette, const char* cstr)
 {
 	int c[3], i, p;
 	char val[5];
 	const char *s, *g;
 
 	val[4] = 0;
-	for (s = cstr, i = 0; i < 3; i++) {
+	for (s = cstr, i = 0; i < 3; i++)
+	{
 		c[i] = 0;
 		while ((*s <= ' ') && (*s != 0))
 			s++;
-		if (*s) {
+
+		if (*s)
+		{
 			p = 0;
-			while (*s > ' ') {
-				if (p < 4) {
+			while (*s > ' ')
+			{
+				if (p < 4)
 					val[p++] = *s;
-				}
+				
 				s++;
 			}
+
 			g = val;
-			while (p < 4) {
+			while (p < 4)
 				val[p++] = *g++;
-			}
-			c[i] = ParseHex (val);
+
+			c[i] = ParseHex(val);
 		}
 	}
+
 	if (palette)
-		return V_BestColor(palette, c[0]>>8, c[1]>>8, c[2]>>8, 256);
+		return V_BestColor(palette, c[0]>>8, c[1]>>8, c[2]>>8);
 	else
 		return ((c[0] << 8) & 0xff0000) |
 			   ((c[1])      & 0x00ff00) |

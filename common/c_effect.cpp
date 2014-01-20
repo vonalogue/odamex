@@ -88,11 +88,10 @@ void P_InitEffects (void)
 {
 	const struct ColorList *color = Colors;
 	argb_t* palette = V_GetDefaultPalette()->basecolors;
-	int numcolors = V_GetDefaultPalette()->numcolors;
 
 	while (color->color)
 	{
-		*(color->color) = V_BestColor(palette, color->r, color->g, color->b, numcolors);
+		*(color->color) = V_BestColor(palette, color->r, color->g, color->b);
 		color++;
 	}
 }

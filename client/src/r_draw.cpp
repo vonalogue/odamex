@@ -366,8 +366,7 @@ void R_BuildPlayerTranslation (int player, int color)
 		table[i] = V_BestColor(pal->basecolors,
 							  (int)(r * 255.0f),
 							  (int)(g * 255.0f),
-							  (int)(b * 255.0f),
-							  pal->numcolors);
+							  (int)(b * 255.0f));
 		s += sdelta;
 		if (s > 1.0f) {
 			s = 1.0f;
