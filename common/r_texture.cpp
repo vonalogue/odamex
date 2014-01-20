@@ -912,9 +912,9 @@ texhandle_t TextureManager::getPatchHandle(unsigned int lumpnum)
 	return (texhandle_t)lumpnum | PATCH_HANDLE_MASK;
 }
 
-texhandle_t TextureManager::getPatchHandle(const char* name)
+texhandle_t TextureManager::getPatchHandle(const OString& name)
 {
-	int lumpnum = W_CheckNumForName(name);
+	int lumpnum = W_CheckNumForName(name.c_str());
 	if (lumpnum >= 0)
 		return getPatchHandle(lumpnum);
 	return NOT_FOUND_TEXTURE_HANDLE;
@@ -974,12 +974,12 @@ texhandle_t TextureManager::getSpriteHandle(unsigned int lumpnum)
 	return (texhandle_t)lumpnum | SPRITE_HANDLE_MASK;
 }
 
-texhandle_t TextureManager::getSpriteHandle(const char* name)
+texhandle_t TextureManager::getSpriteHandle(const OString& name)
 {
-	int lumpnum = W_CheckNumForName(name, ns_sprites);
+	int lumpnum = W_CheckNumForName(name.c_str(), ns_sprites);
 	if (lumpnum >= 0)
 		return getSpriteHandle(lumpnum);
-	lumpnum = W_CheckNumForName(name);
+	lumpnum = W_CheckNumForName(name.c_str());
 	if (lumpnum >= 0)
 		return getSpriteHandle(lumpnum);
 	return NOT_FOUND_TEXTURE_HANDLE;
@@ -1015,9 +1015,9 @@ texhandle_t TextureManager::getFlatHandle(unsigned int lumpnum)
 	return (texhandle_t)flatnum | FLAT_HANDLE_MASK;
 }
 
-texhandle_t TextureManager::getFlatHandle(const char* name)
+texhandle_t TextureManager::getFlatHandle(const OString& name)
 {
-	int lumpnum = W_CheckNumForName(name, ns_flats);
+	int lumpnum = W_CheckNumForName(name.c_str(), ns_flats);
 	if (lumpnum >= 0)
 		return getFlatHandle(lumpnum);
 	return NOT_FOUND_TEXTURE_HANDLE;
@@ -1088,14 +1088,9 @@ texhandle_t TextureManager::getWallTextureHandle(unsigned int texdef_handle)
 	return (texhandle_t)texdef_handle | WALLTEXTURE_HANDLE_MASK;
 }
 
-texhandle_t TextureManager::getWallTextureHandle(const char* name)
+texhandle_t TextureManager::getWallTextureHandle(const OString& name)
 {
-	char uname[9];
-	for (int i = 0; i < 8; i++)
-		uname[i] = toupper(name[i]);
-	uname[8] = 0;
-
-	TextureNameTranslationMap::const_iterator it = mTextureNameTranslationMap.find(uname);
+	TextureNameTranslationMap::const_iterator it = mTextureNameTranslationMap.find(name);
 	if (it != mTextureNameTranslationMap.end())
 		return getWallTextureHandle(it->second);
 	return NOT_FOUND_TEXTURE_HANDLE;
@@ -1165,9 +1160,9 @@ texhandle_t TextureManager::getRawTextureHandle(unsigned int lumpnum)
 	return (texhandle_t)lumpnum | RAW_HANDLE_MASK;
 }
 
-texhandle_t TextureManager::getRawTextureHandle(const char* name)
+texhandle_t TextureManager::getRawTextureHandle(const OString& name)
 {
-	int lumpnum = W_CheckNumForName(name);
+	int lumpnum = W_CheckNumForName(name.c_str());
 	if (lumpnum >= 0)
 		return getRawTextureHandle(lumpnum);
 	return NOT_FOUND_TEXTURE_HANDLE;
@@ -1218,33 +1213,41 @@ void TextureManager::cacheRawTexture(texhandle_t handle)
 //
 // Returns the handle for the texture that matches the supplied name.
 //
-texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceType type)
+texhandle_t TextureManager::getHandle(const OString& name, Texture::TextureSourceType type)
 {
+	OString uname(StdStringToUpper(name));
+
 	// sidedefs with the '-' texture indicate there should be no texture used
-	if (name[0] == '-' && type == Texture::TEX_WALLTEXTURE)
+	if (uname[0] == '-' && type == Texture::TEX_WALLTEXTURE)
 		return NO_TEXTURE_HANDLE;
 
 	texhandle_t handle = NOT_FOUND_TEXTURE_HANDLE;
 
 	// check for the texture in the default location specified by type
 	if (type == Texture::TEX_FLAT)
-		handle = getFlatHandle(name);
+		handle = getFlatHandle(uname);
 	else if (type == Texture::TEX_WALLTEXTURE)
-		handle = getWallTextureHandle(name);
+		handle = getWallTextureHandle(uname);
 	else if (type == Texture::TEX_PATCH)
-		handle = getPatchHandle(name);
+		handle = getPatchHandle(uname);
 	else if (type == Texture::TEX_SPRITE)
-		handle = getSpriteHandle(name);
+		handle = getSpriteHandle(uname);
 	else if (type == Texture::TEX_RAW)
-		handle = getRawTextureHandle(name);
+		handle = getRawTextureHandle(uname);
 
 	// not found? check elsewhere
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_FLAT)
-		handle = getFlatHandle(name);
+		handle = getFlatHandle(uname);
 	if (handle == NOT_FOUND_TEXTURE_HANDLE && type != Texture::TEX_WALLTEXTURE)
-		handle = getWallTextureHandle(name);
+		handle = getWallTextureHandle(uname);
 
 	return handle;
+}
+
+texhandle_t TextureManager::getHandle(const char* name, Texture::TextureSourceType type)
+{
+	OString uname(StdStringToUpper(name, 8));
+	return getHandle(uname, type);
 }
 
 texhandle_t TextureManager::getHandle(unsigned int lumpnum, Texture::TextureSourceType type)

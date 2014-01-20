@@ -191,6 +191,7 @@ public:
 	void updateAnimatedTextures();
 
 	texhandle_t getHandle(const char* name, Texture::TextureSourceType type);
+	texhandle_t getHandle(const OString& name, Texture::TextureSourceType type);
 	texhandle_t getHandle(unsigned int lumpnum, Texture::TextureSourceType type);
 	const Texture* getTexture(texhandle_t handle);
 
@@ -222,27 +223,27 @@ private:
 
 	// patches
 	texhandle_t getPatchHandle(unsigned int lumpnum);
-	texhandle_t getPatchHandle(const char* name);
+	texhandle_t getPatchHandle(const OString& name);
 	void cachePatch(texhandle_t handle);
 
 	// sprites
 	texhandle_t getSpriteHandle(unsigned int lumpnum);
-	texhandle_t getSpriteHandle(const char* name);
+	texhandle_t getSpriteHandle(const OString& name);
 	void cacheSprite(texhandle_t handle);
 
 	// flats
 	texhandle_t getFlatHandle(unsigned int lumpnum);
-	texhandle_t getFlatHandle(const char* name);
+	texhandle_t getFlatHandle(const OString& name);
 	void cacheFlat(texhandle_t handle);
 
 	// wall textures
 	texhandle_t getWallTextureHandle(unsigned int lumpnum);
-	texhandle_t getWallTextureHandle(const char* name);
+	texhandle_t getWallTextureHandle(const OString& name);
 	void cacheWallTexture(texhandle_t handle);
 
 	// raw images
 	texhandle_t getRawTextureHandle(unsigned int lumpnum);
-	texhandle_t getRawTextureHandle(const char* name);
+	texhandle_t getRawTextureHandle(const OString& name);
 	void cacheRawTexture(texhandle_t handle);
 
 	// maps texture handles to Texture*
