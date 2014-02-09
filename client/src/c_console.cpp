@@ -820,6 +820,12 @@ void C_DrawConsole (void)
 			// print the blinking cursor
 			if (cursoron)
 			{
+				// figure out the characters on the command line preceeding the cursor
+				// then determine how wide those characters are when printed
+				size_t len_before_cursor = std::min<size_t>(CmdLine[1] - CmdLine[259], ConCols - 1);
+				strncpy(str, (char*)&CmdLine[2 + CmdLine[259]], len_before_cursor);
+				str[len_before_cursor] = 0;
+
 				int x = left + prompt_width + console_font->getTextWidth(str);
 				int y = input_row;
 				console_font->printText(screen, x, y, CR_GREY, "_"); 
@@ -993,39 +999,35 @@ bool C_HandleKey (event_t *ev, byte *buffer, int len)
 		makestartposgood ();
 		break;
 	case KEY_LEFTARROW:
-		if(KeysCtrl)
+		if (KeysCtrl)
 		{
 			// Move cursor to beginning of word
-			if(buffer[1])
+			if (buffer[1])
 				buffer[1]--;
-			while(buffer[1] && buffer[1+buffer[1]] != ' ')
+			while (buffer[1] && buffer[1+buffer[1]] != ' ')
 				buffer[1]--;
 		}
 		else
 		{
 			// Move cursor left one character
 			if (buffer[1])
-			{
 				buffer[1]--;
-			}
 		}
-		makestartposgood ();
+		makestartposgood();
 		break;
 	case KEY_RIGHTARROW:
-		if(KeysCtrl)
+		if (KeysCtrl)
 		{
-			while(buffer[1] < buffer[0]+1 && buffer[2+buffer[1]] != ' ')
+			while (buffer[1] < buffer[0]+1 && buffer[2+buffer[1]] != ' ')
 				buffer[1]++;
 		}
 		else
 		{
 			// Move cursor right one character
 			if (buffer[1] < buffer[0])
-			{
 				buffer[1]++;
-			}
 		}
-		makestartposgood ();
+		makestartposgood();
 		break;
 	case KEY_BACKSPACE:
 		// Erase character to left of cursor
@@ -1051,19 +1053,16 @@ bool C_HandleKey (event_t *ev, byte *buffer, int len)
 		break;
 	case KEY_DEL:
 		// Erase charater under cursor
-
 		if (buffer[1] < buffer[0])
 		{
-			char *c, *e;
-
-			e = (char *)&buffer[buffer[0] + 2];
-			c = (char *)&buffer[buffer[1] + 3];
+			char *e = (char *)&buffer[buffer[0] + 2];
+			char *c = (char *)&buffer[buffer[1] + 3];
 
 			for (; c < e; c++)
 				*(c - 1) = *c;
 
 			buffer[0]--;
-			makestartposgood ();
+			makestartposgood();
 		}
 
 		TabbedLast = false;
