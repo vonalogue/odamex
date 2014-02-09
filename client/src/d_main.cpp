@@ -553,6 +553,8 @@ void D_Init()
 
 	// start the Zone memory manager
 	Z_Init();
+	if (first_time)
+		Printf(PRINT_HIGH, "Z_Init: Heapsize: %u megabytes\n", got_heapsize);
 
 	if (!(V_InitPalettes("PLAYPAL")))
 		I_Error("Could not reinitialize palette");
@@ -693,8 +695,6 @@ void D_DoomMain (void)
 		I_FatalError ("Could not initialize LZO routines");
 
     C_ExecCmdLineParams (false, true);	// [Nes] test for +logfile command
-
-	Printf (PRINT_HIGH, "Heapsize: %u megabytes\n", got_heapsize);
 
 	M_LoadDefaults ();					// load before initing other systems
 	C_ExecCmdLineParams (true, false);	// [RH] do all +set commands on the command line
