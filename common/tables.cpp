@@ -2131,8 +2131,6 @@ void Table_InitTables()
 		tantoangle_acc[i] = (angle_t)(angle * ANG360);
 	}
 
-	p_tantoangle = tantoangle_acc;
-
 	// [SL] 2013-11-29 - Initialize sine / cosine lookup tables with 30 bits of
 	// fractional precision for the renderer
 	const double factor = double(PI) / ANG180;
