@@ -683,5 +683,67 @@ void V_Init (void)
         AddCommandString("checkres");
 }
 
+
+//
+// V_DrawFPSWidget
+//
+void V_DrawFPSWidget()
+{
+	static const uint64_t ONE_SECOND = I_ConvertTimeFromMs(1000);
+
+	static uint64_t last_time = I_GetTime();
+	static uint64_t time_accum = 0;
+	static unsigned int frame_count = 0;
+
+	uint64_t current_time = I_GetTime();
+	uint64_t delta_time = current_time - last_time;
+	last_time = current_time;
+	frame_count++;
+
+	if (delta_time > 0)
+	{
+		static double last_fps = 0.0;
+		static char str[40];
+		double delta_time_ms = 1000.0 * double(delta_time) / ONE_SECOND;
+
+		sprintf(str, "%5.1fms (%.2f fps)", delta_time_ms, last_fps);
+
+		int text_width = console_font->getTextWidth(str);
+		int text_height = console_font->getHeight();
+		int x1 = 0, x2 = text_width - 1;
+		int y1 = screen->height - text_height - 1, y2 = screen->height - 1;
+		screen->Clear(x1, y1, x2, y2, 0);
+		console_font->printText(screen, x1, y1, CR_GREY, str);
+
+		time_accum += delta_time;
+
+		// calculate last_fps every 1000ms
+		if (time_accum > ONE_SECOND)
+		{
+			last_fps = double(ONE_SECOND * frame_count) / time_accum;
+			time_accum = 0;
+			frame_count = 0;
+		}
+	}
+}
+
+
+//
+// V_DrawFPSTicker
+//
+void V_DrawFPSTicker()
+{
+	static QWORD lasttic = 0;
+	QWORD i = I_MSTime() * TICRATE / 1000;
+	QWORD tics = i - lasttic;
+	lasttic = i;
+	if (tics > 20) tics = 20;
+
+	for (i = 0; i < tics*2; i += 2)
+		screen->buffer[(screen->height - 1) * screen->pitch + i] = 0xff;
+	for ( ; i < 20*2; i += 2)
+		screen->buffer[(screen->height - 1) * screen->pitch + i] = 0x0;
+}
+
 VERSION_CONTROL (v_video_cpp, "$Id$")
 

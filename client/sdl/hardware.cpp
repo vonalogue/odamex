@@ -60,20 +60,15 @@ static IVideo *Video;
 //static IMouse *Mouse;
 //static IJoystick *Joystick;
 
-EXTERN_CVAR (vid_displayfps)
-EXTERN_CVAR (vid_ticker)
 EXTERN_CVAR (vid_fullscreen)
 EXTERN_CVAR (vid_overscan)
+EXTERN_CVAR (vid_ticker)
 
 CVAR_FUNC_IMPL (vid_winscale)
 {
-	if (var < 1.f)
+	if (Video)
 	{
-		var.Set (1.f);
-	}
-	else if (Video)
-	{
-		Video->SetWindowedScale (var);
+		Video->SetWindowedScale(var);
 		NewWidth = I_GetVideoWidth();
 		NewHeight = I_GetVideoHeight(); 
 		NewBits = I_GetVideoBitDepth(); 
@@ -83,9 +78,6 @@ CVAR_FUNC_IMPL (vid_winscale)
 
 CVAR_FUNC_IMPL (vid_overscan)
 {
-	if(var > 1.0)
-		var = 1.0;
-
 	if (Video)
 		Video->SetOverscan(var);
 }
@@ -127,42 +119,6 @@ bool I_HardwareInitialized()
 
 // VIDEO WRAPPERS ---------------------------------------------------------
 
-void I_DrawFPS()
-{
-	static unsigned int last_time = I_MSTime();
-	static unsigned int time_accum = 0;
-	static unsigned int frame_count = 0;
-
-	unsigned int current_time = I_MSTime();
-	unsigned int delta_time = current_time - last_time;
-	last_time = current_time;
-	frame_count++;
-
-	if (delta_time > 0)
-	{
-		static double last_fps = 0.0;
-		static char str[40];
-
-		sprintf(str, "%3u ms (%.2f fps)", delta_time, last_fps);
-		int text_width = console_font->getTextWidth(str);
-		int text_height = console_font->getHeight();
-		int x1 = 0, x2 = text_width - 1;
-		int y1 = screen->height - text_height - 1, y2 = screen->height - 1;
-		screen->Clear(x1, y1, x2, y2, 0);
-		console_font->printText(screen, x1, y1, CR_GREY, str);
-
-		time_accum += delta_time;
-
-		// calculate last_fps every 1000ms
-		if (time_accum > 1000)
-		{
-			last_fps = double(1000 * frame_count) / time_accum;
-			time_accum = 0;
-			frame_count = 0;
-		}
-	}
-}
-
 void I_BeginUpdate ()
 {
 	screen->Lock ();
@@ -180,25 +136,6 @@ void I_TempUpdate ()
 
 void I_FinishUpdate ()
 {
-	// Draws frame time and cumulative fps
-	if (vid_displayfps)
-		I_DrawFPS();
-
-    // draws little dots on the bottom of the screen
-    if (vid_ticker)
-    {
-		static QWORD lasttic = 0;
-		QWORD i = I_MSTime() * TICRATE / 1000;
-		QWORD tics = i - lasttic;
-		lasttic = i;
-		if (tics > 20) tics = 20;
-
-		for (i=0 ; i<tics*2 ; i+=2)
-			screen->buffer[(screen->height-1)*screen->pitch + i] = 0xff;
-		for ( ; i<20*2 ; i+=2)
-			screen->buffer[(screen->height-1)*screen->pitch + i] = 0x0;
-    }
-
 	if (noblit == false)
 		Video->UpdateScreen(screen);
 

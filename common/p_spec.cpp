@@ -78,7 +78,7 @@ std::list<movingsector_t>::iterator P_FindMovingSector(sector_t *sector)
 	for (itr = movingsectors.begin(); itr != movingsectors.end(); ++itr)
 		if (sector == itr->sector)
 			return itr;
-	
+
 	// not found
 	return movingsectors.end();
 }
@@ -93,9 +93,9 @@ void P_AddMovingCeiling(sector_t *sector)
 {
 	if (!sector)
 		return;
-		
+
 	movingsector_t *movesec;
-	
+
 	// Check if this already exists
 	std::list<movingsector_t>::iterator itr = P_FindMovingSector(sector);
 	if (itr != movingsectors.end())
@@ -105,10 +105,10 @@ void P_AddMovingCeiling(sector_t *sector)
 	}
 	else
 	{
-		movingsectors.push_back(movingsector_t());	
+		movingsectors.push_back(movingsector_t());
 		movesec = &(movingsectors.back());
 	}
-	
+
 	movesec->sector = sector;
 	movesec->moving_ceiling = true;
 
@@ -128,9 +128,9 @@ void P_AddMovingFloor(sector_t *sector)
 {
 	if (!sector)
 		return;
-		
+
 	movingsector_t *movesec;
-	
+
 	// Check if this already exists
 	std::list<movingsector_t>::iterator itr = P_FindMovingSector(sector);
 	if (itr != movingsectors.end())
@@ -140,10 +140,10 @@ void P_AddMovingFloor(sector_t *sector)
 	}
 	else
 	{
-		movingsectors.push_back(movingsector_t());	
+		movingsectors.push_back(movingsector_t());
 		movesec = &(movingsectors.back());
 	}
-	
+
 	movesec->sector = sector;
 	movesec->moving_floor = true;
 
@@ -163,9 +163,9 @@ void P_RemoveMovingCeiling(sector_t *sector)
 {
 	if (!sector)
 		return;
-		
+
 	std::list<movingsector_t>::iterator itr = P_FindMovingSector(sector);
-	if (itr != movingsectors.end())	
+	if (itr != movingsectors.end())
 	{
 		itr->moving_ceiling = false;
 
@@ -173,7 +173,7 @@ void P_RemoveMovingCeiling(sector_t *sector)
 		// mark the ceiling as invalid but don't remove from the list
 		if (!itr->moving_floor)
 			movingsectors.erase(itr);
-			
+
 		return;
 	}
 }
@@ -188,9 +188,9 @@ void P_RemoveMovingFloor(sector_t *sector)
 {
 	if (!sector)
 		return;
-		
+
 	std::list<movingsector_t>::iterator itr = P_FindMovingSector(sector);
-	if (itr != movingsectors.end())	
+	if (itr != movingsectors.end())
 	{
 		itr->moving_floor = false;
 
@@ -198,7 +198,7 @@ void P_RemoveMovingFloor(sector_t *sector)
 		// mark the floor as invalid but don't remove from the list
 		if (!itr->moving_ceiling)
 			movingsectors.erase(itr);
-			
+
 		return;
 	}
 }
@@ -207,7 +207,7 @@ bool P_MovingCeilingCompleted(sector_t *sector)
 {
 	if (!sector || !sector->ceilingdata)
 		return true;
-	
+
 	if (sector->ceilingdata->IsA(RUNTIME_CLASS(DDoor)))
 	{
 		DDoor *door = static_cast<DDoor *>(sector->ceilingdata);
@@ -221,14 +221,14 @@ bool P_MovingCeilingCompleted(sector_t *sector)
 	if (sector->ceilingdata->IsA(RUNTIME_CLASS(DPillar)))
 	{
 		DPillar *pillar = static_cast<DPillar *>(sector->ceilingdata);
-		return (pillar->m_Status == DPillar::destroy);	
+		return (pillar->m_Status == DPillar::destroy);
 	}
 	if (sector->ceilingdata->IsA(RUNTIME_CLASS(DElevator)))
 	{
 		DElevator *elevator = static_cast<DElevator *>(sector->ceilingdata);
-		return (elevator->m_Status == DElevator::destroy);	
+		return (elevator->m_Status == DElevator::destroy);
 	}
-		
+
 	return false;
 }
 
@@ -236,7 +236,7 @@ bool P_MovingFloorCompleted(sector_t *sector)
 {
 	if (!sector || !sector->floordata)
 		return true;
-	
+
 	if (sector->floordata->IsA(RUNTIME_CLASS(DPlat)))
 	{
 		DPlat *plat = static_cast<DPlat *>(sector->floordata);
@@ -247,7 +247,7 @@ bool P_MovingFloorCompleted(sector_t *sector)
 		DFloor *floor = static_cast<DFloor *>(sector->floordata);
 		return (floor->m_Status == DFloor::destroy);
 	}
-	
+
 	return false;
 }
 
@@ -401,7 +401,7 @@ fixed_t P_FindLowestFloorSurrounding (sector_t* sec)
 		if (!other)
 			continue;
 
-		fixed_t v1height = 
+		fixed_t v1height =
 			P_FloorHeight(sec->lines[i]->v1->x, sec->lines[i]->v1->y, other);
 		fixed_t v2height =
 			P_FloorHeight(sec->lines[i]->v1->x, sec->lines[i]->v1->y, other);
@@ -435,7 +435,7 @@ fixed_t P_FindHighestFloorSurrounding (sector_t *sec)
 		if (!other)
 			continue;
 
-		fixed_t v1height = 
+		fixed_t v1height =
 			P_FloorHeight(sec->lines[i]->v1->x, sec->lines[i]->v1->y, other);
 		fixed_t v2height =
 			P_FloorHeight(sec->lines[i]->v1->x, sec->lines[i]->v1->y, other);
@@ -482,7 +482,7 @@ fixed_t P_FindNextHighestFloor (sector_t *sec)
                 height = ofloor;
         }
     }
-    
+
     if (height == MAXINT)
     	height = ogheight;
 
@@ -525,7 +525,7 @@ fixed_t P_FindNextLowestFloor(sector_t *sec)
                 height = ofloor;
         }
     }
-    
+
     if (height == MININT)
     	height = ogheight;
 
@@ -567,7 +567,7 @@ fixed_t P_FindNextLowestCeiling (sector_t *sec)
                 height = oceiling;
         }
     }
-    
+
     if (height == MININT)
     	height = ogheight;
 
@@ -610,7 +610,7 @@ fixed_t P_FindNextHighestCeiling (sector_t *sec)
                 height = oceiling;
         }
     }
-    
+
     if (height == MAXINT)
     	height = ogheight;
 
@@ -635,7 +635,7 @@ fixed_t P_FindLowestCeilingSurrounding (sector_t *sec)
 		if (!other)
 			continue;
 
-		fixed_t v1height = 
+		fixed_t v1height =
 			P_CeilingHeight(sec->lines[i]->v1->x, sec->lines[i]->v1->y, other);
 		fixed_t v2height =
 			P_CeilingHeight(sec->lines[i]->v1->x, sec->lines[i]->v1->y, other);
@@ -667,7 +667,7 @@ fixed_t P_FindHighestCeilingSurrounding (sector_t *sec)
 		if (!other)
 			continue;
 
-		fixed_t v1height = 
+		fixed_t v1height =
 			P_CeilingHeight(sec->lines[i]->v1->x, sec->lines[i]->v1->y, other);
 		fixed_t v2height =
 			P_CeilingHeight(sec->lines[i]->v1->x, sec->lines[i]->v1->y, other);
@@ -1041,7 +1041,7 @@ void OnActivatedLine (line_t *line, AActor *mo, int side, int activationType);
 void P_HandleSpecialRepeat(line_t* line)
 {
 	// [SL] Don't remove specials from fragging exit line specials
-	if ((line->special == Exit_Normal || line->special == Exit_Secret || 
+	if ((line->special == Exit_Normal || line->special == Exit_Secret ||
 		 line->special == Teleport_EndGame || line->special == Teleport_NewMap) &&
 		(!sv_allowexit && sv_fragexitswitch))
 		return;
@@ -1361,6 +1361,10 @@ P_PushSpecialLine
 //
 void P_PlayerInSpecialSector (player_t *player)
 {
+	// Spectators should not be affected by special sectors
+	if (player->spectator)
+		return;
+
 	sector_t *sector = player->mo->subsector->sector;
 	int special = sector->special & ~SECRET_MASK;
 
@@ -1802,14 +1806,14 @@ void P_SpawnSpecials (void)
 void DScroller::RunThink ()
 {
 	fixed_t dx = m_dx, dy = m_dy;
-        
+
 	if (m_Control != -1)
 	{	// compute scroll amounts based on a sector's height changes
 		sector_t *sector = &sectors[m_Control];
 		fixed_t centerfloor = P_FloorHeight(sector->soundorg[0], sector->soundorg[1], sector);
 		fixed_t centerceiling = P_FloorHeight(sector->soundorg[0], sector->soundorg[1], sector);
 
-		fixed_t height = centerfloor + centerceiling; 
+		fixed_t height = centerfloor + centerceiling;
 		fixed_t delta = height - m_LastHeight;
 		m_LastHeight = height;
 		dx = FixedMul(dx, delta);
@@ -1876,7 +1880,7 @@ void DScroller::RunThink ()
 				  }
 			break;
 		}
-		
+
 		case sc_carry_ceiling:       // to be added later
 			break;
 	}
@@ -1913,9 +1917,9 @@ DScroller::DScroller (EScrollType type, fixed_t dx, fixed_t dy,
 	{
 		sector_t *sector = &sectors[control];
 		fixed_t centerfloor =
-			P_FloorHeight(sector->soundorg[0], sector->soundorg[1], sector); 
+			P_FloorHeight(sector->soundorg[0], sector->soundorg[1], sector);
 		fixed_t centerceiling =
-			P_CeilingHeight(sector->soundorg[0], sector->soundorg[1], sector); 
+			P_CeilingHeight(sector->soundorg[0], sector->soundorg[1], sector);
 
 		m_LastHeight = centerfloor + centerceiling;
 	}
@@ -1945,7 +1949,7 @@ DScroller::DScroller (fixed_t dx, fixed_t dy, const line_t *l,
 	m_dy = y;
 	m_vdx = m_vdy = 0;
 	m_Accel = accel;
-	
+
 	if ((m_Control = control) != -1)
 	{
 		sector_t *sector = &sectors[control];
@@ -2550,7 +2554,7 @@ bool A_CheckTrigger(AActor *mo, AActor *triggerer) {
 	}
 	return false;
 }
- 
+
 // [AM] Selectively trigger a list of sector action specials that are linked by
 //      their tracer fields based on the passed activation type.
 bool A_TriggerAction(AActor *mo, AActor *triggerer, int activationType) {

@@ -118,11 +118,6 @@ EXTERN_CVAR (con_notifytime)
 
 CVAR_FUNC_IMPL (con_scaletext)
 {
-	// ensure only integer values are used
-	float valid_value = static_cast<int>(clamp<float>(var, 1.0f, 4.0f));
-	if (var != valid_value)
-		var.Set(valid_value);
-
 	if (console_font)
 	{
 		V_UnloadConsoleFont();
@@ -132,11 +127,6 @@ CVAR_FUNC_IMPL (con_scaletext)
 
 CVAR_FUNC_IMPL (hud_scaletext)
 {
-	// ensure only integer values are used
-	float valid_value = static_cast<int>(clamp<float>(var, 1.0f, 4.0f));
-	if (var != valid_value)
-		var.Set(valid_value);
-
 	if (hud_font)
 	{
 		V_UnloadHudFont();
