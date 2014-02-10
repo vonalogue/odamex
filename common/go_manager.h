@@ -17,7 +17,7 @@
 //
 // DESCRIPTION:
 // 
-// The GameObjectManager class handles the creation of new GameObjects based
+// The ComponentManager class handles the creation of new Components based
 // on a prototype.
 //
 //-----------------------------------------------------------------------------
@@ -39,11 +39,11 @@
 
 // ============================================================================
 //
-// GameObjectManager class Implementation
+// ComponentManager class Implementation
 //
 // ============================================================================
 
-class GameObjectManager
+class ComponentManager
 {
 public:
 	// ------------------------------------------------------------------------
@@ -56,7 +56,7 @@ public:
 	// iterator
 	// ------------------------------------------------------------------------
 
-    class const_iterator : public std::iterator<std::forward_iterator_tag, GameObjectManager>
+    class const_iterator : public std::iterator<std::forward_iterator_tag, ComponentManager>
 	{
 	public:
 		bool operator== (const const_iterator& other)
@@ -94,7 +94,7 @@ public:
 		}
 
 	private:
-		friend class GameObjectManager;
+		friend class ComponentManager;
 
 		void addComponent(ComponentId id)
 		{
@@ -115,10 +115,10 @@ public:
 	// ------------------------------------------------------------------------
 	// Public functions
 	// ------------------------------------------------------------------------
-	GameObjectManager();
-	virtual ~GameObjectManager();
+	ComponentManager();
+	virtual ~ComponentManager();
 
-	void registerComponentType(const GameObjectComponent& prototype);
+	void registerComponentType(const Component& prototype);
 	void unregisterComponentType(const OString& type_name);
 	void clearRegisteredComponentTypes();
 
@@ -131,10 +131,11 @@ public:
 	template <typename T>
 	T* getAttribute(ComponentId parent_id, const OString& attribute_name)
 	{
-		for (CompositeMap::iterator it = mCompositeMap.find(parent_id); it != mCompositeMap.end(); ++it)
+		for (ParentToChildrenMap::iterator it = mParentToChildrenMap.find(parent_id);
+				it != mParentToChildrenMap.end(); ++it)
 		{
 			ComponentId component_id = it->second;
-			GameObjectComponent* component = mComponents.get(component_id);
+			Component* component = mComponents.get(component_id);
 			if (component->getAttributeName() == attribute_name)
 				return dynamic_cast<T*>(component);	
 		}
@@ -155,9 +156,22 @@ public:
 	void clearComponents();
 
 
+	//
+	// ComponentManager::getChildren
+	//
 	const_iterator getChildren(ComponentId parent_id)
 	{
-		return begin();	
+		const_iterator result;
+
+		ParentToChildrenMap::const_iterator it = mParentToChildrenMap.find(parent_id);
+		while (it != mParentToChildrenMap.end())
+		{
+			result.mComponentList.push_back(it->second);
+			++it;
+		}
+		
+		result.mIt = result.mComponentList.begin();
+		return result;
 	}
 
 	const_iterator begin() const
@@ -179,16 +193,17 @@ private:
 
 	static const uint32_t MAX_COMPONENTS = 65536;
 
-	typedef SArray<GameObjectComponent*> ComponentStore;
+	typedef SArray<Component*> ComponentStore;
 	ComponentStore					mComponents;
 
 
 	// ------------------------------------------------------------------------
-	// Component to Parent Component mapping
+	// Parent Component to Children Components mapping
 	// ------------------------------------------------------------------------
 
-	typedef std::multimap<ComponentId, ComponentId> CompositeMap;
-	CompositeMap				mCompositeMap;
+	typedef std::multimap<ComponentId, ComponentId> ParentToChildrenMap;
+	ParentToChildrenMap		mParentToChildrenMap;
+
 
 	// ------------------------------------------------------------------------
 	// Component Type Information
@@ -202,13 +217,13 @@ private:
 			mPrototype(NULL), mComposite(false)
 		{ }
 
-		ComponentTypeRecord(const OString& type_name, const GameObjectComponent* prototype) :
+		ComponentTypeRecord(const OString& type_name, const Component* prototype) :
 			mTypeName(type_name), mPrototype(prototype), mComposite(prototype->isComposite())
 		{ }
 
-		OString						mTypeName;
-		const GameObjectComponent*	mPrototype;
-		bool						mComposite;
+		OString				mTypeName;
+		const Component*	mPrototype;
+		bool				mComposite;
 	};
 
 	typedef OHashTable<OString, ComponentTypeRecord> ComponentTypeStore;

@@ -17,7 +17,7 @@
 //
 // DESCRIPTION:
 // 
-// The GameObjectManager class handles the creation of new GameObjects based
+// The ComponentManager class handles the creation of new Components based
 // on a prototype.
 //
 //-----------------------------------------------------------------------------
@@ -27,7 +27,7 @@
 
 // ============================================================================
 //
-// GameObjectManager class Implementation
+// ComponentManager class Implementation
 //
 // ============================================================================
 
@@ -35,9 +35,9 @@
 // Public functions
 // ----------------------------------------------------------------------------
 
-GameObjectManager::GameObjectManager() :
-	mComponents(GameObjectManager::MAX_COMPONENTS),
-	mComponentTypes(GameObjectManager::MAX_TYPES)
+ComponentManager::ComponentManager() :
+	mComponents(ComponentManager::MAX_COMPONENTS),
+	mComponentTypes(ComponentManager::MAX_TYPES)
 {
 	// register built-in component types
 	registerComponentType(BoolComponent());
@@ -56,24 +56,24 @@ GameObjectManager::GameObjectManager() :
 	registerComponentType(Md5SumComponent());
 }
 
-GameObjectManager::~GameObjectManager()
+ComponentManager::~ComponentManager()
 {
 	clearRegisteredComponentTypes();
 }
 
-void GameObjectManager::registerComponentType(const GameObjectComponent& prototype)
+void ComponentManager::registerComponentType(const Component& prototype)
 {
 	const OString& type_name = prototype.getTypeName();
 	if (mComponentTypes.find(type_name) == mComponentTypes.end())
 	{
-		// Note: we're creating a new instance of the GameObjectComponent by
+		// Note: we're creating a new instance of the Component by
 		// calling prototype.clone(). Remember to delete it later!
 		ComponentTypeRecord rec(type_name, prototype.clone());
 		mComponentTypes.insert(std::pair<OString, ComponentTypeRecord>(type_name, rec));
 	}
 }
 
-void GameObjectManager::unregisterComponentType(const OString& type_name)
+void ComponentManager::unregisterComponentType(const OString& type_name)
 {
 	ComponentTypeStore::iterator it = mComponentTypes.find(type_name);
 	if (it != mComponentTypes.end())
@@ -83,7 +83,7 @@ void GameObjectManager::unregisterComponentType(const OString& type_name)
 	}
 }
 
-void GameObjectManager::clearRegisteredComponentTypes()
+void ComponentManager::clearRegisteredComponentTypes()
 {
 	for (ComponentTypeStore::iterator it = mComponentTypes.begin(); it != mComponentTypes.end(); ++it)
 		delete it->second.mPrototype;
@@ -91,23 +91,24 @@ void GameObjectManager::clearRegisteredComponentTypes()
 	mComponentTypes.clear();
 }
 
-GameObjectManager::ComponentId GameObjectManager::addAttribute(const OString& attribute_name, const OString& type_name, GameObjectManager::ComponentId parent_id)
+ComponentManager::ComponentId ComponentManager::addAttribute(
+		const OString& attribute_name, const OString& type_name, ComponentManager::ComponentId parent_id)
 {
 	ComponentTypeStore::const_iterator it = mComponentTypes.find(type_name);
 	if (it != mComponentTypes.end())
 	{
-		GameObjectComponent* component = it->second.mPrototype->clone();
+		Component* component = it->second.mPrototype->clone();
 		component->mManager = this;
 		component->setAttributeName(attribute_name);
 		ComponentId component_id = mComponents.insert(component);
-		mCompositeMap.insert(std::pair<ComponentId, ComponentId>(parent_id, component_id));
+		mParentToChildrenMap.insert(std::pair<ComponentId, ComponentId>(parent_id, component_id));
 		return component_id;
 	}
 
 	return 0;
 }
 
-void GameObjectManager::clearComponents()
+void ComponentManager::clearComponents()
 {
 	for (ComponentStore::iterator it = mComponents.begin(); it != mComponents.end(); ++it)
 		delete *it;

@@ -17,15 +17,15 @@
 //
 // DESCRIPTION:
 // 
-// GameObjectComponents are building-block elements that comprise GameObjects.
-// GameObjectComponents use the Composite Pattern to treat composite components
-// such as GameObjectComponentGroup the same as primative GameObjectComponents
-// such as StringComponent.
+// Components are building-block elements that comprise GameObjects.
+// Components use the Composite Pattern to treat composite components
+// such as ComponentGroup the same as primative Components such as
+// StringComponent.
 //
-// GameObjectComponents are data types that know how to serialize and deserialize
+// Components are data types that know how to serialize and deserialize
 // themselves to and from a BitStream.
 //
-// GameObjectComponents have a clone operation to create a new instance of themselves.
+// Components have a clone operation to create a new instance of themselves.
 // This is part of the Prototype Patter and is a mechanism that allows
 // a prototype instance of each Message type to be built
 //
@@ -44,7 +44,7 @@
 // Forward declarations
 // ----------------------------------------------------------------------------
 
-class GameObjectManager;
+class ComponentManager;
 
 template<typename T, uint16_t SIZE = 8*sizeof(T)> class IntegralComponent;
 typedef IntegralComponent<bool, 1> BoolComponent;
@@ -59,22 +59,22 @@ typedef IntegralComponent<int32_t> S32Component;
 
 // ============================================================================
 //
-// GameObjectComponent abstract base interface
+// Component abstract base interface
 //
-// Stores a data type for use in GameObjects. GameObjectComponents know
+// Stores a data type for use in GameObjects. Components know
 // how to serialize/deserialize from a BitStream and can calculate their own
 // size (in bits).
 // 
 // ============================================================================
 
-class GameObjectComponent
+class Component
 {
 public:
-	GameObjectComponent() :
+	Component() :
 		mRequired(true), mReplicatable(true), mManager(NULL)
 	{ }
 
-	virtual ~GameObjectComponent()
+	virtual ~Component()
 	{ }
 
 	// name of the type (eg., "uint32")
@@ -114,19 +114,19 @@ public:
 	virtual uint16_t write(BitStream& stream) const = 0;
 
 	// instantiate a new copy of this component
-	virtual GameObjectComponent* clone() const = 0;
+	virtual Component* clone() const = 0;
 
-	// return a pointer to the GameObjectManager this component belongs to
-	GameObjectManager* getManager()
+	// return a pointer to the ComponentManager this component belongs to
+	ComponentManager* getManager()
 		{ return mManager; }
 
 private:
 	OString					mAttributeName;
 	bool					mRequired;
 	bool					mReplicatable;
-	GameObjectManager*		mManager;
+	ComponentManager*		mManager;
 
-	friend class GameObjectManager;
+	friend class ComponentManager;
 };
 
 
@@ -134,13 +134,13 @@ private:
 //
 // IntegralComponent template implementation
 //
-// Generic GameObjectComponent class for storing and serializing integral data
+// Generic Component class for storing and serializing integral data
 // types for use in GameObjects.
 // 
 // ============================================================================
 
 template<typename T, uint16_t SIZE>
-class IntegralComponent : public GameObjectComponent
+class IntegralComponent : public Component
 {
 public:
 	IntegralComponent() :
@@ -184,7 +184,7 @@ private:
 // 
 // ============================================================================
 
-class RangeComponent : public GameObjectComponent
+class RangeComponent : public Component
 {
 public:
 	RangeComponent();
@@ -230,7 +230,7 @@ private:
 // 
 // ============================================================================
 
-class FloatComponent : public GameObjectComponent
+class FloatComponent : public Component
 {
 public:
 	FloatComponent() :
@@ -275,7 +275,7 @@ private:
 // 
 // ============================================================================
 
-class StringComponent : public GameObjectComponent
+class StringComponent : public Component
 {
 public:
 	StringComponent() { }
@@ -317,7 +317,7 @@ private:
 //
 // ============================================================================
 
-class V2FixedComponent : public GameObjectComponent
+class V2FixedComponent : public Component
 {
 public:
 	V2FixedComponent()
@@ -364,7 +364,7 @@ private:
 //
 // ============================================================================
 
-class V3FixedComponent : public GameObjectComponent
+class V3FixedComponent : public Component
 {
 public:
 	V3FixedComponent()
@@ -411,7 +411,7 @@ private:
 // 
 // ============================================================================
 
-class BitFieldComponent : public GameObjectComponent
+class BitFieldComponent : public Component
 {
 public:
 	BitFieldComponent(uint32_t num_fields = 32);
@@ -452,7 +452,7 @@ private:
 // 
 // ============================================================================
 
-class Md5SumComponent : public GameObjectComponent
+class Md5SumComponent : public Component
 {
 public:
 	Md5SumComponent();
@@ -495,7 +495,7 @@ private:
 // GameObjectComposite abstract base class interface
 //
 // ============================================================================
-class GameObjectComposite : public GameObjectComponent
+class GameObjectComposite : public Component
 {
 public:
 	inline bool isComposite() const
@@ -505,20 +505,20 @@ public:
 
 // ============================================================================
 //
-// GameObjectComponentArray interface
+// ComponentArray interface
 //
-// Stores and serializes an homogeneous dynamic array of GameObjectComponents
+// Stores and serializes an homogeneous dynamic array of Components
 // type for use in GameObjects.
 // 
 // ============================================================================
 
-class GameObjectComponentArray : public GameObjectComposite
+class ComponentArray : public GameObjectComposite
 {
 public:
-	GameObjectComponentArray(uint32_t mincnt = 0, uint32_t maxcnt = 65535);
-	GameObjectComponentArray(const GameObjectComponentArray& other);
-	virtual ~GameObjectComponentArray();
-	GameObjectComponentArray& operator=(const GameObjectComponentArray& other);
+	ComponentArray(uint32_t mincnt = 0, uint32_t maxcnt = 65535);
+	ComponentArray(const ComponentArray& other);
+	virtual ~ComponentArray();
+	ComponentArray& operator=(const ComponentArray& other);
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
@@ -534,8 +534,8 @@ public:
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
 
-	inline GameObjectComponentArray* clone() const
-		{ return new GameObjectComponentArray(*this); }
+	inline ComponentArray* clone() const
+		{ return new ComponentArray(*this); }
 	
 private:
 	OString				mTypeName;
@@ -548,25 +548,25 @@ private:
 	uint32_t			mMaxCount;
 	RangeComponent		mCountField;
 
-	typedef std::vector<GameObjectComponent*> FieldArray;
+	typedef std::vector<Component*> FieldArray;
 	FieldArray			mFields;
 };
 
 // ============================================================================
 //
-// GameObjectComponentGroup interface
+// ComponentGroup interface
 //
 // Stores and serializes a composite list of required and optional
-// GameObjectComponents for use in GameObjects.
+// Components for use in GameObjects.
 // 
 // ============================================================================
 
-class GameObjectComponentGroup : public GameObjectComposite
+class ComponentGroup : public GameObjectComposite
 {
 public:
-	GameObjectComponentGroup();
-	GameObjectComponentGroup(const GameObjectComponentGroup& other);
-	virtual ~GameObjectComponentGroup();
+	ComponentGroup();
+	ComponentGroup(const ComponentGroup& other);
+	virtual ~ComponentGroup();
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
@@ -582,8 +582,8 @@ public:
 	virtual uint16_t read(BitStream& stream);
 	virtual uint16_t write(BitStream& stream) const;
 
-	inline GameObjectComponentGroup* clone() const
-		{ return new GameObjectComponentGroup(*this); }
+	inline ComponentGroup* clone() const
+		{ return new ComponentGroup(*this); }
 
 private:
 	OString						mTypeName;

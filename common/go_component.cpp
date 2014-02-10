@@ -17,15 +17,15 @@
 //
 // DESCRIPTION:
 // 
-// GameObjectComponents are building-block elements that comprise GameObjects.
-// GameObjectComponents use the Composite Pattern to treat composite components
-// such as GameObjectComponentGroup the same as primative GameObjectComponents
-// such as StringComponent.
+// Components are building-block elements that comprise GameObjects.
+// Components use the Composite Pattern to treat composite components
+// such as ComponentGroup the same as primative Components such as
+// StringComponent.
 //
-// GameObjectComponents are data types that know how to serialize and deserialize
+// Components are data types that know how to serialize and deserialize
 // themselves to and from a BitStream.
 //
-// GameObjectComponents have a clone operation to create a new instance of themselves.
+// Components have a clone operation to create a new instance of themselves.
 // This is part of the Prototype Patter and is a mechanism that allows
 // a prototype instance of each Message type to be built
 //
@@ -317,16 +317,16 @@ void Md5SumComponent::cacheString()
 
 // ============================================================================
 //
-// GameObjectComponentArray implementation
+// ComponentArray implementation
 // 
 // ============================================================================
 
-GameObjectComponentArray::GameObjectComponentArray(uint32_t mincnt, uint32_t maxcnt) :
+ComponentArray::ComponentArray(uint32_t mincnt, uint32_t maxcnt) :
 	mCachedSizeValid(false), mCachedSize(0), 
 	mMinCount(mincnt), mMaxCount(maxcnt), mCountField(0, mincnt, maxcnt)
 { }
 
-GameObjectComponentArray::GameObjectComponentArray(const GameObjectComponentArray& other) :
+ComponentArray::ComponentArray(const ComponentArray& other) :
 	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize),
 	mMinCount(other.mMinCount), mMaxCount(other.mMaxCount),
 	mCountField(other.mCountField)
@@ -335,14 +335,14 @@ GameObjectComponentArray::GameObjectComponentArray(const GameObjectComponentArra
 		mFields.push_back(other.mFields[i]->clone());
 }
 
-GameObjectComponentArray::~GameObjectComponentArray()
+ComponentArray::~ComponentArray()
 {
 	for (size_t i = 0; i < mFields.size(); ++i)
 		delete mFields[i];
 }
 
 
-GameObjectComponentArray& GameObjectComponentArray::operator=(const GameObjectComponentArray& other)
+ComponentArray& ComponentArray::operator=(const ComponentArray& other)
 {
 	if (&other != this)
 	{
@@ -364,12 +364,12 @@ GameObjectComponentArray& GameObjectComponentArray::operator=(const GameObjectCo
 }
 
 //
-// GameObjectComponentArray::size
+// ComponentArray::size
 //
 // Returns the total size of the message fields in bits. The size is cached for
 // fast retrieval in the future;
 //
-uint16_t GameObjectComponentArray::size() const
+uint16_t ComponentArray::size() const
 {
 	if (!mCachedSizeValid)
 	{
@@ -389,12 +389,12 @@ uint16_t GameObjectComponentArray::size() const
 
 
 //
-// GameObjectComponentArray::read
+// ComponentArray::read
 //
-// Reads an array of GameObjectComponents from a BitStream. Returns the
+// Reads an array of Components from a BitStream. Returns the
 // number of bits read.
 //
-uint16_t GameObjectComponentArray::read(BitStream& stream)
+uint16_t ComponentArray::read(BitStream& stream)
 {
 	uint16_t read_size = 0;
 	clear();
@@ -413,12 +413,12 @@ uint16_t GameObjectComponentArray::read(BitStream& stream)
 
 
 //
-// GameObjectComponentArray::write
+// ComponentArray::write
 //
-// Writes an array of GameObjectComponents into a BitStream. Returns the
+// Writes an array of Components into a BitStream. Returns the
 // number of bits written.
 //
-uint16_t GameObjectComponentArray::write(BitStream& stream) const
+uint16_t ComponentArray::write(BitStream& stream) const
 {
 	uint16_t write_size = 0;
 	
@@ -433,11 +433,11 @@ uint16_t GameObjectComponentArray::write(BitStream& stream) const
 
 
 //
-// GameObjectComponentArray::clear
+// ComponentArray::clear
 //
-// Clears all of the repeated GameObjectComponents.
+// Clears all of the repeated Components.
 //
-void GameObjectComponentArray::clear()
+void ComponentArray::clear()
 {
 	mCountField.set(0);
 	for (size_t i = 0; i < mFields.size(); ++i)
@@ -449,31 +449,31 @@ void GameObjectComponentArray::clear()
 
 // ============================================================================
 //
-// GameObjectComponentGroup implementation
+// ComponentGroup implementation
 // 
 // ============================================================================
 
-GameObjectComponentGroup::GameObjectComponentGroup() :
+ComponentGroup::ComponentGroup() :
 	mCachedSizeValid(false), mCachedSize(0)
 { }
 
-GameObjectComponentGroup::GameObjectComponentGroup(const GameObjectComponentGroup& other) :
+ComponentGroup::ComponentGroup(const ComponentGroup& other) :
 	mCachedSizeValid(other.mCachedSizeValid), mCachedSize(other.mCachedSize)
 {
 }
 
-GameObjectComponentGroup::~GameObjectComponentGroup()
+ComponentGroup::~ComponentGroup()
 {
 }
 
 
 //
-// GameObjectComponentGroup::size
+// ComponentGroup::size
 //
 // Returns the total size of the message fields in bits. The size is cached for
 // fast retrieval in the future;
 //
-uint16_t GameObjectComponentGroup::size() const
+uint16_t ComponentGroup::size() const
 {
 	if (!mCachedSizeValid)
 	{
@@ -486,12 +486,12 @@ uint16_t GameObjectComponentGroup::size() const
 
 
 //
-// GameObjectComponentGroup::read
+// ComponentGroup::read
 //
-// Reads a group of required and optional GameObjectComponents from a BitStream.
+// Reads a group of required and optional Components from a BitStream.
 // Returns the number of bits read.
 //
-uint16_t GameObjectComponentGroup::read(BitStream& stream)
+uint16_t ComponentGroup::read(BitStream& stream)
 {
 	uint16_t read_size = 0;
 	clear();
@@ -500,12 +500,12 @@ uint16_t GameObjectComponentGroup::read(BitStream& stream)
 
 
 //
-// GameObjectComponentGroup::write
+// ComponentGroup::write
 //
-// Writes a group of required and optional GameObjectComponents from a BitStream.
+// Writes a group of required and optional Components from a BitStream.
 // Returns the number of bits written.
 //
-uint16_t GameObjectComponentGroup::write(BitStream& stream) const
+uint16_t ComponentGroup::write(BitStream& stream) const
 {
 	uint16_t write_size = 0;
 	return write_size;
@@ -513,11 +513,11 @@ uint16_t GameObjectComponentGroup::write(BitStream& stream) const
 
 
 //
-// GameObjectComponentGroup::clear
+// ComponentGroup::clear
 //
-// Clears all of the GameObjectComponents in this group.
+// Clears all of the Components in this group.
 //
-void GameObjectComponentGroup::clear()
+void ComponentGroup::clear()
 {
 	mCachedSizeValid = false;
 }
