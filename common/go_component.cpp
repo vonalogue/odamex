@@ -37,6 +37,9 @@
 #include "hashtable.h"
 #include "m_ostring.h"
 
+// All component classes are considered to be derived initially from
+// the component type "base" as the root class.
+static const OString BaseTypeName("base");
 
 // ============================================================================
 //
@@ -46,24 +49,38 @@
 
 template<>
 const OString BoolComponent::mTypeName("bool");
+template<>
+const OString BoolComponent::mTypeParentName(BaseTypeName);
 
 template<>
 const OString U8Component::mTypeName("u8");
+template<>
+const OString U8Component::mTypeParentName(BaseTypeName);
 
 template<>
 const OString S8Component::mTypeName("s8");
+template<>
+const OString S8Component::mTypeParentName(BaseTypeName);
 
 template<>
 const OString U16Component::mTypeName("u16");
+template<>
+const OString U16Component::mTypeParentName(BaseTypeName);
 
 template<>
 const OString S16Component::mTypeName("s16");
+template<>
+const OString S16Component::mTypeParentName(BaseTypeName);
 
 template<>
 const OString U32Component::mTypeName("u32");
+template<>
+const OString U32Component::mTypeParentName(BaseTypeName);
 
 template<>
 const OString S32Component::mTypeName("s32");
+template<>
+const OString S32Component::mTypeParentName(BaseTypeName);
 
 
 // ============================================================================
@@ -73,6 +90,7 @@ const OString S32Component::mTypeName("s32");
 // ============================================================================
 
 const OString RangeComponent::mTypeName("range");
+const OString RangeComponent::mTypeParentName(BaseTypeName);
 
 RangeComponent::RangeComponent() :
 	mCachedSizeValid(false), mCachedSize(0),
@@ -132,6 +150,7 @@ uint16_t RangeComponent::write(BitStream& stream) const
 // ============================================================================
 
 const OString FloatComponent::mTypeName("float");
+const OString FloatComponent::mTypeParentName(BaseTypeName);
 
 
 // ============================================================================
@@ -141,6 +160,7 @@ const OString FloatComponent::mTypeName("float");
 // ============================================================================
 
 const OString StringComponent::mTypeName("string");
+const OString StringComponent::mTypeParentName(BaseTypeName);
 
 
 // ============================================================================
@@ -150,6 +170,7 @@ const OString StringComponent::mTypeName("string");
 // ============================================================================
 
 const OString V2FixedComponent::mTypeName("v2fixed");
+const OString V2FixedComponent::mTypeParentName(BaseTypeName);
 
 
 // ============================================================================
@@ -159,6 +180,7 @@ const OString V2FixedComponent::mTypeName("v2fixed");
 // ============================================================================
 
 const OString V3FixedComponent::mTypeName("v3fixed");
+const OString V3FixedComponent::mTypeParentName(BaseTypeName);
 
 
 // ============================================================================
@@ -168,6 +190,7 @@ const OString V3FixedComponent::mTypeName("v3fixed");
 // ============================================================================
 
 const OString BitFieldComponent::mTypeName("bitfield");
+const OString BitFieldComponent::mTypeParentName(BaseTypeName);
 
 BitFieldComponent::BitFieldComponent(uint32_t num_fields) :
 	mBitField(num_fields)
@@ -203,6 +226,7 @@ uint16_t BitFieldComponent::write(BitStream& stream) const
 // ============================================================================
 
 const OString Md5SumComponent::mTypeName("md5sum");
+const OString Md5SumComponent::mTypeParentName(BaseTypeName);
 
 Md5SumComponent::Md5SumComponent() 
 {

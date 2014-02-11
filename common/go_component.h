@@ -81,6 +81,8 @@ public:
 	virtual const OString& getTypeName() const = 0;
 	inline void setTypeName(const OString& value) { }
 
+	virtual const OString& getTypeParentName() const = 0;
+
 	// name of the attribute (eg., "health")
 	inline const OString& getAttributeName() const
 		{ return mAttributeName; }
@@ -151,6 +153,8 @@ public:
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	inline uint16_t size() const
 		{ return SIZE; }
@@ -177,6 +181,8 @@ public:
 
 private:
 	static const OString	mTypeName;
+	static const OString	mTypeParentName;
+
 	T						mValue;
 };
 
@@ -198,6 +204,8 @@ public:
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	uint16_t size() const;
 	inline void clear()
@@ -221,6 +229,7 @@ public:
 
 private:
 	static const OString	mTypeName;
+	static const OString	mTypeParentName;
 
 	mutable bool			mCachedSizeValid;
 	mutable uint16_t		mCachedSize;
@@ -251,6 +260,8 @@ public:
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	inline uint16_t size() const
 		{ return SIZE; }
@@ -277,6 +288,8 @@ public:
 
 private:
 	static const OString	mTypeName;
+	static const OString	mTypeParentName;
+
 	static const uint16_t	SIZE = 32;
 	float					mValue;
 };
@@ -300,6 +313,8 @@ public:
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	inline uint16_t size() const
 		{ return 8 * (mValue.length() + 1); }
@@ -326,6 +341,8 @@ public:
 
 private:
 	static const OString	mTypeName;
+	static const OString	mTypeParentName;
+
 	OString					mValue;
 };
 
@@ -348,6 +365,8 @@ public:
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	inline uint16_t size() const
 		{ return SIZE; }
@@ -376,6 +395,8 @@ public:
 
 private:
 	static const OString	mTypeName;
+	static const OString	mTypeParentName;
+
 	static const uint16_t 	SIZE = 2 * 16;
 	v2fixed_t				mValue;
 };
@@ -400,6 +421,8 @@ public:
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	inline uint16_t size() const
 		{ return SIZE; }
@@ -428,6 +451,8 @@ public:
 
 private:
 	static const OString	mTypeName;
+	static const OString	mTypeParentName;
+
 	static const uint16_t 	SIZE = 3 * 16;
 	v3fixed_t				mValue;
 };
@@ -450,6 +475,8 @@ public:
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	inline uint16_t size() const
 		{ return mBitField.size(); }
@@ -474,6 +501,8 @@ public:
 
 private:
 	static const OString	mTypeName;
+	static const OString	mTypeParentName;
+
 	BitField				mBitField;
 };
 
@@ -496,6 +525,8 @@ public:
 
 	virtual const OString& getTypeName() const
 		{ return mTypeName; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	inline uint16_t size() const
 		{ return NUMBITS; }
@@ -522,6 +553,8 @@ private:
 	void cacheString();
 
 	static const OString	mTypeName;
+	static const OString	mTypeParentName;
+
 	static const size_t 	NUMBITS = 128;
 	static const size_t 	NUMBYTES = NUMBITS / 8;
 	uint8_t					mValue[NUMBYTES];
@@ -564,6 +597,8 @@ public:
 		{ return mTypeName; }
 	virtual void setTypeName(const OString& type_name)
 		{ mTypeName = type_name; }
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
 
 	inline bool isComposite() const
 		{ return true; }
@@ -579,6 +614,7 @@ public:
 	
 private:
 	OString				mTypeName;
+	OString				mTypeParentName;
 
 	mutable bool		mCachedSizeValid;
 	mutable uint16_t	mCachedSize;
@@ -613,6 +649,9 @@ public:
 	virtual void setTypeName(const OString& type_name)
 		{ mTypeName = type_name; }
 
+	virtual const OString& getTypeParentName() const
+		{ return mTypeParentName; }
+
 	inline bool isComposite() const
 		{ return true; }
 
@@ -627,6 +666,7 @@ public:
 
 private:
 	OString						mTypeName;
+	OString						mTypeParentName;
 
 	mutable bool				mCachedSizeValid;
 	mutable uint16_t			mCachedSize;
