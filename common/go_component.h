@@ -145,7 +145,7 @@ class IntegralComponent : public Component
 public:
 	IntegralComponent() :
 		mValue(0) { }
-	IntegralComponent(T value) :
+	IntegralComponent(const T value) :
 		mValue(value) { }
 	virtual ~IntegralComponent() { }
 
@@ -162,8 +162,13 @@ public:
 	inline uint16_t write(BitStream& stream) const
 		{ stream.writeBits(mValue, SIZE); return SIZE; }
 
+	inline operator T() const
+		{ return mValue; }
 	inline T get() const
 		{ return mValue; }
+
+	IntegralComponent<T, SIZE>& operator=(const T value)
+		{ mValue = value; return *this; }
 	inline void set(T value)
 		{ mValue = value; }
 
@@ -201,8 +206,13 @@ public:
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
 
+	inline operator int32_t() const
+		{ return mValue; }
 	inline int32_t get() const
 		{ return mValue; }
+
+	inline RangeComponent& operator=(int32_t value)
+		{ mValue = value; return *this; }
 	inline void set(int32_t value)
 		{ mValue = value; }
 
@@ -252,8 +262,13 @@ public:
 	inline uint16_t write(BitStream& stream) const
 		{ stream.writeFloat(mValue); return SIZE; }
 
+	inline operator float() const
+		{ return mValue; }
 	inline float get() const
 		{ return mValue; }
+
+	inline FloatComponent& operator=(float value)
+		{ mValue = value; return *this; }
 	inline void set(float value)
 		{ mValue = value; }
 
@@ -296,8 +311,13 @@ public:
 	inline uint16_t write(BitStream& stream) const
 		{ stream.writeString(mValue); return size(); }
 
+	inline operator OString() const
+		{ return mValue; }
 	inline const OString& get() const
 		{ return mValue; }
+
+	inline StringComponent& operator=(const OString& value)
+		{ mValue = value; return *this; }
 	inline void set(const OString& value)
 		{ mValue = value; }
 
@@ -341,8 +361,13 @@ public:
 		{ stream.writeS16(mValue.x >> 16); stream.writeS16(mValue.y >> 16);
 		  return size(); }
 
+	inline operator v2fixed_t() const
+		{ return mValue; }
 	inline const v2fixed_t& get() const
 		{ return mValue; }
+
+	inline V2FixedComponent& operator=(const v2fixed_t& value)
+		{ mValue = value; return *this; }
 	inline void set(const v2fixed_t& value)
 		{ mValue = value; }
 
@@ -388,8 +413,13 @@ public:
 		{ stream.writeS16(mValue.x >> 16); stream.writeS16(mValue.y >> 16); stream.writeS16(mValue.z >> 16);
 		  return size(); }
 
+	inline operator v3fixed_t() const
+		{ return mValue; }
 	inline const v3fixed_t& get() const
 		{ return mValue; }
+
+	inline V3FixedComponent& operator=(const v3fixed_t& value)
+		{ mValue = value; return *this; }
 	inline void set(const v3fixed_t& value)
 		{ mValue = value; }
 
@@ -429,8 +459,13 @@ public:
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
 
+	inline operator BitField() const
+		{ return mBitField; }
 	inline const BitField& get() const
 		{ return mBitField; }
+
+	inline BitFieldComponent& operator=(const BitField& value)
+		{ mBitField = value; return *this; }
 	inline void set(const BitField& value)
 		{ mBitField = value; }
 
@@ -469,8 +504,13 @@ public:
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
 
+	inline operator OString() const
+		{ return mCachedString; }
 	inline const OString& get() const
 		{ return mCachedString; }
+
+	inline Md5SumComponent& operator=(const OString& value)
+		{ setFromString(value); return *this; }
 	inline void set(const OString& value)
 		{ setFromString(value); }
 
