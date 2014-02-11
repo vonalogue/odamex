@@ -473,6 +473,31 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, wall_t* wall, fixed_t cli
 	v2fixed_t w1, w2;
 	R_ClipLine(&pt1, &pt2, lclip, rclip, &w1, &w2);
 
+	// killough 3/8/98, 4/4/98: hack for invisible ceilings / deep water
+	static sector_t tempsec;
+	backsector = segline->backsector ? R_FakeFlat(ds, segline->backsector, &tempsec, NULL, NULL, true) : NULL;
+
+	ds->frontsector = frontsector;
+	ds->backsector = backsector;
+
+	// TODO: clip z coordinates of the wall to 0, viewheight - 1
+	// and save offset info 
+	wall->twosided = (backsector != NULL); 
+
+	M_SetVec3Fixed(&wall->frontc1, w1.x, w1.y, P_CeilingHeight(w1.x, w1.y, frontsector));
+	M_SetVec3Fixed(&wall->frontc2, w2.x, w2.y, P_CeilingHeight(w2.x, w2.y, frontsector));
+	M_SetVec3Fixed(&wall->frontf1, w1.x, w1.y, P_FloorHeight(w1.x, w1.y, frontsector));
+	M_SetVec3Fixed(&wall->frontf2, w2.x, w2.y, P_FloorHeight(w2.x, w2.y, frontsector));
+
+	if (backsector)
+	{
+		M_SetVec3Fixed(&wall->backc1, w1.x, w1.y, P_CeilingHeight(w1.x, w1.y, backsector));
+		M_SetVec3Fixed(&wall->backc2, w2.x, w2.y, P_CeilingHeight(w2.x, w2.y, backsector));
+		M_SetVec3Fixed(&wall->backf1, w1.x, w1.y, P_FloorHeight(w1.x, w1.y, backsector));
+		M_SetVec3Fixed(&wall->backf2, w2.x, w2.y, P_FloorHeight(w2.x, w2.y, backsector));
+	}
+
+
 	// determine which vertex of the linedef should be used for texture alignment
 	vertex_t *v1;
 	if (segline->linedef->sidenum[0] == segline->sidedef - sides)
@@ -480,9 +505,25 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, wall_t* wall, fixed_t cli
 	else
 		v1 = segline->linedef->v2;
 
+	// calculate the length of the widest of the seg's three textures
+	int max_texture_width = 64;
+	if (R_SegTopVisible(segline, wall) && segline->sidedef->toptexture != TextureManager::NO_TEXTURE_HANDLE)
+		max_texture_width = std::max(max_texture_width,
+									texturemanager.getTexture(segline->sidedef->toptexture)->getWidth());
+
+	if (R_SegMidVisible(segline, wall) && segline->sidedef->midtexture != TextureManager::NO_TEXTURE_HANDLE)
+		max_texture_width = std::max(max_texture_width,
+									texturemanager.getTexture(segline->sidedef->midtexture)->getWidth());
+
+	if (R_SegBottomVisible(segline, wall) && segline->sidedef->bottomtexture != TextureManager::NO_TEXTURE_HANDLE)
+		max_texture_width = std::max(max_texture_width,
+									texturemanager.getTexture(segline->sidedef->bottomtexture)->getWidth());
+		
 	// calculate seg length and texture offset
 	fixed_t length = R_LineLength(w1.x, w1.y, w2.x, w2.y);
-	fixed_t textureoffset = R_LineLength(v1->x, v1->y, w1.x, w1.y) + segline->sidedef->textureoffset;
+
+	int offsetmask = (max_texture_width << FRACBITS) - 1;
+	fixed_t textureoffset = (R_LineLength(v1->x, v1->y, w1.x, w1.y) + segline->sidedef->textureoffset) & offsetmask;
 
 	// calculate the texture mapping step values
 	if (ds->x2 > ds->x1)
@@ -517,29 +558,9 @@ bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, wall_t* wall, fixed_t cli
 		ds->uinvzstep = 0;
 	}
 	
-	// killough 3/8/98, 4/4/98: hack for invisible ceilings / deep water
-	static sector_t tempsec;
-	backsector = segline->backsector ? R_FakeFlat(ds, segline->backsector, &tempsec, NULL, NULL, true) : NULL;
 
-	ds->frontsector = frontsector;
-	ds->backsector = backsector;
 
-	// TODO: clip z coordinates of the wall to 0, viewheight - 1
-	// and save offset info 
-	wall->twosided = (backsector != NULL); 
 
-	M_SetVec3Fixed(&wall->frontc1, w1.x, w1.y, P_CeilingHeight(w1.x, w1.y, frontsector));
-	M_SetVec3Fixed(&wall->frontc2, w2.x, w2.y, P_CeilingHeight(w2.x, w2.y, frontsector));
-	M_SetVec3Fixed(&wall->frontf1, w1.x, w1.y, P_FloorHeight(w1.x, w1.y, frontsector));
-	M_SetVec3Fixed(&wall->frontf2, w2.x, w2.y, P_FloorHeight(w2.x, w2.y, frontsector));
-
-	if (backsector)
-	{
-		M_SetVec3Fixed(&wall->backc1, w1.x, w1.y, P_CeilingHeight(w1.x, w1.y, backsector));
-		M_SetVec3Fixed(&wall->backc2, w2.x, w2.y, P_CeilingHeight(w2.x, w2.y, backsector));
-		M_SetVec3Fixed(&wall->backf1, w1.x, w1.y, P_FloorHeight(w1.x, w1.y, backsector));
-		M_SetVec3Fixed(&wall->backf2, w2.x, w2.y, P_FloorHeight(w2.x, w2.y, backsector));
-	}
 
 	return true;
 }

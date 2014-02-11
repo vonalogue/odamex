@@ -430,6 +430,25 @@ sector_t *R_FakeFlat(const drawseg_t* ds, sector_t *sec, sector_t *tempsec,
 }
 
 
+bool R_SegTopVisible(const seg_t* segline, const wall_t* wall)
+{
+	return backsector && (segline->linedef->flags & ML_TWOSIDED) &&
+		(wall->frontc1.z > wall->backc1.z || wall->frontc2.z > wall->backc2.z) &&
+		!(R_IsSkyFlat(frontsector->ceiling_texhandle) && R_IsSkyFlat(backsector->ceiling_texhandle));
+}
+
+bool R_SegBottomVisible(const seg_t* segline, const wall_t* wall)
+{
+	return backsector && (segline->linedef->flags & ML_TWOSIDED) &&
+		(wall->frontf1.z < wall->backf1.z || wall->frontf2.z < wall->backf2.z);
+}
+
+bool R_SegMidVisible(const seg_t* segline, const wall_t* wall)
+{
+	return !backsector || !(segline->linedef->flags & ML_TWOSIDED) ||
+		(wall->frontc1.z > wall->frontf1.z || wall->frontc2.z > wall->frontf2.z);
+}	
+
 //
 // R_SolidLineSeg
 //
@@ -439,7 +458,7 @@ sector_t *R_FakeFlat(const drawseg_t* ds, sector_t *sec, sector_t *tempsec,
 // This fixes the automap floor height bug -- killough 1/18/98:
 // killough 4/7/98: optimize: save result in doorclosed for use in r_segs.c
 //
-static bool R_SolidLineSeg(const seg_t* segline, const wall_t* wall)
+bool R_SolidLineSeg(const seg_t* segline, const wall_t* wall)
 {
 	// TODO: remove use of global frontsector & backsector
 	return !backsector

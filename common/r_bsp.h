@@ -50,6 +50,10 @@ bool R_DoorClosed(void);	// killough 1/17/98
 // killough 4/13/98: fake floors/ceilings for deep water / fake ceilings:
 sector_t *R_FakeFlat(const drawseg_t*, sector_t *, sector_t *, int *, int *, bool);
 
+bool R_SolidLineSeg(const seg_t* segline, const wall_t* wall);
+bool R_SegTopVisible(const seg_t* segline, const wall_t* wall);
+bool R_SegMidVisible(const seg_t* segline, const wall_t* wall);
+bool R_SegBottomVisible(const seg_t* segline, const wall_t* wall);
 
 #endif
 
