@@ -230,4 +230,46 @@ private:
 	ComponentTypeStore			mComponentTypes;
 };
 
+
+
+class ComponentTypeDatabase
+{
+public:
+	ComponentTypeDatabase();
+	~ComponentTypeDatabase();
+
+	void registerType(const OString& type_name, const OString& type_parent_name, const Component& prototype);
+	void unregisterType(const OString& type_name);
+	void clearTypes();
+
+	Component* buildComponent(const OString& type_name) const;
+
+	bool descendant(const OString& type_name, const OString& type_parent_name) const;
+
+private:
+
+	struct ComponentTypeRecord
+	{
+		ComponentTypeRecord() :
+			mPrototype(NULL), mIsComposite(false)
+		{ }
+
+		ComponentTypeRecord(const OString& type_name, const OString& type_parent_name, const Component& prototype) :
+			mTypeName(type_name), mTypeParentName(type_parent_name),
+			mPrototype(prototype.clone()), mIsComposite(prototype.isComposite())
+		{ }
+
+		OString				mTypeName;
+		OString				mTypeParentName;
+
+		const Component*	mPrototype;
+		bool				mIsComposite;
+	};
+
+
+	typedef OHashTable<OString, ComponentTypeRecord> TypeRecordTable;
+	TypeRecordTable			mTypes;
+};
+
+
 #endif	// __GO_MANAGER_H__
