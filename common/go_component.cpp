@@ -34,7 +34,6 @@
 #include "net_log.h"
 #include "net_common.h"
 #include "go_component.h"
-#include "go_manager.h"
 #include "hashtable.h"
 #include "m_ostring.h"
 
@@ -548,6 +547,157 @@ void ComponentGroup::clear()
 }
 
 
+
+// ============================================================================
+//
+// ComponentTypeDatabase class Implementation
+//
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// Construction / Destruction functions
+// ----------------------------------------------------------------------------
+
+//
+// ComponentTypeDatabase::ComponentTypeDatabase
+//
+// Sets the initial size of the mTypes hash table to hold 128 elements.
+//
+ComponentTypeDatabase::ComponentTypeDatabase() :
+	mTypes(128)
+{ }
+
+
+//
+// ComponentTypeDatabase::~ComponentTypeDatabase
+//
+// 
+ComponentTypeDatabase::~ComponentTypeDatabase()
+{
+	clearTypes();
+}
+
+
+// ----------------------------------------------------------------------------
+// Public functions
+// ----------------------------------------------------------------------------
+
+//
+// ComponentTypeDatabase::instance
+//
+// Returns an instance of the ComponentTypeDatabase Singleton.
+//
+ComponentTypeDatabase* ComponentTypeDatabase::instance()
+{
+	static ComponentTypeDatabase database;
+	return &database;
+}
+
+
+//
+// ComponentTypeDatabase::clearTypes
+//
+void ComponentTypeDatabase::clearTypes()
+{
+	for (TypeRecordTable::iterator it = mTypes.begin(); it != mTypes.end(); ++it)
+		delete it->second.mPrototype;
+
+	mTypes.clear();
+}
+
+
+//
+// ComponentTypeDatabase::registerType
+//
+void ComponentTypeDatabase::registerType(
+			const OString& type_name, const OString& type_parent_name,
+			const Component& prototype)
+{
+	// check to see if the type is already registered
+	TypeRecordTable::const_iterator it = mTypes.find(type_name);
+	if (it != mTypes.end())
+	{
+		Net_Error("ComponentTypeDatabase::registerType: Attempting to register component " \
+				"type %s more than once!\n", type_name.c_str());
+		return;
+	}
+
+	mTypes.insert(std::make_pair(type_name, ComponentTypeRecord(type_name, type_parent_name, prototype)));
+}
+
+
+//
+// ComponentTypeDatabase::unregisterType
+//
+void ComponentTypeDatabase::unregisterType(const OString& type_name)
+{
+	TypeRecordTable::iterator it = mTypes.find(type_name);
+	if (it == mTypes.end())
+	{
+		Net_Error("ComponentTypeDatabase::unregisterType: Attempting to unregister component " \
+				"type %s which has not been registered!\n", type_name.c_str());
+		return;
+	}
+
+	mTypes.erase(it);
+}
+
+
+//
+// ComponentTypeDatabase::buildComponent
+//
+Component* ComponentTypeDatabase::buildComponent(const OString& type_name) const
+{
+	TypeRecordTable::const_iterator it = mTypes.find(type_name);
+	if (it == mTypes.end())
+	{
+		Net_Error("ComponentTypeDatabase::buildComponent: Attempting to build a component of " \
+				"type %s which has not been registered!\n", type_name.c_str());
+		return NULL;
+	}
+
+	return it->second.mPrototype->clone();
+}
+	
+
+//
+// ComponentTypeDatabase::descendant
+//
+// Returns true if the type type_name is descended from the type
+// type_parent_name.
+//
+// TODO: Store a tree or graph containing the parent/child relationships
+// for more efficient lookups.
+//
+bool ComponentTypeDatabase::descendant(const OString& type_name, const OString& type_parent_name) const
+{
+	TypeRecordTable::const_iterator it = mTypes.find(type_name);
+	if (it == mTypes.end())
+	{
+		Net_Error("ComponentTypeDatabase::descendant: Unable to find component type %s!\n", type_name.c_str());
+		return false;
+	}
+
+	static const OString BaseTypeName("base");
+
+	if (type_parent_name == BaseTypeName)
+		return true;
+
+	while (it->second.mTypeParentName != BaseTypeName)
+	{
+		if (it->second.mTypeParentName == type_parent_name)
+			return true;
+		it = mTypes.find(it->second.mTypeParentName);
+	}
+
+	return false;
+}
+
+// ----------------------------------------------------------------------------
+//
+// Non-member functions
+//
+// ----------------------------------------------------------------------------
 
 //
 // RegisterBuiltInComponentType
