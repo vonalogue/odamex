@@ -34,6 +34,7 @@
 #include "net_log.h"
 #include "net_common.h"
 #include "go_component.h"
+#include "go_manager.h"
 #include "hashtable.h"
 #include "m_ostring.h"
 
@@ -545,6 +546,46 @@ void ComponentGroup::clear()
 {
 	mCachedSizeValid = false;
 }
+
+
+
+//
+// RegisterBuiltInComponentType
+//
+// Helper function for RegisterBuiltInComponentTypes.
+//
+template <typename T>
+static void RegisterBuiltInComponentType()
+{
+	const T prototype;
+	ComponentTypeDatabase::instance()->registerType(
+		prototype.getTypeName(), prototype.getTypeParentName(), prototype);
+}
+
+
+//
+// RegisterBuiltInComponentTypes
+//
+// Registers all of the built-in component types with the ComponentTypeDatabase.
+//
+void RegisterBuiltInComponentTypes()
+{
+	RegisterBuiltInComponentType<BoolComponent>();
+	RegisterBuiltInComponentType<U8Component>();
+	RegisterBuiltInComponentType<S8Component>();
+	RegisterBuiltInComponentType<U16Component>();
+	RegisterBuiltInComponentType<S16Component>();
+	RegisterBuiltInComponentType<U32Component>();
+	RegisterBuiltInComponentType<S32Component>();
+	RegisterBuiltInComponentType<RangeComponent>();
+	RegisterBuiltInComponentType<FloatComponent>();
+	RegisterBuiltInComponentType<StringComponent>();
+	RegisterBuiltInComponentType<BitFieldComponent>();
+	RegisterBuiltInComponentType<Md5SumComponent>();
+	RegisterBuiltInComponentType<V2FixedComponent>();
+	RegisterBuiltInComponentType<V3FixedComponent>();
+}
+
 
 
 VERSION_CONTROL (go_component_cpp, "$Id$")

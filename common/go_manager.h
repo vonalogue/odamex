@@ -118,10 +118,6 @@ public:
 	ComponentManager();
 	virtual ~ComponentManager();
 
-	void registerComponentType(const Component& prototype);
-	void unregisterComponentType(const OString& type_name);
-	void clearRegisteredComponentTypes();
-
 
 	const OString& getComponentTypeName(ComponentId component_id) const
 	{
@@ -205,29 +201,6 @@ private:
 	ParentToChildrenMap		mParentToChildrenMap;
 
 
-	// ------------------------------------------------------------------------
-	// Component Type Information
-	// ------------------------------------------------------------------------
-
-	static const uint32_t MAX_TYPES = 64;
-	
-	struct ComponentTypeRecord
-	{
-		ComponentTypeRecord() :
-			mPrototype(NULL), mComposite(false)
-		{ }
-
-		ComponentTypeRecord(const OString& type_name, const Component* prototype) :
-			mTypeName(type_name), mPrototype(prototype), mComposite(prototype->isComposite())
-		{ }
-
-		OString				mTypeName;
-		const Component*	mPrototype;
-		bool				mComposite;
-	};
-
-	typedef OHashTable<OString, ComponentTypeRecord> ComponentTypeStore;
-	ComponentTypeStore			mComponentTypes;
 };
 
 
@@ -235,8 +208,9 @@ private:
 class ComponentTypeDatabase
 {
 public:
-	ComponentTypeDatabase();
 	~ComponentTypeDatabase();
+
+	static ComponentTypeDatabase* instance();
 
 	void registerType(const OString& type_name, const OString& type_parent_name, const Component& prototype);
 	void unregisterType(const OString& type_name);
@@ -247,6 +221,15 @@ public:
 	bool descendant(const OString& type_name, const OString& type_parent_name) const;
 
 private:
+	// ------------------------------------------------------------------------
+	// Constructors
+	//
+	// Non-public as part of Singleton
+	// ------------------------------------------------------------------------
+	
+	ComponentTypeDatabase();
+	ComponentTypeDatabase(const ComponentTypeDatabase&);	// don't implement
+	void operator=(const ComponentTypeDatabase&);			// don't implement
 
 	struct ComponentTypeRecord
 	{
