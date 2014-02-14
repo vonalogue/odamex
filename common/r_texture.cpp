@@ -184,6 +184,50 @@ static void R_WarpTexture(Texture* dest_texture, const Texture* source_texture)
 
 	byte temp_buffer[Texture::MAX_TEXTURE_HEIGHT];
 
+	const int time_offset = level.time * 40;
+
+	for (int y = 0; y < height; y++)
+	{
+		const byte* source = source_buffer + (y << widthbits);
+		byte* dest = warped_buffer + y;
+
+		for (int x = 0; x < width; x++)
+		{
+			// scale x so that 64 pixels represents one sinusoidal
+			// period (0 - 8191 in finesine table)
+			// and add an offset based on the current time to create movement
+			int step = ((x << 7) + time_offset) & FINEMASK;
+
+			// stretch each pixel of the row according to the sine value at x
+			int row_offset = (finesine[step] << 2) >> FRACBITS;
+			*dest = source[(x + row_offset) & widthmask];
+			dest += height;
+		}
+	}
+
+	for (int x = 0; x < width; x++)
+	{
+		const byte *source = warped_buffer + x * height;
+		byte *dest = temp_buffer;
+
+		for (int y = 0; y < height; y++)
+		{
+			// scale y so that 64 pixels represents one sinusoidal
+			// period (0 - 8191 in finesine table)
+			// and add an offset based on the current time to create movement
+			int step = ((y << 7) + time_offset) & FINEMASK;
+
+			// stretch each pixel of the row according to the sine value at y
+			int col_offset = (finesine[step] << 1) >> FRACBITS;
+			*dest++ = source[(y + col_offset) & heightmask];
+		}
+	
+		memcpy(warped_buffer + (x << heightbits), temp_buffer, height);
+	}
+
+
+
+/*
 	int step = level.time * 32;
 	for (int y = height - 1; y >= 0; y--)
 	{
@@ -213,6 +257,7 @@ static void R_WarpTexture(Texture* dest_texture, const Texture* source_texture)
 		}
 		memcpy(warped_buffer + (x << heightbits), temp_buffer, height);
 	}
+*/
 }
 
 // ============================================================================
