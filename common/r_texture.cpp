@@ -36,6 +36,7 @@
 #include <math.h>
 
 #include "r_texture.h"
+#include "v_video.h"
 
 TextureManager texturemanager;
 
@@ -172,8 +173,7 @@ const Texture* R_LoadTexture(const char* name)
 //
 static void R_WarpTexture(Texture* dest_texture, const Texture* source_texture)
 {
-	const byte* source_buffer = source_texture->getData();
-	byte* warped_buffer = dest_texture->getData();
+	const palindex_t* source_buffer = source_texture->getData();
 
 	int widthbits = source_texture->getWidthBits();
 	int width = (1 << widthbits);
@@ -182,52 +182,36 @@ static void R_WarpTexture(Texture* dest_texture, const Texture* source_texture)
 	int height = (1 << heightbits);
 	int heightmask = height - 1;
 
-	byte temp_buffer[Texture::MAX_TEXTURE_HEIGHT];
-
-	const int time_offset = level.time * 40;
-
-	for (int y = 0; y < height; y++)
-	{
-		const byte* source = source_buffer + (y << widthbits);
-		byte* dest = warped_buffer + y;
-
-		for (int x = 0; x < width; x++)
-		{
-			// scale x so that 64 pixels represents one sinusoidal
-			// period (0 - 8191 in finesine table)
-			// and add an offset based on the current time to create movement
-			int step = ((x << 7) + time_offset) & FINEMASK;
-
-			// stretch each pixel of the row according to the sine value at x
-			int row_offset = (finesine[step] << 2) >> FRACBITS;
-			*dest = source[(x + row_offset) & widthmask];
-			dest += height;
-		}
-	}
+	const int time_offset = level.time * 50;
 
 	for (int x = 0; x < width; x++)
 	{
-		const byte *source = warped_buffer + x * height;
-		byte *dest = temp_buffer;
+		palindex_t* dest = dest_texture->getData() + (x << heightbits);
 
 		for (int y = 0; y < height; y++)
 		{
-			// scale y so that 64 pixels represents one sinusoidal
-			// period (0 - 8191 in finesine table)
-			// and add an offset based on the current time to create movement
-			int step = ((y << 7) + time_offset) & FINEMASK;
+			// calculate angle such that one sinusoidal period is 64 pixels.
+			// add an offset based on the current time to create movement.
+			int angle_index = ((x << 7) + time_offset) & FINEMASK;
 
-			// stretch each pixel of the row according to the sine value at y
-			int col_offset = (finesine[step] << 1) >> FRACBITS;
-			*dest++ = source[(y + col_offset) & heightmask];
+			// row and column offsets have the effect of stretching or
+			// compressing the image according to a sine wave
+			int row_offset = (finesine[angle_index] << 2) >> FRACBITS;
+			int col_offset = (finesine[angle_index] << 1) >> FRACBITS;
+
+			int xindex = (((x + row_offset) & widthmask) << heightbits) + y;
+			int yindex = (x << heightbits) + ((y + col_offset) & heightmask);
+
+			*dest++ = rt_blend2(source_buffer[xindex], 128, source_buffer[yindex], 127);
 		}
-	
-		memcpy(warped_buffer + (x << heightbits), temp_buffer, height);
 	}
 
 
-
 /*
+	const palindex_t* source_buffer = source_texture->getData();
+	palindex_t* warped_buffer = dest_texture->getData();
+	palindex_t temp_buffer[Texture::MAX_TEXTURE_HEIGHT];
+
 	int step = level.time * 32;
 	for (int y = height - 1; y >= 0; y--)
 	{
