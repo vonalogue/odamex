@@ -580,10 +580,8 @@ Connection::PacketType Connection::checkPacketType(BitStream& stream)
 		stream.peekU32() == TERMINATION_SEQUENCE)
 		return NEGOTIATION_PACKET;
 
-	if (stream.peekU8() & 0x80)
-		return NEGOTIATION_PACKET;
-
-	return GAME_PACKET;
+	// the first bit of the packet determines the type
+	return static_cast<Connection::PacketType>(stream.peekU8() >> 7);
 }
 
 
