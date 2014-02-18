@@ -553,6 +553,19 @@ uint32_t BitStream::peekU32() const
 	return static_cast<uint32_t>(peekBits(32));
 }
 
+
+//
+// BitStream::getRawData
+//
+// Returns a const handle to the internal storage buffer. This function should
+// only be used when writing the contents of the stream to a network socket.
+//
+const uint8_t* BitStream::getRawData() const
+{
+	return mBuffer;
+}
+
+
 // ----------------------------------------------------------------------------
 // Private member functions
 // ----------------------------------------------------------------------------

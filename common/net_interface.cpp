@@ -266,11 +266,7 @@ void NetInterface::sendPacket(const ConnectionId& connection_id, BitStream& stre
 	if (conn)
 	{
 		// TODO: insert the data into the packet queue
-
-		uint8_t data[MAX_INCOMING_SIZE];
-		uint16_t size = (stream.readSize() + 7) >> 3;
-		stream.readBlob(data, size);
-		socketSend(conn->getRemoteAddress(), data, size);
+		socketSend(conn->getRemoteAddress(), stream.getRawData(), stream.bytesWritten());
 	}
 }
 

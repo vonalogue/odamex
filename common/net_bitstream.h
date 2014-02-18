@@ -79,6 +79,8 @@ public:
 	int32_t peekS32() const;
 	uint32_t peekU32() const;
 
+	const uint8_t* getRawData() const;
+
 private:
 	static const uint16_t MAX_CAPACITY = 65535;		// in bits
 
