@@ -29,12 +29,11 @@
 #include "net_type.h"
 #include "net_socketaddress.h"
 #include "net_interface.h"
+#include "net_packet.h"
 
 #include <vector>
 
 class MessageManager;
-
-typedef SequenceNumber<16> PacketSequenceNumber;
 
 
 // ============================================================================
@@ -105,18 +104,18 @@ private:
 	static const uint8_t ACKNOWLEDGEMENT_COUNT = 32;
 
 	// sequence number to be sent in the next packet
-	PacketSequenceNumber	mSequence;
+	Packet::PacketSequenceNumber	mSequence;
 	// most recent sequence number the remote host has acknowledged receiving
-	PacketSequenceNumber	mLastAckSequence;
+	Packet::PacketSequenceNumber	mLastAckSequence;
 	// set to true during connection negotiation
-	bool					mLastAckSequenceValid;
+	bool							mLastAckSequenceValid;
 
 	// most recent sequence number the remote host has sent
-	PacketSequenceNumber	mRecvSequence;
+	Packet::PacketSequenceNumber	mRecvSequence;
 	// set to true during connection negotiation
-	bool					mRecvSequenceValid;
+	bool							mRecvSequenceValid;
 	// bitfield representing all of the recently received sequence numbers
-	BitField				mRecvHistory;
+	BitField						mRecvHistory;
 
 
 	// ------------------------------------------------------------------------
@@ -126,28 +125,23 @@ private:
 	uint32_t				mLostPacketCount;
 	uint32_t				mRecvPacketCount;
 
+
 	// ------------------------------------------------------------------------
 	// Packet composition and parsing
 	// ------------------------------------------------------------------------
-	typedef enum
-	{
-		GAME_PACKET				= 0,
-		NEGOTIATION_PACKET		= 1
-	} PacketType;
-
 	std::vector<MessageManager*>		mMessageManagers;
 
-	PacketType checkPacketType(BitStream& stream);
+	Packet::PacketType checkPacketType(BitStream& stream);
 
-	void composePacketHeader(const PacketType& type, BitStream& stream);
+	void composePacketHeader(const Packet::PacketType& type, BitStream& stream);
 	void parsePacketHeader(BitStream& stream);
 
 	void composeGamePacket(BitStream& stream);
 	void parseGamePacket(BitStream& stream);
 	void parseNegotiationPacket(BitStream& stream);	
 
-	void notifyReceived(const PacketSequenceNumber& seq);
-	void notifyLost(const PacketSequenceNumber& seq);
+	void notifyReceived(const Packet::PacketSequenceNumber& seq);
+	void notifyLost(const Packet::PacketSequenceNumber& seq);
 
 	// ------------------------------------------------------------------------
 	// Connection establishment
