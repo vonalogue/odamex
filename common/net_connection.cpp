@@ -608,7 +608,8 @@ void Connection::parsePacketHeader(BitStream& stream)
 		// drop out-of-order packets
 		if (in_seq <= mRecvSequence)
 		{
-			Net_LogPrintf("Connection::parsePacketHeader: dropping out-of-order packet from %s (sequence %u, last sequence %u).",
+			Net_LogPrintf("Connection::parsePacketHeader: dropping out-of-order packet " \
+					"from %s (sequence %u, last sequence %u).",
 					getRemoteAddress().getCString(), in_seq.getInteger(), mRecvSequence.getInteger());
 		
 			stream.clear();

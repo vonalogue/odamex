@@ -61,8 +61,7 @@ BitStream::BitStream()
 	// ensure the static reference counting stuff is initialized.
 	startup();
 
-	// TODO: use a version of SArray::insert that does not require a copy constructor
-	mId = mBitStreams->insert(BitStreamRecord());
+	mId = mBitStreams->insert();
 	BitStreamRecord& rec = mBitStreams->get(mId);
 	rec.mRefCount = 1;
 	getData()->mCapacity = BitStream::MAX_CAPACITY;
