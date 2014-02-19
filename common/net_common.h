@@ -30,8 +30,8 @@ uint32_t Net_CRC32(const uint8_t* buf, uint32_t len);
 uint32_t Net_Log2(uint32_t n);
 uint32_t Net_BitsNeeded(uint32_t n);
 
-const uint64_t ONE_SECOND = 1000;
-uint64_t Net_CurrentTime();
+const dtime_t ONE_SECOND = 1000000000uLL;
+dtime_t Net_CurrentTime();
 
 
 #endif	// __NET_COMMON_H__

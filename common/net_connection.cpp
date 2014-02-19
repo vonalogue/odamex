@@ -45,11 +45,11 @@ EXTERN_CVAR(net_maxrate)
 //
 // ============================================================================
 
-static const uint32_t CONNECTION_TIMEOUT = 4*ONE_SECOND;
-static const uint32_t NEGOTIATION_TIMEOUT = 2*ONE_SECOND;
+static const dtime_t CONNECTION_TIMEOUT = 4*ONE_SECOND;
+static const dtime_t NEGOTIATION_TIMEOUT = 2*ONE_SECOND;
 static const uint32_t NEGOTIATION_ATTEMPTS = 4;
-static const uint32_t TOKEN_TIMEOUT = 4*ONE_SECOND;
-static const uint32_t TERMINATION_TIMEOUT = 4*ONE_SECOND;
+static const dtime_t TOKEN_TIMEOUT = 4*ONE_SECOND;
+static const dtime_t TERMINATION_TIMEOUT = 4*ONE_SECOND;
 
 // ----------------------------------------------------------------------------
 // Public functions

@@ -90,14 +90,14 @@ private:
 	SocketAddress			mRemoteAddress;
 
 	ConnectionState_t		mState;
-	uint32_t				mCreationTS;
-	uint32_t				mTimeOutTS;
+	dtime_t					mCreationTS;
+	dtime_t					mTimeOutTS;
 
 	uint32_t				mConnectionAttempt;
-	uint32_t				mConnectionAttemptTimeOutTS;
+	dtime_t					mConnectionAttemptTimeOutTS;
 
 	uint32_t				mToken;
-	uint32_t				mTokenTimeOutTS;
+	dtime_t					mTokenTimeOutTS;
 
 	// ------------------------------------------------------------------------
 	// Sequence numbers and receipt acknowledgement

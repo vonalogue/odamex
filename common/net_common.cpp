@@ -159,11 +159,11 @@ uint32_t Net_BitsNeeded(uint32_t n)
 //
 // Net_CurrentTime
 //
-// Returns the current time (from program start) in milliseconds.
+// Returns the current time (from program start) in nanoseconds.
 //
-uint64_t Net_CurrentTime()
+dtime_t Net_CurrentTime()
 {
-	return I_MSTime();
+	return I_GetTime();
 }
 
 VERSION_CONTROL (net_common_cpp, "$Id$")
