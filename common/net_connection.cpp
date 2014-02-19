@@ -209,10 +209,7 @@ void Connection::service()
 	// compose a new game packet and send it
 	if (isConnected())
 	{
-		// TODO: determine packet_size using flow-control methods
-		const uint16_t packet_size = 200*8;
-
-		BitStream stream(packet_size);
+		BitStream stream;
 		composeGamePacket(stream);
 		sendPacket(stream);
 	}
@@ -734,7 +731,10 @@ void Connection::composeGamePacket(BitStream& stream)
 	composePacketHeader(GAME_PACKET, stream);
 
 	// call the registered packet composition functions to compose the payload
-	uint16_t size_left = stream.writeSize();
+	// TODO: determine packet_size using flow-control methods
+	const uint16_t packet_size = 200*8;
+
+	uint16_t size_left = packet_size;
 	for (std::vector<MessageManager*>::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
 	{
 		MessageManager* composer = *it;

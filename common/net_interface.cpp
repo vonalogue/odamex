@@ -289,6 +289,14 @@ void NetInterface::service()
 	while (socketRecv(source, data, size))
 	{
 		BitStream stream;
+		if (size * 8 > stream.writeSize())
+		{
+			Net_Warning("NetInterface::service: packet of size %u bits from host %s " \
+						"will not fit into BitStream of size %u bits\n",
+						source.getCString(), size * 8, stream.writeSize());
+			continue;
+		}
+ 
 		stream.writeBlob(data, size);
 		processPacket(source, stream);
 	}

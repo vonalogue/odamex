@@ -32,57 +32,91 @@
 //
 // ============================================================================
 
+// initialize static member variables
+bool BitStream::mInitialized = false;
+BitStream::BitStreamTable* BitStream::mBitStreams = NULL;
+
 // ----------------------------------------------------------------------------
 // Public functions
 // ----------------------------------------------------------------------------
 
-BitStream::BitStream(uint16_t capacity) :
-	mCapacity(capacity),
-	mWritten(0), mRead(0), mWriteOverflow(false), mReadOverflow(false)
+void BitStream::startup()
 {
-	if (mCapacity < 1)
-		mCapacity = 1;
-	else if (mCapacity > MAX_CAPACITY)
-		mCapacity = MAX_CAPACITY;
-
-	const uint16_t bufsize = (mCapacity + 0x07) >> 3;
-	mBuffer = new uint8_t[bufsize];
+	if (!mInitialized)
+	{
+		mBitStreams = new BitStreamTable(64);
+		mInitialized = true;
+	}
 }
 
-BitStream::BitStream(const BitStream &other) :
-	mCapacity(other.mCapacity),
-	mWritten(other.mWritten), mRead(other.mRead),
-	mWriteOverflow(other.mWriteOverflow),
-	mReadOverflow(other.mReadOverflow)
+void BitStream::shutdown()
 {
-	const uint16_t bufsize = (mCapacity + 0x07) >> 3;
-	mBuffer = new uint8_t[bufsize];
-	memcpy(mBuffer, other.mBuffer, other.bytesWritten());
+	delete mBitStreams;
+	mBitStreams = NULL;
+	mInitialized = false;
+}
+
+BitStream::BitStream()
+{
+	// ensure the static reference counting stuff is initialized.
+	startup();
+
+	// TODO: use a version of SArray::insert that does not require a copy constructor
+	mId = mBitStreams->insert(BitStreamRecord());
+	BitStreamRecord& rec = mBitStreams->get(mId);
+	rec.mRefCount = 1;
+	getData()->mCapacity = BitStream::MAX_CAPACITY;
+	clear();
+}
+
+BitStream::BitStream(const BitStream &other)
+{
+	mId = other.mId;
+	mBitStreams->get(mId).mRefCount++;
 }
 
 BitStream::~BitStream()
 {
-	delete [] mBuffer;
+	BitStreamRecord& rec = mBitStreams->get(mId);
+	assert(rec.mRefCount > 0);
+	rec.mRefCount--;
+	if (rec.mRefCount == 0)
+		mBitStreams->erase(rec);
 }
 
 BitStream& BitStream::operator=(const BitStream& other)
 {
 	if (this != &other)
 	{
-		mCapacity = other.mCapacity;
-		mWritten = other.mWritten;
-		mRead = other.mRead;
-		mWriteOverflow = other.mWriteOverflow;
-		mReadOverflow = other.mReadOverflow;
+		BitStreamRecord& rec = mBitStreams->get(mId);
+		assert(rec.mRefCount > 0);
+		rec.mRefCount--;
+		if (rec.mRefCount == 0)
+			mBitStreams->erase(rec);
 
-		delete [] mBuffer;
-		const uint16_t bufsize = (mCapacity + 0x07) >> 3;
-		mBuffer = new uint8_t[bufsize];
-		memcpy(mBuffer, other.mBuffer, other.bytesWritten());
+		mId = other.mId;
+		mBitStreams->get(mId).mRefCount++;
 	}
 
 	return *this;
 }
+
+
+//
+// BitStream::getData
+//
+// Looks up the BitStream's data from the current object's id.
+//
+BitStream::BitStreamData* BitStream::getData()
+{
+	return &mBitStreams->get(mId).mData;
+}
+
+const BitStream::BitStreamData* BitStream::getData() const
+{
+	return &mBitStreams->get(mId).mData;
+}
+
 
 //
 // BitStream::clear
@@ -91,8 +125,8 @@ BitStream& BitStream::operator=(const BitStream& other)
 //
 void BitStream::clear()
 {
-	mWritten = mRead = 0;
-	mWriteOverflow = mReadOverflow = false;
+	getData()->mWritten = getData()->mRead = 0;
+	getData()->mWriteOverflow = getData()->mReadOverflow = false;
 }
 
 //
@@ -103,7 +137,7 @@ void BitStream::clear()
 //
 uint16_t BitStream::bytesRead() const
 {
-	return (mRead + 0x07) >> 3;
+	return (getData()->mRead + 0x07) >> 3;
 }
 
 //
@@ -114,7 +148,7 @@ uint16_t BitStream::bytesRead() const
 //
 uint16_t BitStream::bytesWritten() const
 {
-	return (mWritten + 0x07) >> 3;
+	return (getData()->mWritten + 0x07) >> 3;
 }
 
 //
@@ -124,7 +158,7 @@ uint16_t BitStream::bytesWritten() const
 //
 uint16_t BitStream::bitsRead() const
 {
-	return mRead;
+	return getData()->mRead;
 }
 
 //
@@ -134,7 +168,7 @@ uint16_t BitStream::bitsRead() const
 //
 uint16_t BitStream::bitsWritten() const
 {
-	return mWritten;
+	return getData()->mWritten;
 }
 
 //
@@ -145,8 +179,8 @@ uint16_t BitStream::bitsWritten() const
 //
 uint16_t BitStream::readSize() const
 {
-	if (mWritten > mRead)
-		return mWritten - mRead;
+	if (getData()->mWritten > getData()->mRead)
+		return getData()->mWritten - getData()->mRead;
 	else
 		return 0;
 }
@@ -159,8 +193,8 @@ uint16_t BitStream::readSize() const
 //
 uint16_t BitStream::writeSize() const
 {
-	if (mWritten < mCapacity)
-		return mCapacity - mWritten;
+	if (getData()->mWritten < getData()->mCapacity)
+		return getData()->mCapacity - getData()->mWritten;
 	else
 		return 0;
 }
@@ -182,10 +216,10 @@ void BitStream::writeBits(int val, uint16_t bitcount)
 
 	while (bitcount)
 	{
-		uint16_t startbit = (mWritten & 0x07);
+		uint16_t startbit = (getData()->mWritten & 0x07);
 		uint16_t bitstowrite = MIN<uint16_t>(8 - startbit, bitcount);
 
-		uint8_t *ptr = mBuffer + (mWritten >> 3);
+		uint8_t* ptr = getData()->mBuffer + (getData()->mWritten >> 3);
 
 		// mask off the bits from val that we've already written to mBuffer
 		if (bitcount < 32)
@@ -199,7 +233,7 @@ void BitStream::writeBits(int val, uint16_t bitcount)
 		*ptr |= (val >> (bitcount - bitstowrite)) << (8 - startbit - bitstowrite);
 
 		bitcount -= bitstowrite;
-		mWritten += bitstowrite;
+		getData()->mWritten += bitstowrite;
 	}
 }
 
@@ -219,14 +253,14 @@ int BitStream::peekBits(uint16_t bitcount) const
 		return 0;
 
 	int val = 0;
-	uint16_t readpos = mRead;
+	uint16_t readpos = getData()->mRead;
 
 	while (bitcount)
 	{
 		uint16_t startbit = (readpos & 0x07);
 		uint16_t bitstoread = MIN<uint16_t>(8 - startbit, bitcount);
 
-		const uint8_t* ptr = mBuffer + (readpos >> 3);
+		const uint8_t* ptr = getData()->mBuffer + (readpos >> 3);
 	
 		uint8_t mask = ((1 << bitstoread) - 1) << (8 - startbit - bitstoread);
 
@@ -255,7 +289,7 @@ int BitStream::readBits(uint16_t bitcount)
 		return 0;
 
 	int val = peekBits(bitcount);
-	mRead += bitcount;
+	getData()->mRead += bitcount;
 	return val;
 }
 
@@ -342,7 +376,7 @@ void BitStream::writeString(const OString& str)
 
 OString BitStream::readString()
 {
-	const uint16_t bufsize = (mCapacity + 0x07) >> 3;
+	const uint16_t bufsize = (getData()->mCapacity + 0x07) >> 3;
 	char data[bufsize];
 
 	for (uint16_t i = 0; i < bufsize && !mCheckReadOverflow(8); i++)
@@ -471,17 +505,17 @@ float BitStream::readFloat()
 //
 // Writes a binary blob to the buffer. Size is specified in bytes.
 //
-void BitStream::writeBlob(const uint8_t *data, uint16_t size)
+void BitStream::writeBlob(const uint8_t* data, uint16_t size)
 {
 	if (mCheckWriteOverflow(size << 3))
 		return;
 
-	if ((mWritten & 0x07) == 0)
+	if ((getData()->mWritten & 0x07) == 0)
 	{
 		// the buffer is currently byte aligned - use memcpy for speed
-		uint8_t *ptr = mBuffer + (mWritten >> 3);
+		uint8_t* ptr = getData()->mBuffer + (getData()->mWritten >> 3);
 		memcpy(ptr, data, size);
-		mWritten += (size << 3);
+		getData()->mWritten += (size << 3);
 	}
 	else
 	{
@@ -497,17 +531,17 @@ void BitStream::writeBlob(const uint8_t *data, uint16_t size)
 //
 // Reads a binary blob from the buffer. Size is specified in bytes.
 //
-void BitStream::readBlob(uint8_t *data, uint16_t size)
+void BitStream::readBlob(uint8_t* data, uint16_t size)
 {
 	if (mCheckReadOverflow(size << 3))
 		return;
 
-	if ((mRead & 0x07) == 0)
+	if ((getData()->mRead & 0x07) == 0)
 	{
 		// the buffer is currently byte aligned - use memcpy for speed
-		uint8_t *ptr = mBuffer + (mRead >> 3);
+		const uint8_t* ptr = getData()->mBuffer + (getData()->mRead >> 3);
 		memcpy(data, ptr, size);
-		mRead += (size << 3);
+		getData()->mRead += (size << 3);
 	}
 	else
 	{
@@ -562,7 +596,7 @@ uint32_t BitStream::peekU32() const
 //
 const uint8_t* BitStream::getRawData() const
 {
-	return mBuffer;
+	return getData()->mBuffer;
 }
 
 
@@ -578,10 +612,10 @@ const uint8_t* BitStream::getRawData() const
 //
 bool BitStream::mCheckWriteOverflow(uint16_t s) const
 {
-	if (mWritten + s > mCapacity)
-		mWriteOverflow = true;
+	if (getData()->mWritten + s > getData()->mCapacity)
+		getData()->mWriteOverflow = true;
 
-	return mWriteOverflow;
+	return getData()->mWriteOverflow;
 }
 
 //
@@ -592,10 +626,10 @@ bool BitStream::mCheckWriteOverflow(uint16_t s) const
 //
 bool BitStream::mCheckReadOverflow(uint16_t s) const
 {
-	if (mRead + s > mCapacity)
-		mReadOverflow = true;
+	if (getData()->mRead + s > getData()->mCapacity)
+		getData()->mReadOverflow = true;
 	
-	return mReadOverflow;
+	return getData()->mReadOverflow;
 }
 
 
