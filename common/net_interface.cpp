@@ -114,7 +114,8 @@ EXTERN_CVAR(net_maxrate)
 // ----------------------------------------------------------------------------
 
 NetInterface::NetInterface() :
-	mInitialized(false), mSocket(INVALID_SOCKET)
+	mInitialized(false), mSocket(INVALID_SOCKET),
+	mBandwidth(64)
 {
 	if (baseapp == client)
 		mHostType = HOST_CLIENT;
@@ -136,6 +137,36 @@ bool NetInterface::init(const OString& address, uint16_t desired_port)
 	return mInitialized;
 }
 
+
+//
+// NetInterface::setBandwidth
+//
+// Sets the maximum availible bandwidth for the interface to the specified
+// value (in kilobits per second).
+//
+void NetInterface::setBandwidth(uint32_t value)
+{
+	mBandwidth = value;
+}
+
+
+//
+// NetInterface::getBandwidth
+//
+// Returns the maximum availibile bandwidth for the interface (in kilobits
+// per second).
+//
+uint32_t NetInterface::getBandwidth() const
+{
+	return mBandwidth;
+}
+
+
+//
+// NetInterface::getHostType
+//
+// Returns whether this host is a client or a server.
+//
 HostType_t NetInterface::getHostType() const
 {
 	return mHostType;

@@ -730,9 +730,10 @@ void Connection::composeGamePacket(BitStream& stream)
 	stream.clear();
 	composePacketHeader(GAME_PACKET, stream);
 
-	// call the registered packet composition functions to compose the payload
 	// TODO: determine packet_size using flow-control methods
-	const uint16_t packet_size = 200*8;
+	uint32_t packet_size = mInterface->getBandwidth() * 1000 / TICRATE;
+
+	// call the registered packet composition functions to compose the payload
 
 	uint16_t size_left = packet_size;
 	for (std::vector<MessageManager*>::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)

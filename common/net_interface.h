@@ -95,6 +95,8 @@ public:
 	~NetInterface();
 
 	bool init(const OString& address, uint16_t desired_port);
+	void setBandwidth(uint32_t value);
+	uint32_t getBandwidth() const;
 
 	HostType_t getHostType() const;
 	const SocketAddress& getLocalAddress() const;
@@ -140,6 +142,7 @@ private:
 	bool					mInitialized;
 	SocketAddress			mLocalAddress;
 	SOCKET					mSocket;
+	uint32_t				mBandwidth;
 
 	// ------------------------------------------------------------------------
 	// Connection handling
