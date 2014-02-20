@@ -71,9 +71,19 @@ public:
 	//	
 	uint16_t getSize() const
 	{
-		return HEADER_SIZE + mPayload.bitsWritten();
+		return HEADER_SIZE + (mPayload.bytesWritten() << 3) + TRAILER_SIZE;
 	}
 
+
+	//
+	// Packet::isCorrupted
+	//
+	// Returns true if the packet failed validation.
+	//
+	bool isCorrupted() const
+	{
+		return mCorrupted;
+	}
 
 	//
 	// Packet::writePacketData
@@ -96,6 +106,14 @@ public:
 
 		header.readBlob(buf, HEADER_SIZE);
 		mPayload.readBlob(buf + HEADER_SIZE, mPayload.bitsWritten());
+
+		// calculate CRC32 for the packet header & payload
+		BitStream trailer;
+		const uint32_t datasize = getSize() - TRAILER_SIZE;
+		trailer.writeBits(Net_CRC32(buf, datasize >> 3), 32);
+
+		trailer.readBlob(buf + datasize, TRAILER_SIZE);	
+
 		return getSize();
 	}
 
@@ -110,8 +128,6 @@ public:
 	//
 	uint16_t readPacketData(const uint8_t* buf, uint16_t size)
 	{
-		const uint16_t payload_size = size - HEADER_SIZE - TRAILER_SIZE;
-
 		BitStream header;
 		header.writeBlob(buf, HEADER_SIZE);
 		mType = static_cast<Packet::PacketType>(header.readBits(1));
@@ -119,10 +135,22 @@ public:
 		mRecvSequence.read(header);
 		mRecvHistory.read(header);
 
+		const uint32_t payloadsize = size - HEADER_SIZE - TRAILER_SIZE;
 		mPayload.clear();
-		mPayload.writeBlob(buf + HEADER_SIZE, size - HEADER_SIZE);
+		mPayload.writeBlob(buf + HEADER_SIZE, payloadsize);
+
+		// calculate CRC32 for the packet header & payload
+		const uint32_t datasize = size - TRAILER_SIZE;
+		uint32_t crcvalue = Net_CRC32(buf, datasize >> 3);
+
+		// verify the calculated CRC32 value matches the value in the packet
+		BitStream trailer;
+		trailer.writeBlob(buf + datasize, TRAILER_SIZE);
+		mCorrupted = (trailer.readU32() != crcvalue);
+
 		return size;
 	}
+
 
 	void setSequence(const Packet::PacketSequenceNumber value)
 	{
