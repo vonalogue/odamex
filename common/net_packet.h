@@ -85,6 +85,7 @@ public:
 		return mCorrupted;
 	}
 
+
 	//
 	// Packet::writePacketData
 	//
@@ -110,8 +111,10 @@ public:
 		// calculate CRC32 for the packet header & payload
 		BitStream trailer;
 		const uint32_t datasize = getSize() - TRAILER_SIZE;
-		trailer.writeBits(Net_CRC32(buf, datasize >> 3), 32);
-
+		uint32_t crcvalue = Net_CRC32(buf, datasize >> 3);
+	
+		// write the calculated CRC32 value to the buffer
+		trailer.writeU32(crcvalue);
 		trailer.readBlob(buf + datasize, TRAILER_SIZE);	
 
 		return getSize();

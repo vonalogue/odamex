@@ -65,7 +65,8 @@ Connection::Connection(const ConnectionId& connection_id, NetInterface* interfac
 	mSequence(rand()),
 	mLastAckSequenceValid(false), mRecvSequenceValid(false),
 	mRecvHistory(ACKNOWLEDGEMENT_COUNT),
-	mSentPacketCount(0), mLostPacketCount(0), mRecvPacketCount(0)
+	mSentPacketCount(0), mLostPacketCount(0), mRecvPacketCount(0),
+	mAvgRoundTripTime(0.0), mAvgJitterTime(0.0), mAvgLostPacketPercentage(0.0)
 {
 	resetState();
 }
@@ -665,13 +666,12 @@ void Connection::parsePacketHeader(BitStream& stream)
 			{
 				// seq is too old to fit in the ack_history window
 				// consider it lost
-				notifyLost(seq);
-				++mLostPacketCount;
+				remoteHostLostPacket(seq);
 			}
 			else if (seq == ack_seq)
 			{
 				// seq is the most recent acknowledgement in the header
-				notifyReceived(seq);
+				remoteHostReceivedPacket(seq);
 			}
 			else
 			{
@@ -679,14 +679,9 @@ void Connection::parsePacketHeader(BitStream& stream)
 				// ack_history bitfield
 				uint32_t bit = Packet::PacketSequenceNumber(ack_seq - seq - 1).getInteger();
 				if (ack_history.get(bit))
-				{
-					notifyReceived(seq);
-				}
+					remoteHostReceivedPacket(seq);
 				else
-				{
-					notifyLost(seq);
-					++mLostPacketCount;
-				}
+					remoteHostLostPacket(seq);
 			}
 		}
 	}
@@ -767,45 +762,70 @@ void Connection::parseGamePacket(BitStream& stream)
 
 
 //
-// Connection::notifyReceived
+// Connection::remoteHostReceivedPacket
 //
-// Notifies all of the registered MessageManagers that a packet with the
-// specified sequence number was successfully received by the remote host.
+// Called when the Connection receives notice that the remote host received
+// a packet sent by this Connection. Connection quality statistics are updated
+// and the registered MessageManagers are notified of the packet's receipt.
 //
-void Connection::notifyReceived(const Packet::PacketSequenceNumber& seq)
+void Connection::remoteHostReceivedPacket(const Packet::PacketSequenceNumber seq)
 {
-	Net_LogPrintf("Connection::notifyReceived: Remote host received packet %u.", seq.getInteger());
+	// weight factor for moving averages
+	static const double weight = 1.0 / 16.0;
 
-	if (isConnected() == false)
-		return;
+	Net_LogPrintf("Connection::remoteHostReceivedPacket: Remote host received packet %u.", seq.getInteger());
 
-	for (std::vector<MessageManager*>::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
+	// TODO: calculate round trip time for the packet
+	double current_rtt = 0.0;
+	double current_jitter = current_rtt - mAvgRoundTripTime;
+
+	// TODO: calculate moving average for packet loss
+
+	// calculate the weighted moving average for round trip time
+	mAvgRoundTripTime = weight * current_rtt + (1.0 - weight) * mAvgRoundTripTime;
+
+	// calculate the weighted moving average for jitter
+	mAvgJitterTime = weight * current_jitter + (1.0 - weight) * mAvgJitterTime;
+	
+	if (isConnected())
 	{
-		MessageManager* manager = *it;
-		manager->notifyReceived(seq);
+		for (MessageManagerList::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
+		{
+			MessageManager* manager = *it;
+			manager->notifyReceived(seq);
+		}
 	}
 }
 
 
 //
-// Connection::notifyLost
+// Connection::remoteHostLostPacket
 //
-// Notifies all of the registered MessageManagers that a packet with the
-// specified sequence number was not received by the remote host.
+// Called when the Connection receives notice that the remote host lost
+// a packet sent by this Connection. Connection quality statistics are updated
+// and the registered MessageManagers are notified of the packet's loss.
 //
-void Connection::notifyLost(const Packet::PacketSequenceNumber& seq)
+void Connection::remoteHostLostPacket(const Packet::PacketSequenceNumber seq)
 {
-	Net_LogPrintf("Connection::notifyLost: Remote host did not receive packet %u.", seq.getInteger());
+	// weight factor for moving averages
+	static const double weight = 1.0 / 16.0;
 
-	if (isConnected() == false)
-		return;
+	Net_LogPrintf("Connection::remoteHostLostPacket: Remote host did not receive packet %u.", seq.getInteger());
 
-	for (std::vector<MessageManager*>::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
+	mLostPacketCount++;
+
+	// TODO: calculate moving average for packet loss
+	
+	if (isConnected())
 	{
-		MessageManager* manager = *it;
-		manager->notifyLost(seq);
+		for (MessageManagerList::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
+		{
+			MessageManager* manager = *it;
+			manager->notifyLost(seq);
+		}
 	}
 }
+
 
 VERSION_CONTROL (net_connection_cpp, "$Id$")
 

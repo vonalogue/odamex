@@ -121,15 +121,22 @@ private:
 	// ------------------------------------------------------------------------
 	// Statistical tracking
 	// ------------------------------------------------------------------------
+	void remoteHostReceivedPacket(const Packet::PacketSequenceNumber seq);
+	void remoteHostLostPacket(const Packet::PacketSequenceNumber seq);
+
 	uint32_t				mSentPacketCount;
 	uint32_t				mLostPacketCount;
 	uint32_t				mRecvPacketCount;
 
+	double					mAvgRoundTripTime;
+	double					mAvgJitterTime;
+	double					mAvgLostPacketPercentage;
 
 	// ------------------------------------------------------------------------
 	// Packet composition and parsing
 	// ------------------------------------------------------------------------
-	std::vector<MessageManager*>		mMessageManagers;
+	typedef std::vector<MessageManager*> MessageManagerList;
+	MessageManagerList					mMessageManagers;
 
 	Packet::PacketType checkPacketType(BitStream& stream);
 
@@ -139,9 +146,6 @@ private:
 	void composeGamePacket(BitStream& stream);
 	void parseGamePacket(BitStream& stream);
 	void parseNegotiationPacket(BitStream& stream);	
-
-	void notifyReceived(const Packet::PacketSequenceNumber& seq);
-	void notifyLost(const Packet::PacketSequenceNumber& seq);
 
 	// ------------------------------------------------------------------------
 	// Connection establishment
