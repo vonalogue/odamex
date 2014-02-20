@@ -328,7 +328,7 @@ void NetInterface::service()
 			continue;
 		}
  
-		stream.writeBlob(data, size);
+		stream.writeBlob(data, size * 8);
 		processPacket(source, stream);
 	}
 

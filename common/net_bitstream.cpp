@@ -502,52 +502,60 @@ float BitStream::readFloat()
 //
 // BitStream::writeBlob
 //
-// Writes a binary blob to the buffer. Size is specified in bytes.
+// Writes a binary blob to the BitStream. Size is specified in bits.
 //
 void BitStream::writeBlob(const uint8_t* data, uint16_t size)
 {
-	if (mCheckWriteOverflow(size << 3))
+	if (mCheckWriteOverflow(size))
 		return;
 
 	if ((getData()->mWritten & 0x07) == 0)
 	{
 		// the buffer is currently byte aligned - use memcpy for speed
 		uint8_t* ptr = getData()->mBuffer + (getData()->mWritten >> 3);
-		memcpy(ptr, data, size);
-		getData()->mWritten += (size << 3);
+		memcpy(ptr, data, size >> 3);
+		getData()->mWritten += (size & ~0x07);
 	}
 	else
 	{
-		// we have to use the slower writeU8 method
-		for (uint16_t i = 0; i < size; i++)
-			writeU8(data[i]);
+		// we have to use the slower writeBits method
+		for (uint16_t i = 0; i < size >> 3; i++)
+			writeBits(data[i], 8);
 	}
+
+	// write any remaining bits
+	if (size & 0x07)
+		writeBits(data[size >> 3], size & 0x07);
 }
 
 
 //
 // BitStream::readBlob
 //
-// Reads a binary blob from the buffer. Size is specified in bytes.
+// Reads a binary blob from the BitStream. Size is specified in bits.
 //
 void BitStream::readBlob(uint8_t* data, uint16_t size)
 {
-	if (mCheckReadOverflow(size << 3))
+	if (mCheckReadOverflow(size))
 		return;
 
 	if ((getData()->mRead & 0x07) == 0)
 	{
 		// the buffer is currently byte aligned - use memcpy for speed
 		const uint8_t* ptr = getData()->mBuffer + (getData()->mRead >> 3);
-		memcpy(data, ptr, size);
-		getData()->mRead += (size << 3);
+		memcpy(data, ptr, size >> 3);
+		getData()->mRead += (size & ~0x07);
 	}
 	else
 	{
-		// we have to use the slower readU8 method
-		for (uint16_t i = 0; i < size; i++)
-			data[i] = readU8();
+		// we have to use the slower readBits method
+		for (uint16_t i = 0; i < size >> 3; i++)
+			data[i] = readBits(8);
 	}
+
+	// read any remaining bits
+	if (size & 0x07)
+		data[size >> 3] = readBits(size & 0x07);
 }
 
 

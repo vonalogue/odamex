@@ -27,6 +27,7 @@
 #include "doomdef.h"
 
 #include "net_type.h"
+#include "net_common.h"
 #include "net_bitstream.h"
 
 // ============================================================================
@@ -58,7 +59,8 @@ public:
 	// constructors
 	// ---------------------------------------------------------------------------
 	Packet() :
-		mRecvHistory(32)
+		mRecvHistory(32),
+		mCorrupted(false)
 	{ }
 
 
@@ -108,6 +110,8 @@ public:
 	//
 	uint16_t readPacketData(const uint8_t* buf, uint16_t size)
 	{
+		const uint16_t payload_size = size - HEADER_SIZE - TRAILER_SIZE;
+
 		BitStream header;
 		header.writeBlob(buf, HEADER_SIZE);
 		mType = static_cast<Packet::PacketType>(header.readBits(1));
@@ -153,11 +157,13 @@ public:
 
 private:
 	static const uint16_t HEADER_SIZE = 9*8;	// must be byte aligned
+	static const uint16_t TRAILER_SIZE = 32;
 
 	PacketType				mType;
 	PacketSequenceNumber	mSequence;
 	PacketSequenceNumber	mRecvSequence;
 	BitField				mRecvHistory;
+	bool					mCorrupted;
 
 	BitStream				mPayload;
 };
