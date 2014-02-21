@@ -162,6 +162,7 @@ void Connection::sendPacket(BitStream& stream)
 
 	mInterface->sendPacket(mConnectionId, stream);
 	++mSentPacketCount;
+	mPacketSendTimes.push(Net_CurrentTime());
 }
 
 
@@ -775,18 +776,22 @@ void Connection::remoteHostReceivedPacket(const Packet::PacketSequenceNumber seq
 
 	Net_LogPrintf("Connection::remoteHostReceivedPacket: Remote host received packet %u.", seq.getInteger());
 
-	// TODO: calculate round trip time for the packet
-	double current_rtt = 0.0;
-	double current_jitter = current_rtt - mAvgRoundTripTime;
+	dtime_t send_time = mPacketSendTimes.front();
+	dtime_t current_time = Net_CurrentTime();
+	mPacketSendTimes.pop();
 
-	// TODO: calculate moving average for packet loss
+	double current_rtt = double(current_time - send_time) / ONE_SECOND;
+	double current_jitter = current_rtt - mAvgRoundTripTime;
 
 	// calculate the weighted moving average for round trip time
 	mAvgRoundTripTime = weight * current_rtt + (1.0 - weight) * mAvgRoundTripTime;
 
 	// calculate the weighted moving average for jitter
 	mAvgJitterTime = weight * current_jitter + (1.0 - weight) * mAvgJitterTime;
-	
+
+	// calculate the weighted moving average for packet loss
+	mAvgLostPacketPercentage = weight * 0.0 + (1.0 - weight) * mAvgLostPacketPercentage;
+
 	if (isConnected())
 	{
 		for (MessageManagerList::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)
@@ -813,9 +818,10 @@ void Connection::remoteHostLostPacket(const Packet::PacketSequenceNumber seq)
 	Net_LogPrintf("Connection::remoteHostLostPacket: Remote host did not receive packet %u.", seq.getInteger());
 
 	mLostPacketCount++;
+	mPacketSendTimes.pop();
 
-	// TODO: calculate moving average for packet loss
-	
+	mAvgLostPacketPercentage = weight * 1.0 + (1.0 - weight) * mAvgLostPacketPercentage;
+
 	if (isConnected())
 	{
 		for (MessageManagerList::iterator it = mMessageManagers.begin(); it != mMessageManagers.end(); ++it)

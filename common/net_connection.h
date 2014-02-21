@@ -132,6 +132,8 @@ private:
 	double					mAvgJitterTime;
 	double					mAvgLostPacketPercentage;
 
+	std::queue<dtime_t>		mPacketSendTimes;
+
 	// ------------------------------------------------------------------------
 	// Packet composition and parsing
 	// ------------------------------------------------------------------------
