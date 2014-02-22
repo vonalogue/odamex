@@ -30,9 +30,6 @@
 class BitStream
 {
 public:
-	static void startup();
-	static void shutdown();
-
 	BitStream();
 	BitStream(const BitStream &other);
 	~BitStream();
@@ -85,40 +82,18 @@ public:
 	const uint8_t* getRawData() const;
 
 private:
-	static const uint16_t MAX_CAPACITY = 8*1400;		// in bits
-
-	struct BitStreamData {
-		uint16_t		mCapacity;
-		uint16_t		mWritten;
-		uint16_t		mRead;
-
-		mutable bool	mWriteOverflow;
-		mutable bool	mReadOverflow;
-
-		uint8_t			mBuffer[MAX_CAPACITY];
-	};
-
-	struct BitStreamRecord {
-		BitStreamRecord() :
-			mRefCount(0)
-		{ }
-
-		uint32_t				mRefCount;
-		BitStreamData			mData;
-	};
-
-	typedef SArray<BitStreamRecord> BitStreamTable;
-
-	static bool					mInitialized;
-	static BitStreamTable*		mBitStreams;
+	static const uint16_t MAX_CAPACITY = 1400 * 8;		// in bits
 
 	bool mCheckReadOverflow(uint16_t size) const;
 	bool mCheckWriteOverflow(uint16_t size) const;
+	
+	uint16_t		mWritten;
+	uint16_t		mRead;
 
-	BitStreamData* getData();
-	const BitStreamData* getData() const;
+	mutable bool	mWriteOverflow;
+	mutable bool	mReadOverflow;
 
-	SArrayId			mId;
+	uint8_t			mBuffer[MAX_CAPACITY / 8];
 };
 
 #endif	// __NET_BITSTREAM_H__
