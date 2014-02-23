@@ -24,6 +24,41 @@
 #ifndef __NET_LOG_H__
 #define __NET_LOG_H__
 
+#include "doomtype.h"
+#include "m_ostring.h"
+
+class LogChannel
+{
+public:
+	LogChannel() { }
+	LogChannel(const OString& name, const OString& filename, bool enabled = true);
+
+	~LogChannel();
+
+	const OString& getName() const
+	{
+		return mName;
+	}	
+
+	bool isEnabled() const
+	{
+		return mEnabled;
+	}
+
+	void setEnabled(bool enabled)
+	{
+		mEnabled = enabled;
+	}
+
+	void write(const char* str);
+	
+private:
+	OString		mName;
+	bool		mEnabled;
+	FILE*		mStream;
+};
+
+
 #define __NET_DEBUG__
 
 void Net_Printf(const char *str, ...);

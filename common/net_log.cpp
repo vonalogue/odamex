@@ -30,6 +30,34 @@
 static const size_t printbuf_size = 4096;
 static char printbuf[printbuf_size];
 
+
+
+
+LogChannel::LogChannel(const OString& name, const OString& filename, bool enabled) :
+		mName(name), mEnabled(enabled)
+{
+	if (filename.iequals("stdout"))
+		mStream = stdout;
+	else if (filename.iequals("stderr"))
+		mStream = stderr;
+	else
+		mStream = fopen(filename.c_str(), "w");
+}
+
+LogChannel::~LogChannel()
+{
+	if (mStream != stdout && mStream != stderr && mStream != NULL)
+		fclose(mStream);
+}
+
+void LogChannel::write(const char* str)
+{
+	if (mStream != NULL && mEnabled)
+		fprintf(mStream, "%s", str);
+}
+	
+
+
 //
 // Net_LogPrintf
 //
