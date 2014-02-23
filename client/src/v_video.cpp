@@ -350,7 +350,7 @@ CVAR_FUNC_IMPL (sv_allowwidescreen)
 	// change setmodeneeded when the value of sv_allowwidescreen
 	// changes our ability to use wide-fov
 	bool wide_fov = V_UseWidescreen() || V_UseLetterBox();
-	static bool last_value = !wide_fov; 
+	static bool last_value = !wide_fov;
 
 	if (last_value != wide_fov)
 		setmodeneeded = true;
@@ -373,7 +373,7 @@ bool V_UsePillarBox()
 		return false;
 	if (I_GetVideoWidth() == 640 && I_GetVideoHeight() == 400)
 		return false;
-	
+
 	return (!vid_widescreen || (!serverside && !sv_allowwidescreen))
 		&& (3 * I_GetVideoWidth() > 4 * I_GetVideoHeight());
 }
@@ -394,7 +394,7 @@ bool V_UseLetterBox()
 		return false;
 	if (I_GetVideoWidth() == 640 && I_GetVideoHeight() == 400)
 		return false;
-	
+
 	return (vid_widescreen && (serverside || sv_allowwidescreen))
 		&& (3 * I_GetVideoWidth() <= 4 * I_GetVideoHeight());
 }
@@ -412,7 +412,7 @@ bool V_UseWidescreen()
 		return false;
 	if (I_GetVideoWidth() == 640 && I_GetVideoHeight() == 400)
 		return false;
-	
+
 	return (vid_widescreen && (serverside || sv_allowwidescreen))
 		&& (3 * I_GetVideoWidth() > 4 * I_GetVideoHeight());
 }
@@ -462,7 +462,7 @@ static bool V_DoModeSetup(int width, int height, int bits)
 	DisplayBits = bits;
 
 	SquareWidth = (4 * DisplayHeight) / 3;
-	
+
 	if (SquareWidth > DisplayWidth)
         SquareWidth = DisplayWidth;
 
@@ -472,7 +472,7 @@ static bool V_DoModeSetup(int width, int height, int bits)
 	// [SL] Add a bit to the screen width if it's a power-of-two to avoid
 	// cache thrashing
 	int cache_fudge = (width % 256) == 0 ? 4 : 0;
-	
+
 	screen = I_AllocateScreen(width + cache_fudge, height, bits, primary);
 
 	// adjust the palettes if they've already been loaded
@@ -502,9 +502,9 @@ bool V_SetResolution(int width, int height, int bits)
 
 	if (screen)
 	{
-		oldwidth = I_GetVideoWidth(); 
-		oldheight = I_GetVideoHeight(); 
-		oldbits = I_GetVideoBitDepth(); 
+		oldwidth = I_GetVideoWidth();
+		oldheight = I_GetVideoHeight();
+		oldbits = I_GetVideoBitDepth();
 	}
 	else
 	{
@@ -515,7 +515,7 @@ bool V_SetResolution(int width, int height, int bits)
 	}
 
 	// Make sure we don't set the resolution smaller than Doom's original 320x200
-	// resolution. Bad things might happen. 
+	// resolution. Bad things might happen.
 	width = clamp(width, 320, MAXWIDTH);
 	height = clamp(height, 200, MAXHEIGHT);
 
@@ -554,19 +554,19 @@ BEGIN_COMMAND (vid_setmode)
 		return;
 	}
 	// Width
-	if (argc > 1) 
+	if (argc > 1)
 		width = atoi(argv[1]);
-	
+
 	// Height (optional)
 	if (argc > 2)
 		height = atoi(argv[2]);
 	if (height == 0)
-		height = I_GetVideoHeight(); 
+		height = I_GetVideoHeight();
 
 	// Bits
 	bits = (int)vid_32bpp ? 32 : 8;
 
-	if (width < 320 || height < 200) 
+	if (width < 320 || height < 200)
 		Printf(PRINT_HIGH, "%dx%d is too small.  Minimum resolution is 320x200.\n", width, height);
 
 	if (width > MAXWIDTH || height > MAXHEIGHT)
@@ -689,14 +689,14 @@ void V_Init (void)
 //
 void V_DrawFPSWidget()
 {
-	static const uint64_t ONE_SECOND = I_ConvertTimeFromMs(1000);
+	static const dtime_t ONE_SECOND = I_ConvertTimeFromMs(1000);
 
-	static uint64_t last_time = I_GetTime();
-	static uint64_t time_accum = 0;
+	static dtime_t last_time = I_GetTime();
+	static dtime_t time_accum = 0;
 	static unsigned int frame_count = 0;
 
-	uint64_t current_time = I_GetTime();
-	uint64_t delta_time = current_time - last_time;
+	dtime_t current_time = I_GetTime();
+	dtime_t delta_time = current_time - last_time;
 	last_time = current_time;
 	frame_count++;
 

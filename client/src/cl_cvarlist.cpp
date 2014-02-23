@@ -350,6 +350,12 @@ CVAR_FUNC_DECL(		cl_screenshotname, "Odamex_%g_%d_%t",
 					"either the first PWAD or the IWAD\n// %m: Map lump\n// %%: Literal percent sign",
 					CVARTYPE_STRING, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE)
 
+// Screenshot output file format
+CVAR_FUNC_DECL(		cl_pngscreenshots, "1",
+					"Output screenshots in PNG format if enabled, or BMP format if disabled." \
+					"If Odamex was compiled without libpng support, this always falls back to BMP.",
+					CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)
+
 CVAR(				cl_autorecord, "0", "Automatically record netdemos",
 					CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)
 
@@ -575,7 +581,7 @@ CVAR_FUNC_DECL (st_scale, "1", "",	CVARTYPE_BYTE, CVAR_CLIENTARCHIVE)
 CVAR_FUNC_DECL(	gammalevel, "1", "Gamma correction level",
 				CVARTYPE_FLOAT, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE)
 
-CVAR_RANGE(		vid_gammatype, "0", "Select between Doom and ZDoom gamma correction",
+CVAR_RANGE_FUNC_DECL(vid_gammatype, "0", "Select between Doom and ZDoom gamma correction",
 				CVARTYPE_BYTE, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE, 0.0f, 1.0f)
 
 CVAR_RANGE_FUNC_DECL(hud_crosshair, "0", "Type of crosshair, 0 means no crosshair",

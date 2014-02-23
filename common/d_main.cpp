@@ -1129,7 +1129,7 @@ class TaskScheduler
 public:
 	virtual ~TaskScheduler() { }
 	virtual void run() = 0;
-	virtual uint64_t getNextTime() const = 0;
+	virtual dtime_t getNextTime() const = 0;
 	virtual float getRemainder() const = 0;
 };
 
@@ -1147,7 +1147,7 @@ public:
 		mTask();
 	}
 
-	virtual uint64_t getNextTime() const
+	virtual dtime_t getNextTime() const
 	{
 		return I_GetTime();
 	}
@@ -1189,7 +1189,7 @@ public:
 		}
 	}
 
-	virtual uint64_t getNextTime() const
+	virtual dtime_t getNextTime() const
 	{
 		return mFrameStartTime + mFrameDuration - mAccumulator;
 	}
@@ -1198,17 +1198,17 @@ public:
 	{
 		// mAccumulator can be greater than mFrameDuration so only get the
 		// time remaining until the next frame
-		uint64_t remaining_time = mAccumulator % mFrameDuration;
+		dtime_t remaining_time = mAccumulator % mFrameDuration;
 		return (float)(double(remaining_time) / mFrameDuration);
 	}
 
 private:
 	void				(*mTask)();
 	const int			mMaxCount;
-	const uint64_t		mFrameDuration;
-	uint64_t			mAccumulator;
-	uint64_t			mFrameStartTime;
-	uint64_t			mPreviousFrameStartTime;
+	const dtime_t		mFrameDuration;
+	dtime_t				mAccumulator;
+	dtime_t				mFrameStartTime;
+	dtime_t				mPreviousFrameStartTime;
 };
 
 static TaskScheduler* simulation_scheduler;
@@ -1294,8 +1294,8 @@ void D_RunTics(void (*sim_func)(), void(*display_func)())
 		return;
 
 	// Sleep until the next scheduled task.
-	uint64_t simulation_wake_time = simulation_scheduler->getNextTime();
-	uint64_t display_wake_time = display_scheduler->getNextTime();
+	dtime_t simulation_wake_time = simulation_scheduler->getNextTime();
+	dtime_t display_wake_time = display_scheduler->getNextTime();
 
 	do
 	{
