@@ -114,25 +114,16 @@ void STACK_ARGS Net_LogShutdown()
 
 
 //
-// Net_LogPrintf
+// Net_LogPrintf2
 //
 // Prints a message to the specified log channel.
+// This function should only be used by the Net_LogPrintf macro and not called
+// directly as the macro automatically passes the calling function's name.
 //
 void Net_LogPrintf2(const OString& channel_name, const char* func_name, const char* str, ...)
 {
 #ifdef __NET_DEBUG__
-	va_list args;
-	va_start(args, str);
-
-	const size_t bufsize = 4096;
-	char tmp[bufsize];
-	vsprintf(tmp, str, args);
-	va_end(args);
-
-	char output[bufsize];
-	// prepend the channel name & name of the calling function to the format string
-	sprintf(output, "[%s] %s: %s\n", channel_name.c_str(), func_name, tmp);	
-
+	// look up the LogChannel object by name
 	LogChannelTable::iterator it = log_channels.find(channel_name);
 	if (it == log_channels.end())
 	{
@@ -142,7 +133,22 @@ void Net_LogPrintf2(const OString& channel_name, const char* func_name, const ch
 	}
 
 	LogChannel* channel = it->second;
-	channel->write(output);
+	if (channel->isEnabled())
+	{
+		va_list args;
+		va_start(args, str);
+
+		const size_t bufsize = 4096;
+		char tmp[bufsize];
+		vsprintf(tmp, str, args);
+		va_end(args);
+
+		char output[bufsize];
+		// prepend the channel name & name of the calling function to the format string
+		sprintf(output, "[%s] %s: %s\n", channel_name.c_str(), func_name, tmp);	
+
+		channel->write(output);
+	}
 #endif	// __NET_DEBUG__
 }
 
