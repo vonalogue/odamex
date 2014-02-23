@@ -61,15 +61,18 @@ private:
 
 #define __NET_DEBUG__
 
+void Net_LogPrintf2(const OString& channel_name, const char* func_name, const char* str, ...);
+
+#define Net_LogPrintf(channel_name, format, ...) Net_LogPrintf2(channel_name, __FUNCTION__, format, ##__VA_ARGS__)
+
+
+
 void Net_Printf(const char *str, ...);
 void Net_Error(const char *str, ...);
 void Net_Warning(const char *str, ...);
 
-#ifdef __NET_DEBUG__
-void Net_LogPrintf(const char *str, ...);
-#else
-#define Net_LogPrintf(fmt, ...) { }
-#endif	// __NET_DEBUG__
+void Net_LogStartup();
+void STACK_ARGS Net_LogShutdown();
 
 #endif	// __NET_LOG_H__
 

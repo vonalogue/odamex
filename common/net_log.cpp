@@ -30,9 +30,23 @@
 static const size_t printbuf_size = 4096;
 static char printbuf[printbuf_size];
 
+typedef OHashTable<OString, LogChannel*> LogChannelTable;
+static LogChannelTable log_channels;
 
+// ============================================================================
+//
+// LogChannel class implementation
+//
+// ============================================================================
 
-
+//
+// LogChannel Constructor
+//
+// Initializes a LogChannel object with the specified channel name, file name
+// for the log's output, and initial status (enabled or disabled). Instead of
+// an actual file name, the caller may pass "stdout" or "stderr" to use
+// the operating system's standard output or standard error output facilities.
+//
 LogChannel::LogChannel(const OString& name, const OString& filename, bool enabled) :
 		mName(name), mEnabled(enabled)
 {
@@ -44,42 +58,95 @@ LogChannel::LogChannel(const OString& name, const OString& filename, bool enable
 		mStream = fopen(filename.c_str(), "w");
 }
 
+
+//
+// LogChannel Destructor
+//
 LogChannel::~LogChannel()
 {
 	if (mStream != stdout && mStream != stderr && mStream != NULL)
 		fclose(mStream);
 }
 
+
+//
+// LogChannel::write
+//
+// Writes a text string to the log channel (provided it is enabled).
+//
 void LogChannel::write(const char* str)
 {
 	if (mStream != NULL && mEnabled)
+	{
+		// ensure we're writing to the end of the file even if multiple
+		// LogChannels are writting to the same file
+		fseek(mStream, 0, SEEK_END);
 		fprintf(mStream, "%s", str);
+		fflush(mStream);
+	}
 }
 	
+
+// ============================================================================
+
+
+//
+// Net_LogStartup
+//
+// Initializes the network logging system.
+//
+void Net_LogStartup()
+{
+}
+
+
+//
+// Net_LogShutdown
+//
+// Free the LogChannel pointers stored in log_channels.
+//
+void STACK_ARGS Net_LogShutdown()
+{
+	for (LogChannelTable::iterator it = log_channels.begin(); it != log_channels.end(); ++it)
+		delete it->second;
+	log_channels.clear();
+}
 
 
 //
 // Net_LogPrintf
 //
-// Prints a debugging message to stderr if network debugging has been enabled
-// at compile-time.
+// Prints a message to the specified log channel.
 //
-
-#ifdef __NET_DEBUG__
-void Net_LogPrintf(const char* str, ...)
+void Net_LogPrintf2(const OString& channel_name, const char* func_name, const char* str, ...)
 {
-	static const char* prefix = "LOG";
-
+#ifdef __NET_DEBUG__
 	va_list args;
 	va_start(args, str);
 
-	vsnprintf(printbuf, printbuf_size, str, args);
-	fprintf(stderr, "%s: %s\n", prefix, printbuf);
-
+	const size_t bufsize = 4096;
+	char tmp[bufsize];
+	vsprintf(tmp, str, args);
 	va_end(args);
-	fflush(stderr);
-}
+
+	char output[bufsize];
+	// prepend the channel name & name of the calling function to the format string
+	sprintf(output, "[%s] %s: %s\n", channel_name.c_str(), func_name, tmp);	
+
+	LogChannelTable::iterator it = log_channels.find(channel_name);
+	if (it == log_channels.end())
+	{
+		// create a new LogChannel object if one doesn't already exist with this channel name
+		LogChannel* new_channel = new LogChannel(channel_name, "stdout");
+		it = log_channels.insert(std::make_pair(channel_name, new_channel)).first;
+	}
+
+	LogChannel* channel = it->second;
+	channel->write(output);
 #endif	// __NET_DEBUG__
+}
+
+
 
 void Net_Warning(const char* str, ...)
 {
