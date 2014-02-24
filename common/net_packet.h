@@ -32,6 +32,8 @@
 
 #include "sarray.h"
 
+class PacketFactory;
+
 // ============================================================================
 //
 // Packet class interface
@@ -57,11 +59,9 @@ public:
 		NEGOTIATION_PACKET		= 1
 	} PacketType;
 
-
-	// ---------------------------------------------------------------------------
-	// constructors
-	// ---------------------------------------------------------------------------
-	Packet();
+	Packet(const Packet&);
+	~Packet();
+	Packet operator=(const Packet&);
 
 	// ---------------------------------------------------------------------------
 	// status functions
@@ -90,16 +90,39 @@ public:
 	BitStream& getPayload();
 
 private:
+	friend class PacketFactory;
+
 	static const uint16_t HEADER_SIZE = 9*8;	// must be byte aligned
 	static const uint16_t TRAILER_SIZE = 32;
 
-	PacketType				mType;
-	PacketSequenceNumber	mSequence;
-	PacketSequenceNumber	mRecvSequence;
-	BitField				mRecvHistory;
-	bool					mCorrupted;
+	struct PacketData
+	{
+		PacketData() : mRefCount(0), mRecvHistory(32), mCorrupted(false) { }
+		
+		void clear() {	mCorrupted = false; mPayload.clear();	}
 
-	BitStream				mPayload;
+		int						mRefCount;
+
+		PacketType				mType;
+		PacketSequenceNumber	mSequence;
+		PacketSequenceNumber	mRecvSequence;
+		BitField				mRecvHistory;
+		bool					mCorrupted;
+
+		BitStream				mPayload;
+	};
+
+	// Private constructor so that only PacketFactory can build a Packet
+	Packet();
+	
+	SArrayId					mId;
+	PacketData*					mData;		// cached lookup to mPacketData.get(mId)
+
+	// ------------------------------------------------------------------------
+	// PacketData storage
+	// ------------------------------------------------------------------------
+	typedef SArray<Packet::PacketData> PacketDataStore;
+	static PacketDataStore mPacketData;
 };
 
 
@@ -117,10 +140,7 @@ private:
 class PacketFactory
 {
 public:
-	static void startup();
-	static void shutdown();
-
-	static Packet* createPacket();
+	static Packet createPacket();
 
 private:
 	friend class Packet;
@@ -132,11 +152,6 @@ private:
 	PacketFactory& operator=(const PacketFactory&);
 
 	~PacketFactory() { }
-
-	static bool				mInitialized;
-
-	typedef SArray<Packet>	PacketStore;
-	static PacketStore*		mPackets;
 };
 
 

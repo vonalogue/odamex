@@ -35,27 +35,64 @@
 //
 // ============================================================================
 
+Packet::PacketDataStore Packet::mPacketData(128);
+
+// ----------------------------------------------------------------------------
+// Construction / Destruction
+// ----------------------------------------------------------------------------
+
+Packet::Packet() :
+	mId(0), mData(NULL)
+{ }
+
+Packet::Packet(const Packet& other) :
+	mId(other.mId), mData(other.mData)
+{
+	if (mData)
+		mData->mRefCount++;
+}
+
+Packet::~Packet()
+{
+	if (mData)
+	{
+		mData->mRefCount--;
+		if (mData->mRefCount == 0)
+			mPacketData.erase(mId);
+	}
+}
+
+Packet Packet::operator=(const Packet& other)
+{
+	if (mId != other.mId)
+	{
+		if (mData)
+		{
+			mData->mRefCount--;
+			if (mData->mRefCount == 0)
+				mPacketData.erase(mId);
+		}
+		
+		mId = other.mId;
+		mData = other.mData;
+		if (mData)
+			mData->mRefCount++;
+	}
+
+	return *this;
+}
+	
+
 // ----------------------------------------------------------------------------
 // Public functions
 // ----------------------------------------------------------------------------
-
-
-Packet::Packet() :
-	mRecvHistory(32),
-	mCorrupted(false)
-{ }
-
 
 //
 // Packet::clear
 //
 void Packet::clear()
 {
-	mSequence = 0;
-	mRecvSequence = 0;
-	mRecvHistory.clear();
-	mCorrupted = false;
-	mPayload.clear();
+	mData->clear();
 }
 
 
@@ -66,7 +103,7 @@ void Packet::clear()
 //	
 uint16_t Packet::getSize() const
 {
-	return HEADER_SIZE + (mPayload.bytesWritten() << 3) + TRAILER_SIZE;
+	return HEADER_SIZE + (mData->mPayload.bytesWritten() << 3) + TRAILER_SIZE;
 }
 
 
@@ -77,7 +114,7 @@ uint16_t Packet::getSize() const
 //
 bool Packet::isCorrupted() const
 {
-	return mCorrupted;
+	return mData->mCorrupted;
 }
 
 
@@ -91,29 +128,30 @@ bool Packet::isCorrupted() const
 //
 uint16_t Packet::writePacketData(uint8_t* buf, uint16_t size) const
 {
-	if (size > getSize())
+	const uint16_t packet_size = getSize();
+	if (size < packet_size)
 		return 0;
 
 	BitStream header;
-	header.writeBits(mType, 1);
-	mSequence.write(header);
-	mRecvSequence.write(header);
-	mRecvHistory.write(header);
+	header.writeBits(mData->mType, 1);
+	mData->mSequence.write(header);
+	mData->mRecvSequence.write(header);
+	mData->mRecvHistory.write(header);
 
 	header.readBlob(buf, HEADER_SIZE);
 
-	memcpy(buf + (HEADER_SIZE >> 3), mPayload.getRawData(), mPayload.bytesWritten());
+	memcpy(buf + (HEADER_SIZE >> 3), mData->mPayload.getRawData(), mData->mPayload.bytesWritten());
 
 	// calculate CRC32 for the packet header & payload
 	BitStream trailer;
-	const uint32_t datasize = getSize() - TRAILER_SIZE;
-	uint32_t crcvalue = Net_CRC32(buf, datasize >> 3);
+	const uint32_t data_size = packet_size - TRAILER_SIZE;
+	uint32_t crcvalue = Net_CRC32(buf, data_size >> 3);
 
 	// write the calculated CRC32 value to the buffer
 	trailer.writeU32(crcvalue);
-	trailer.readBlob(buf + datasize, TRAILER_SIZE);	
+	trailer.readBlob(buf + data_size, TRAILER_SIZE);	
 
-	return getSize();
+	return packet_size;
 }
 
 
@@ -127,26 +165,26 @@ uint16_t Packet::writePacketData(uint8_t* buf, uint16_t size) const
 //
 uint16_t Packet::readPacketData(const uint8_t* buf, uint16_t size)
 {
-	clear();
+	mData->clear();
 
 	BitStream header;
 	header.writeBlob(buf, HEADER_SIZE);
-	mType = static_cast<Packet::PacketType>(header.readBits(1));
-	mSequence.read(header);
-	mRecvSequence.read(header);
-	mRecvHistory.read(header);
+	mData->mType = static_cast<Packet::PacketType>(header.readBits(1));
+	mData->mSequence.read(header);
+	mData->mRecvSequence.read(header);
+	mData->mRecvHistory.read(header);
 
-	const uint32_t payloadsize = size - HEADER_SIZE - TRAILER_SIZE;
-	mPayload.writeBlob(buf + HEADER_SIZE, payloadsize);
+	const uint32_t payload_size = size - HEADER_SIZE - TRAILER_SIZE;
+	mData->mPayload.writeBlob(buf + HEADER_SIZE, payload_size);
 
 	// calculate CRC32 for the packet header & payload
-	const uint32_t datasize = size - TRAILER_SIZE;
-	uint32_t crcvalue = Net_CRC32(buf, datasize >> 3);
+	const uint32_t data_size = size - TRAILER_SIZE;
+	uint32_t crcvalue = Net_CRC32(buf, data_size >> 3);
 
 	// verify the calculated CRC32 value matches the value in the packet
 	BitStream trailer;
-	trailer.writeBlob(buf + datasize, TRAILER_SIZE);
-	mCorrupted = (trailer.readU32() != crcvalue);
+	trailer.writeBlob(buf + data_size, TRAILER_SIZE);
+	mData->mCorrupted = (trailer.readU32() != crcvalue);
 
 	return size;
 }
@@ -154,38 +192,38 @@ uint16_t Packet::readPacketData(const uint8_t* buf, uint16_t size)
 
 void Packet::setSequence(const Packet::PacketSequenceNumber value)
 {
-	mSequence = value;
+	mData->mSequence = value;
 }
 
 Packet::PacketSequenceNumber Packet::getSequence() const
 {
-	return mSequence;
+	return mData->mSequence;
 }
 
 void Packet::setRecvSequence(const Packet::PacketSequenceNumber value)
 {
-	mRecvSequence = value;
+	mData->mRecvSequence = value;
 }
 
 Packet::PacketSequenceNumber Packet::getRecvSequence() const
 {
-	return mRecvSequence;
+	return mData->mRecvSequence;
 }
 
 void Packet::setRecvHistory(const BitField& value)
 {
-	mRecvHistory = value;
+	mData->mRecvHistory = value;
 }
 
 const BitField& Packet::getRecvHistory() const
 {
-	return mRecvHistory;
+	return mData->mRecvHistory;
 }
 
 
 BitStream& Packet::getPayload()
 {
-	return mPayload;
+	return mData->mPayload;
 }
 
 
@@ -195,39 +233,20 @@ BitStream& Packet::getPayload()
 //
 // ============================================================================
 
-bool PacketFactory::mInitialized = false;
-PacketFactory::PacketStore* PacketFactory::mPackets = NULL;
-
-void PacketFactory::startup()
-{
-	if (!mInitialized)
-	{
-		mPackets = new PacketStore(128);
-		mInitialized = true;
-	}
-}
-
-
-void PacketFactory::shutdown()
-{
-	if (mInitialized)
-	{
-		delete mPackets;
-		mPackets = NULL;
-		mInitialized = false;
-	}
-}
 
 //
 // PacketFactory::createPacket
 //
 // Returns an instance of an unused Packet from the memory pool.
 //
-Packet* PacketFactory::createPacket()
+Packet PacketFactory::createPacket()
 {
-	SArrayId id = mPackets->insert();
-	Packet* packet = &mPackets->get(id);
-	packet->clear();
+	Packet packet;
+	packet.mId = Packet::mPacketData.insert();
+	packet.mData = &(Packet::mPacketData.get(packet.mId));
+	packet.mData->clear();	
+	packet.mData->mRefCount = 1;
+	
 	return packet;
 }
 
