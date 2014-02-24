@@ -199,7 +199,7 @@ void NetInterface::setPassword(const OString& password)
 //
 ConnectionId NetInterface::requestConnection(const SocketAddress& remote_address)
 {
-	Net_LogPrintf("interface", "requesting connection to %s.", remote_address.getCString());
+	Net_LogPrintf(LogChan_Interface, "requesting connection to %s.", remote_address.getCString());
 
 	Connection* conn = createNewConnection(remote_address);
 	conn->openConnection();
@@ -219,7 +219,7 @@ void NetInterface::closeConnection(const ConnectionId& connection_id)
 	if (conn == NULL)
 		return;	
 
-	Net_LogPrintf("interface", "closing connection to %s.", conn->getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Interface, "closing connection to %s.", conn->getRemoteAddress().getCString());
 	conn->closeConnection();
 }
 
@@ -342,7 +342,7 @@ void NetInterface::service()
 		// they will be freed later after a time-out period
 		if (!conn->isTerminated() && conn->isTimedOut())
 		{
-			Net_LogPrintf("interface", "connection to %s timed-out.", conn->getRemoteAddress().getCString());
+			Net_LogPrintf(LogChan_Interface, "connection to %s timed-out.", conn->getRemoteAddress().getCString());
 			conn->closeConnection();
 		}
 	}
@@ -357,7 +357,7 @@ void NetInterface::service()
 		Connection* conn = it->second;
 		if (conn->isTerminated() && conn->isTimedOut())
 		{
-			Net_LogPrintf("interface", "removing terminated connection to %s.", 
+			Net_LogPrintf(LogChan_Interface, "removing terminated connection to %s.", 
 					conn->getRemoteAddress().getCString());
 			mConnectionsById.erase(conn->getConnectionId());
 			mConnectionsByAddress.erase(conn->getRemoteAddress());
@@ -677,7 +677,7 @@ void NetInterface::closeSocket()
 //
 bool NetInterface::socketSend(const SocketAddress& dest, const uint8_t* data, uint16_t size)
 {
-	Net_LogPrintf("interface", "sending %u bytes to %s.", size, dest.getCString());
+	Net_LogPrintf(LogChan_Interface, "sending %u bytes to %s.", size, dest.getCString());
 
 	if (size == 0 || !dest.isValid())
 		return false;
@@ -755,7 +755,7 @@ bool NetInterface::socketRecv(SocketAddress& source, uint8_t* data, uint16_t& si
 	if (ret > 0)
 	{
 		size = ret;
-		Net_LogPrintf("interface", "received %u bytes from %s.", size, source.getCString());
+		Net_LogPrintf(LogChan_Interface, "received %u bytes from %s.", size, source.getCString());
 	}
 
 	return (size > 0);
@@ -823,7 +823,7 @@ void NetInterface::processPacket(const SocketAddress& remote_address, BitStream&
 	else if (mHostType == HOST_SERVER)
 	{
 		// packet from an unknown host
-		Net_LogPrintf("interface", "received packet from an unknown host %s.", remote_address.getCString());
+		Net_LogPrintf(LogChan_Interface, "received packet from an unknown host %s.", remote_address.getCString());
 		conn = createNewConnection(remote_address);
 	}
 	else

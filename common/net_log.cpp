@@ -37,6 +37,9 @@ static char printbuf[printbuf_size];
 typedef OHashTable<OString, LogChannel*> LogChannelTable;
 static LogChannelTable log_channels;
 
+const OString LogChan_Interface		= "interface";
+const OString LogChan_Connection	= "connection";
+
 // ============================================================================
 //
 // LogChannel class implementation
@@ -243,30 +246,30 @@ void Net_LogPrintf2(const OString& channel_name, const char* func_name, const ch
 	if (it == log_channels.end())
 	{
 		// create a new LogChannel object if one doesn't already exist with this channel name
-		LogChannel* new_channel = new LogChannel(channel_name, "stdout");
+		LogChannel* new_channel = new LogChannel(channel_name);
 		it = log_channels.insert(std::make_pair(channel_name, new_channel)).first;
 	}
 
 	LogChannel* channel = it->second;
 	if (channel->isEnabled())
 	{
+		const size_t bufsize = 4096;
+		char output[bufsize];
+
+		// prepend the channel name & name of the calling function to the output
+		sprintf(output, "[%s] %s: ", channel_name.c_str(), func_name);	
+
 		va_list args;
 		va_start(args, str);
 
-		const size_t bufsize = 4096;
-		char tmp[bufsize];
-		vsprintf(tmp, str, args);
+		vsprintf(output + strlen(output), str, args);
 		va_end(args);
 
-		char output[bufsize];
-		// prepend the channel name & name of the calling function to the format string
-		sprintf(output, "[%s] %s: %s\n", channel_name.c_str(), func_name, tmp);	
-
 		channel->write(output);
+		channel->write("\n");
 	}
 #endif	// __NET_DEBUG__
 }
-
 
 
 void Net_Warning(const char* str, ...)

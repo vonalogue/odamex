@@ -27,6 +27,10 @@
 #include "doomtype.h"
 #include "m_ostring.h"
 
+// Log channel names
+extern const OString LogChan_Interface;
+extern const OString LogChan_Connection;
+
 class LogChannel
 {
 public:
