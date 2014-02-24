@@ -24,8 +24,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <vector>
+#include <algorithm>
+
 #include "net_log.h"
 #include "i_system.h"
+#include "c_dispatch.h"
 
 static const size_t printbuf_size = 4096;
 static char printbuf[printbuf_size];
@@ -48,14 +52,9 @@ static LogChannelTable log_channels;
 // the operating system's standard output or standard error output facilities.
 //
 LogChannel::LogChannel(const OString& name, const OString& filename, bool enabled) :
-		mName(name), mEnabled(enabled)
+		mName(name), mEnabled(enabled), mStream(NULL)
 {
-	if (filename.iequals("stdout"))
-		mStream = stdout;
-	else if (filename.iequals("stderr"))
-		mStream = stderr;
-	else
-		mStream = fopen(filename.c_str(), "w");
+	setFilename(filename);
 }
 
 
@@ -64,8 +63,36 @@ LogChannel::LogChannel(const OString& name, const OString& filename, bool enable
 //
 LogChannel::~LogChannel()
 {
+	close();
+}
+
+//
+// LogChannel::close
+//
+// Closes the log file.
+//
+void LogChannel::close()
+{
 	if (mStream != stdout && mStream != stderr && mStream != NULL)
 		fclose(mStream);
+}
+
+
+//
+// LogChannel::setFilename
+//
+// Closes the existing log file and opens the specified file name for writing.
+//
+void LogChannel::setFilename(const OString& filename)
+{
+	close();	
+
+	if (filename.empty() || filename.iequals("stdout"))
+		mStream = stdout;
+	else if (filename.iequals("stderr"))
+		mStream = stderr;
+	else
+		mStream = fopen(filename.c_str(), "w");
 }
 
 
@@ -112,6 +139,94 @@ void STACK_ARGS Net_LogShutdown()
 	log_channels.clear();
 }
 
+
+//
+// Net_PrintLogChannelNames
+//
+// Prints a list of the log channel names to the console.
+//
+void Net_PrintLogChannelNames()
+{
+	Printf(PRINT_HIGH, "Networking Subsystem Log Channels:\n");
+	
+	std::vector<OString> sorted_channel_names;
+
+	for (LogChannelTable::const_iterator it = log_channels.begin(); it != log_channels.end(); ++it)
+		sorted_channel_names.push_back(it->first);
+
+	std::sort(sorted_channel_names.begin(), sorted_channel_names.end());
+
+	for (std::vector<OString>::const_iterator it = sorted_channel_names.begin();
+		it != sorted_channel_names.end(); ++it)
+	{
+		const OString& channel_name = *it;
+		Printf(PRINT_HIGH, "%s\n", channel_name.c_str());
+	}
+}
+
+BEGIN_COMMAND(net_logchannames)
+{
+	Net_PrintLogChannelNames();
+}
+END_COMMAND(net_logchannames)
+
+
+//
+// Net_EnableLogChannel
+//
+void Net_EnableLogChannel(const OString& channel_name)
+{
+	// look up the LogChannel object by name
+	LogChannelTable::iterator it = log_channels.find(channel_name);
+	if (it != log_channels.end())
+	{
+		LogChannel* channel = it->second;
+		channel->setEnabled(true);
+	}
+}
+
+//
+// Net_DisableLogChannel
+//
+void Net_DisableLogChannel(const OString& channel_name)
+{
+	// look up the LogChannel object by name
+	LogChannelTable::iterator it = log_channels.find(channel_name);
+	if (it != log_channels.end())
+	{
+		LogChannel* channel = it->second;
+		channel->setEnabled(false);
+	}
+}
+
+
+//
+// Net_SetLogChannelDestination
+//
+void Net_SetLogChannelDestination(const OString& channel_name, const OString& destination)
+{
+	// look up the LogChannel object by name
+	LogChannelTable::iterator it = log_channels.find(channel_name);
+	if (it != log_channels.end())
+	{
+		LogChannel* channel = it->second;
+		channel->setFilename(destination);
+	}
+}
+
+
+BEGIN_COMMAND(net_logchandest)
+{
+	if (argc != 3)
+	{
+		Printf(PRINT_HIGH, "Usage: %s channel_name file_name\n", argv[0]);
+	}
+	else
+	{
+		Net_SetLogChannelDestination(argv[1], argv[2]);
+	}	
+}
+END_COMMAND(net_logchandest)
 
 //
 // Net_LogPrintf2

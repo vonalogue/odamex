@@ -30,8 +30,7 @@
 class LogChannel
 {
 public:
-	LogChannel() { }
-	LogChannel(const OString& name, const OString& filename, bool enabled = true);
+	LogChannel(const OString& name, const OString& filename = "", bool enabled = true);
 
 	~LogChannel();
 
@@ -50,9 +49,13 @@ public:
 		mEnabled = enabled;
 	}
 
+	void setFilename(const OString& filename);
+
 	void write(const char* str);
 	
 private:
+	void close();
+
 	OString		mName;
 	bool		mEnabled;
 	FILE*		mStream;
@@ -73,6 +76,10 @@ void Net_Warning(const char *str, ...);
 
 void Net_LogStartup();
 void STACK_ARGS Net_LogShutdown();
+
+void Net_PrintLogChannelNames();
+void Net_EnableLogChannel(const OString& channel_name);
+void Net_DisableLogChannel(const OString& channel_name);
 
 #endif	// __NET_LOG_H__
 
