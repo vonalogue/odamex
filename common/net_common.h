@@ -33,6 +33,16 @@ uint32_t Net_BitsNeeded(uint32_t n);
 const dtime_t ONE_SECOND = 1000000000uLL;
 dtime_t Net_CurrentTime();
 
+static inline uint32_t BitsToBytes(uint32_t bits)
+{
+	return (bits + 7) >> 3;
+}
+
+static inline uint32_t BytesToBits(uint32_t bytes)
+{
+	return bytes << 3;
+}
+
 
 #endif	// __NET_COMMON_H__
 

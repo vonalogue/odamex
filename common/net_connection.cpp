@@ -62,7 +62,7 @@ Connection::Connection(const ConnectionId& connection_id, NetInterface* interfac
 	mTimeOutTS(Net_CurrentTime() + CONNECTION_TIMEOUT),
 	mConnectionAttempt(0), mConnectionAttemptTimeOutTS(0),
 	mToken(0), mTokenTimeOutTS(0),
-	mSequence(rand()),
+	mSequence(generateRandomSequence()),
 	mLastAckSequenceValid(false), mRecvSequenceValid(false),
 	mRecvHistory(ACKNOWLEDGEMENT_COUNT),
 	mSentPacketCount(0), mLostPacketCount(0), mRecvPacketCount(0),
@@ -139,10 +139,15 @@ void Connection::openConnection()
 //
 void Connection::closeConnection()
 {
-	Net_LogPrintf(LogChan_Connection, "terminating connection to %s.", getRemoteAddress().getCString());
-	BitStream stream;
+	Net_LogPrintf(LogChan_Connection, "terminating connection to host %s.", getRemoteAddress().getCString());
+
+	Packet packet = PacketFactory::createPacket();
+	composePacketHeader(Packet::NEGOTIATION_PACKET, packet);
+	
+	BitStream& stream = packet.getPayload();
 	stream.writeU32(TERMINATION_SEQUENCE);
-	sendPacket(stream);
+
+	sendPacket(packet);
 
 	mState = CONN_TERMINATED;
 	mTimeOutTS = Net_CurrentTime() + TERMINATION_TIMEOUT;
@@ -154,12 +159,12 @@ void Connection::closeConnection()
 //
 // Updates statistics and hands the packet off to NetInterface to send
 //
-void Connection::sendPacket(BitStream& stream)
+void Connection::sendPacket(const Packet& packet)
 {
 	if (mState == CONN_TERMINATED)
 		return;
 
-	mInterface->sendPacket(mConnectionId, stream);
+	mInterface->sendPacket(mConnectionId, packet);
 	++mSentPacketCount;
 	mPacketSendTimes.push(Net_CurrentTime());
 }
@@ -168,27 +173,116 @@ void Connection::sendPacket(BitStream& stream)
 //
 // Connection::processPacket
 //
+// Reads an incoming packet's header, recording the packet sequence number so
+// it can be acknowledged in the next outgoing packet. Also notifies the
+// registered MessageManagers of any outgoing packet sequence numbers the
+// remote host has acknowledged receiving or lost. Notification is guaranteed
+// to be handled in order of sequence number.
+//
 // Inspects the type of an incoming packet and then hands the packet off to
 // the appropriate parsing function.
 //
-void Connection::processPacket(BitStream& stream)
+void Connection::processPacket(Packet& packet)
 {
 	if (mState == CONN_TERMINATED)
 		return;
 
-	// inspect the packet type
-	Packet::PacketType packet_type = checkPacketType(stream);
+	++mRecvPacketCount;
 
-	if (packet_type == Packet::NEGOTIATION_PACKET)
-		parseNegotiationPacket(stream);
-	else if (packet_type == Packet::GAME_PACKET)
-		parseGamePacket(stream);
+	if (packet.isCorrupted())
+	{
+		// packet failed CRC32 verificiation
+		Net_Warning("corrupted packet from host %s.", getRemoteAddress().getCString());
+		return;
+	}
+
+	// examine the packet's header
+	Packet::PacketSequenceNumber in_seq(packet.getSequence());
+	Packet::PacketSequenceNumber ack_seq(packet.getRecvSequence());
+	BitField ack_history(packet.getRecvHistory());
+
+	Net_LogPrintf(LogChan_Connection, "processing %s packet from host %s, sequence %u.",
+					packet.getType() == Packet::NEGOTIATION_PACKET ? "negotiation" : "game",
+					getRemoteAddress().getCString(), in_seq.getInteger());
+
+	if (mRecvSequenceValid)
+	{
+		int32_t diff = SequenceNumberDifference(in_seq, mRecvSequence);
+		if (diff > 0)
+		{
+			// Record the received sequence number and update the bitfield that
+			// stores acknowledgement for the N previously received sequence numbers.
+
+			// shift the window of received sequence numbers to make room
+			mRecvHistory <<= diff;
+			// add the previous sequence received
+			mRecvHistory.set(diff - 1);
+		}
+		else
+		{
+			// drop out-of-order packets
+			Net_Warning("dropping out-of-order packet from host %s " \
+					"(current sequence %u, previous sequence %u).",
+					getRemoteAddress().getCString(), in_seq.getInteger(), mRecvSequence.getInteger());
+			return;
+		}
+	}
+
+	mRecvSequence = in_seq;
+
+	if (mLastAckSequenceValid)
+	{
+		// sanity check (acknowledging a packet we haven't sent yet?!?!)
+		if (ack_seq >= mSequence)
+		{
+			Net_Warning("remote host %s acknowledges an unknown packet.", getRemoteAddress().getCString());
+			return;
+		}
+
+		// sanity check (out of order acknowledgement)
+		if (ack_seq < mLastAckSequence)
+		{
+			Net_Warning("out-of-order packet acknowledgement from remote host %s.", getRemoteAddress().getCString());
+			return;
+		}
+
+		for (Packet::PacketSequenceNumber seq = mLastAckSequence + 1; seq <= ack_seq; ++seq)
+		{
+			if (seq < ack_seq - ACKNOWLEDGEMENT_COUNT)
+			{
+				// seq is too old to fit in the ack_history window
+				// consider it lost
+				remoteHostLostPacket(seq);
+			}
+			else if (seq == ack_seq)
+			{
+				// seq is the most recent acknowledgement in the header
+				remoteHostReceivedPacket(seq);
+			}
+			else
+			{
+				// seq's delivery status is indicated by a bit in the
+				// ack_history bitfield
+				int32_t bit = SequenceNumberDifference(ack_seq, seq - 1);
+				if (ack_history.get(bit))
+					remoteHostReceivedPacket(seq);
+				else
+					remoteHostLostPacket(seq);
+			}
+		}
+	}
+
+	mLastAckSequence = ack_seq;
+
+	// inspect the packet type
+	if (packet.getType() == Packet::NEGOTIATION_PACKET)
+		parseNegotiationPacket(packet);
+	else if (packet.getType() == Packet::GAME_PACKET)
+		parseGamePacket(packet);
 	else
-		Net_Error("Connection::processPacket: Unknown packet type from %s.", 
-				getRemoteAddress().getCString());
+		Net_Warning("unknown packet type from %s.", getRemoteAddress().getCString());
 
 	mTimeOutTS = Net_CurrentTime() + CONNECTION_TIMEOUT;
-	++mRecvPacketCount;
 }
 
 
@@ -210,9 +304,9 @@ void Connection::service()
 	// compose a new game packet and send it
 	if (isConnected())
 	{
-		BitStream stream;
-		composeGamePacket(stream);
-		sendPacket(stream);
+		Packet packet = PacketFactory::createPacket();
+		composeGamePacket(packet);
+		sendPacket(packet);
 	}
 }
 
@@ -235,6 +329,18 @@ void Connection::registerMessageManager(MessageManager* manager)
 // ----------------------------------------------------------------------------
 
 //
+// Connection::generateRandomSequence
+//
+// Returns a randomized sequence number appropriate for the initial sequence
+// number of a new connection.
+//
+Packet::PacketSequenceNumber Connection::generateRandomSequence() const
+{
+	return Packet::PacketSequenceNumber(rand());
+}
+
+
+//
 // Connection::resetState
 //
 // Sets the state of the negotiation back to its default state. This is used
@@ -247,6 +353,7 @@ void Connection::resetState()
 	mLastAckSequenceValid = false;
 	mRecvSequenceValid = false;
 	mRecvHistory.clear();
+	mSequence = generateRandomSequence();
 }
 
 
@@ -261,15 +368,19 @@ bool Connection::clientRequest()
 	++mConnectionAttempt;
 	mConnectionAttemptTimeOutTS = Net_CurrentTime() + NEGOTIATION_TIMEOUT;
 
-	Net_LogPrintf(LogChan_Connection, "sending connection request packet to %s.", getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Connection, "sending connection request packet to host %s.",
+			getRemoteAddress().getCString());
 	mState = CONN_REQUESTING;
 
-	BitStream stream;
+	Packet packet = PacketFactory::createPacket();
+	composePacketHeader(Packet::NEGOTIATION_PACKET, packet);
+
+	BitStream& stream = packet.getPayload();
 	stream.writeU32(CONNECTION_SEQUENCE);
 	stream.writeU32(GAME_CHALLENGE);
 	stream.writeU8(GAMEVER);
 
-	sendPacket(stream);
+	sendPacket(packet);
 	return true;
 }
 
@@ -279,9 +390,14 @@ bool Connection::clientRequest()
 //
 // Handle a client's request to initiate a connection.
 //
-bool Connection::serverProcessRequest(BitStream& stream)
+bool Connection::serverProcessRequest(Packet& packet)
 {
-	Net_LogPrintf(LogChan_Connection, "processing connection request packet from %s.", getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Connection, "processing connection request packet from host %s.",
+			getRemoteAddress().getCString());
+
+	mRecvSequenceValid = true;
+
+	BitStream& stream = packet.getPayload();
 
 	if (stream.readU32() != CONNECTION_SEQUENCE)
 	{
@@ -309,10 +425,13 @@ bool Connection::serverProcessRequest(BitStream& stream)
 //
 bool Connection::serverOffer()
 {
-	Net_LogPrintf(LogChan_Connection, "sending connection offer packet to %s.", getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Connection, "sending connection offer packet to host %s.",
+			getRemoteAddress().getCString());
 
-	BitStream stream;
-	composePacketHeader(Packet::NEGOTIATION_PACKET, stream);
+	Packet packet = PacketFactory::createPacket();
+	composePacketHeader(Packet::NEGOTIATION_PACKET, packet);
+
+	BitStream& stream = packet.getPayload();
 
 	// denis - each launcher reply contains a random token so that
 	// the server will only allow connections with a valid token
@@ -342,7 +461,7 @@ bool Connection::serverOffer()
 	// BitField<3> credential_type;
 	// credential_availible.write(stream);
 
-	sendPacket(stream);
+	sendPacket(packet);
 	return true;
 }	
 
@@ -351,13 +470,15 @@ bool Connection::serverOffer()
 // Connection::clientProcessOffer
 //
 //
-bool Connection::clientProcessOffer(BitStream& stream)
+bool Connection::clientProcessOffer(Packet& packet)
 {
-	Net_LogPrintf(LogChan_Connection, "processing connection offer packet from %s.", getRemoteAddress().getCString());
-
-	parsePacketHeader(stream);
+	Net_LogPrintf(LogChan_Connection, "processing connection offer packet from host %s.",
+			getRemoteAddress().getCString());
+ 
 	mRecvSequenceValid = true;
 	
+	BitStream& stream = packet.getPayload();
+
 	mToken = stream.readU32();	// save the token
 
 	// TODO: process the server's list of supported compression types. select
@@ -389,15 +510,18 @@ bool Connection::clientProcessOffer(BitStream& stream)
 //
 bool Connection::clientAccept()
 {
-	Net_LogPrintf(LogChan_Connection, "sending connection acceptance packet to %s.", getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Connection, "sending connection acceptance packet to host %s.",
+				getRemoteAddress().getCString());
 
-	BitStream stream;
-	composePacketHeader(Packet::NEGOTIATION_PACKET, stream);
+	Packet packet = PacketFactory::createPacket();
+	composePacketHeader(Packet::NEGOTIATION_PACKET, packet);
+
+	BitStream& stream = packet.getPayload();
 
 	// confirm server token
 	stream.writeU32(mToken);			
 
-	sendPacket(stream);
+	sendPacket(packet);
 	return true;
 }
 
@@ -406,13 +530,14 @@ bool Connection::clientAccept()
 // Connection::serverProcessAcceptance
 //
 //
-bool Connection::serverProcessAcceptance(BitStream& stream)
+bool Connection::serverProcessAcceptance(Packet& packet)
 {
-	Net_LogPrintf(LogChan_Connection, "processing connection acceptance packet from %s.", getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Connection, "processing connection acceptance packet from host %s.",
+				getRemoteAddress().getCString());
 
-	parsePacketHeader(stream);
-	mRecvSequenceValid = true;
 	mLastAckSequenceValid = true;
+
+	BitStream& stream = packet.getPayload();
 	
 	// server verifies the token it received from the client matches
 	// what it had sent earlier
@@ -444,15 +569,15 @@ bool Connection::serverProcessAcceptance(BitStream& stream)
 //
 bool Connection::serverConfirmAcceptance()
 {
-	Net_LogPrintf(LogChan_Connection, "sending connection confirmation packet to %s.", getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Connection, "sending connection confirmation packet to host %s.",
+			getRemoteAddress().getCString());
 
-	BitStream stream;
-	composePacketHeader(Packet::NEGOTIATION_PACKET, stream);
-
+	Packet packet = PacketFactory::createPacket();
+	composePacketHeader(Packet::NEGOTIATION_PACKET, packet);
 
 	// TODO: maybe tell the client its ClientId, etc
 
-	sendPacket(stream);
+	sendPacket(packet);
 	return true;
 }
 
@@ -461,12 +586,13 @@ bool Connection::serverConfirmAcceptance()
 // Connection::clientProcessConfirmation
 //
 //
-bool Connection::clientProcessConfirmation(BitStream& stream)
+bool Connection::clientProcessConfirmation(Packet& packet)
 {
-	Net_LogPrintf(LogChan_Connection, "processing connection confirmation packet from %s.", getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Connection, "processing connection confirmation packet from host %s.",
+			getRemoteAddress().getCString());
 
-	parsePacketHeader(stream);
 	mLastAckSequenceValid = true;
+
 
 	return true;
 }
@@ -477,8 +603,10 @@ bool Connection::clientProcessConfirmation(BitStream& stream)
 //
 // Handles incoming connection setup/tear-down data for this connection.
 //
-void Connection::parseNegotiationPacket(BitStream& stream)
+void Connection::parseNegotiationPacket(Packet& packet)
 {
+	BitStream& stream = packet.getPayload();
+
 	if (stream.peekU32() == TERMINATION_SEQUENCE)
 	{
 		mState = CONN_TERMINATED;
@@ -496,11 +624,12 @@ void Connection::parseNegotiationPacket(BitStream& stream)
 
 	if (mState == CONN_ACCEPTING)
 	{
-		if (clientProcessConfirmation(stream))
+		if (clientProcessConfirmation(packet))
 		{
 			mState = CONN_CONNECTED;
-			Net_LogPrintf(LogChan_Connection, "negotiation with %s successful.", getRemoteAddress().getCString());
-			Net_Printf("Successfully negotiated connection with %s.", 
+			Net_LogPrintf(LogChan_Connection, "negotiation with host %s successful.",
+					getRemoteAddress().getCString());
+			Net_Printf("Successfully negotiated connection with host %s.", 
 					getRemoteAddress().getCString());
 		}
 		else
@@ -512,12 +641,13 @@ void Connection::parseNegotiationPacket(BitStream& stream)
 	// server offering connection to client?
 	if (mState == CONN_OFFERING)
 	{
-		if (serverProcessAcceptance(stream))
+		if (serverProcessAcceptance(packet))
 		{
 			// server confirms connected status to client
 			serverConfirmAcceptance();
 			mState = CONN_CONNECTED;
-			Net_LogPrintf(LogChan_Connection, "negotiation with %s successful.", getRemoteAddress().getCString());
+			Net_LogPrintf(LogChan_Connection, "negotiation with host %s successful.",
+					getRemoteAddress().getCString());
 		}
 		else
 		{
@@ -528,7 +658,7 @@ void Connection::parseNegotiationPacket(BitStream& stream)
 	// client requesting connection to server?
 	if (mState == CONN_REQUESTING)
 	{
-		if (clientProcessOffer(stream))
+		if (clientProcessOffer(packet))
 		{
 			// client accepts connection to server
 			clientAccept();
@@ -543,7 +673,7 @@ void Connection::parseNegotiationPacket(BitStream& stream)
 	// server listening for requests?
 	if (mState == CONN_LISTENING)
 	{
-		if (serverProcessRequest(stream))
+		if (serverProcessRequest(packet))
 		{
 			// server offers connection to client
 			serverOffer();
@@ -574,131 +704,22 @@ Packet::PacketType Connection::checkPacketType(BitStream& stream)
 
 
 //
-// Connection::parsePacketHeader
-//
-// Reads an incoming packet's header, recording the packet sequence number so
-// it can be acknowledged in the next outgoing packet. Also notifies the
-// registered MessageManagers of any outgoing packet sequence numbers the
-// remote host has acknowledged receiving or lost. Notification is guaranteed
-// to be handled in order of sequence number.
-//
-void Connection::parsePacketHeader(BitStream& stream)
-{
-	stream.readBits(1);		// read and ignore packet type since we already peeked at it
-	
-	// read the remote host's sequence number and store it so we can
-	// acknowledge receipt in the next outgoing packet.
-	Packet::PacketSequenceNumber in_seq;
-	in_seq.read(stream);
-
-	Net_LogPrintf(LogChan_Connection, "reading packet header from %s, sequence %u.", 
-					getRemoteAddress().getCString(), in_seq.getInteger());
-
-	if (mRecvSequenceValid)
-	{
-		// drop out-of-order packets
-		if (in_seq <= mRecvSequence)
-		{
-			Net_LogPrintf(LogChan_Connection, "dropping out-of-order packet " \
-					"from %s (sequence %u, last sequence %u).",
-					getRemoteAddress().getCString(), in_seq.getInteger(), mRecvSequence.getInteger());
-		
-			stream.clear();
-			return;
-		}
-
-		// Record the received sequence number and update the bitfield that
-		// stores acknowledgement for the N previously received sequence numbers.
-	
-		uint32_t diff = Packet::PacketSequenceNumber(in_seq - mRecvSequence).getInteger();
-		if (diff > 0)
-		{
-			// shift the window of received sequence numbers to make room
-			mRecvHistory <<= diff;
-			// add the previous sequence received
-			mRecvHistory.set(diff - 1);
-		}
-	}
-
-	mRecvSequence = in_seq;
-
-	// read the list of packets the remote host has acknowledge receiving
-	Packet::PacketSequenceNumber ack_seq;
-	ack_seq.read(stream);
-
-	BitFieldComponent ack_history_field(ACKNOWLEDGEMENT_COUNT);
-	ack_history_field.read(stream);
-	const BitField& ack_history = ack_history_field.get();
-
-	if (mLastAckSequenceValid)
-	{
-		// sanity check (acknowledging a packet we haven't sent yet?!?!)
-		if (ack_seq >= mSequence)
-		{
-			Net_Warning("Connection::parsePacketHeader: Remote host %s acknowledges an unknown packet.",
-					getRemoteAddress().getCString());
-			stream.clear();
-			return;
-		}
-
-		// sanity check (out of order acknowledgement)
-		if (ack_seq < mLastAckSequence)
-		{
-			Net_Warning("Connection::parsePacketHeader: Out-of-order acknowledgement from remote host %s.", 
-					getRemoteAddress().getCString());
-			stream.clear();
-			return;
-		}
-
-		for (Packet::PacketSequenceNumber seq = mLastAckSequence + 1; seq <= ack_seq; ++seq)
-		{
-			if (seq < ack_seq - ACKNOWLEDGEMENT_COUNT)
-			{
-				// seq is too old to fit in the ack_history window
-				// consider it lost
-				remoteHostLostPacket(seq);
-			}
-			else if (seq == ack_seq)
-			{
-				// seq is the most recent acknowledgement in the header
-				remoteHostReceivedPacket(seq);
-			}
-			else
-			{
-				// seq's delivery status is indicated by a bit in the
-				// ack_history bitfield
-				uint32_t bit = Packet::PacketSequenceNumber(ack_seq - seq - 1).getInteger();
-				if (ack_history.get(bit))
-					remoteHostReceivedPacket(seq);
-				else
-					remoteHostLostPacket(seq);
-			}
-		}
-	}
-
-	mLastAckSequence = ack_seq;
-}
-
-
-//
 // Connection::composePacketHeader
 //
 // Writes the header portion of a new packet. The type of the packet is
 // written first, followed by the outgoing sequence number and then the
 // acknowledgement of receipt for recent packets.
 //
-void Connection::composePacketHeader(const Packet::PacketType& type, BitStream& stream)
+void Connection::composePacketHeader(const Packet::PacketType& type, Packet& packet)
 {
-	Net_LogPrintf(LogChan_Connection, "writing packet header to %s, sequence %u.",
+	Net_LogPrintf(LogChan_Connection, "writing packet header to host %s, sequence %u.",
 				getRemoteAddress().getCString(), mSequence.getInteger());
 
-	stream.writeBits(type, 1);		// write packet type
+	packet.setType(type);
 
-	mSequence.write(stream);
-	mRecvSequence.write(stream);
-
-	BitFieldComponent ack_bitfield(mRecvHistory);
-	ack_bitfield.write(stream);
+	packet.setSequence(mSequence);
+	packet.setRecvSequence(mRecvSequence);
+	packet.setRecvHistory(mRecvHistory);
 
 	++mSequence;
 }
@@ -709,14 +730,17 @@ void Connection::composePacketHeader(const Packet::PacketType& type, BitStream& 
 // Writes the header for a new game packet and calls the registered
 // composition callbacks to write game data to the packet.
 //
-void Connection::composeGamePacket(BitStream& stream)
+void Connection::composeGamePacket(Packet& packet)
 {
-	Net_LogPrintf(LogChan_Connection, "composing packet to %s.", getRemoteAddress().getCString());
-	stream.clear();
-	composePacketHeader(Packet::GAME_PACKET, stream);
+	Net_LogPrintf(LogChan_Connection, "composing packet to host %s.", getRemoteAddress().getCString());
+
+	composePacketHeader(Packet::GAME_PACKET, packet);
+
+	BitStream& stream = packet.getPayload();
 
 	// TODO: determine packet_size using flow-control methods
-	uint32_t packet_size = mInterface->getBandwidth() * 1000 / TICRATE;
+	uint16_t packet_size = mInterface->getBandwidth() * 1000 / TICRATE;
+	packet_size = std::min(packet_size, stream.writeSize());
 
 	// call the registered packet composition functions to compose the payload
 
@@ -733,11 +757,11 @@ void Connection::composeGamePacket(BitStream& stream)
 //
 // Handles acknowledgement of packets
 //
-void Connection::parseGamePacket(BitStream& stream)
+void Connection::parseGamePacket(Packet& packet)
 {
-	Net_LogPrintf(LogChan_Connection, "processing packet from %s.", getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Connection, "processing packet from host %s.", getRemoteAddress().getCString());
 
-	parsePacketHeader(stream);
+	BitStream& stream = packet.getPayload();
 
 	// call the registered packet parser functions to parse the payload
 	uint16_t size_left = stream.readSize();
@@ -761,7 +785,8 @@ void Connection::remoteHostReceivedPacket(const Packet::PacketSequenceNumber seq
 	// weight factor for moving averages
 	static const double weight = 1.0 / 16.0;
 
-	Net_LogPrintf(LogChan_Connection, "remote host received packet %u.", seq.getInteger());
+	Net_LogPrintf(LogChan_Connection, "remote host %s received packet %u.", 
+			getRemoteAddress().getCString(), seq.getInteger());
 
 	dtime_t send_time = mPacketSendTimes.front();
 	dtime_t current_time = Net_CurrentTime();
@@ -802,7 +827,8 @@ void Connection::remoteHostLostPacket(const Packet::PacketSequenceNumber seq)
 	// weight factor for moving averages
 	static const double weight = 1.0 / 16.0;
 
-	Net_LogPrintf(LogChan_Connection, "remote host did not receive packet %u.", seq.getInteger());
+	Net_LogPrintf(LogChan_Connection, "remote host %s did not receive packet %u.", 
+			getRemoteAddress().getCString(), seq.getInteger());
 
 	mLostPacketCount++;
 	mPacketSendTimes.pop();

@@ -67,8 +67,8 @@ public:
 	virtual void closeConnection();
 
 	virtual void service();
-	virtual void sendPacket(BitStream& stream);
-	virtual void processPacket(BitStream& stream);
+	virtual void sendPacket(const Packet& packet);
+	virtual void processPacket(Packet& packet);
 
 	virtual void registerMessageManager(MessageManager* manager);
 
@@ -142,26 +142,26 @@ private:
 
 	Packet::PacketType checkPacketType(BitStream& stream);
 
-	void composePacketHeader(const Packet::PacketType& type, BitStream& stream);
-	void parsePacketHeader(BitStream& stream);
+	void composePacketHeader(const Packet::PacketType& type, Packet& packet);
 
-	void composeGamePacket(BitStream& stream);
-	void parseGamePacket(BitStream& stream);
-	void parseNegotiationPacket(BitStream& stream);	
+	void composeGamePacket(Packet& packet);
+	void parseGamePacket(Packet& packet);
+	void parseNegotiationPacket(Packet& packet);	
 
 	// ------------------------------------------------------------------------
 	// Connection establishment
 	// ------------------------------------------------------------------------
+	Packet::PacketSequenceNumber generateRandomSequence() const;
 	void resetState();
 
 	bool clientRequest();
-	bool serverProcessRequest(BitStream& stream);
+	bool serverProcessRequest(Packet& packet);
 	bool serverOffer();
-	bool clientProcessOffer(BitStream& stream);
+	bool clientProcessOffer(Packet& packet);
 	bool clientAccept();
-	bool serverProcessAcceptance(BitStream& stream);
+	bool serverProcessAcceptance(Packet& packet);
 	bool serverConfirmAcceptance();
-	bool clientProcessConfirmation(BitStream& stream);
+	bool clientProcessConfirmation(Packet& packet);
 
 };
 

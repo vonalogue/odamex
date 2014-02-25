@@ -29,6 +29,8 @@
 #include "hashtable.h"
 #include "m_ostring.h" 
 
+#include "net_packet.h"
+
 #ifdef _WIN32
 	#ifdef _XBOX
 		#include <xtl.h>
@@ -109,7 +111,7 @@ public:
 	bool isConnected(const ConnectionId& connection_id) const;
 	Connection* findConnection(const ConnectionId& connection_id);
 	const Connection* findConnection(const ConnectionId& connection_id) const;
-	void sendPacket(const ConnectionId& connection_id, BitStream& stream);
+	void sendPacket(const ConnectionId& connection_id, const Packet& packet);
 	void service();
 
 	typedef enum
@@ -160,7 +162,7 @@ private:
 	const Connection* findConnection(const SocketAddress& adr) const;
 	Connection* createNewConnection(const SocketAddress& remote_address);
 
-	void processPacket(const SocketAddress& remote_address, BitStream& stream);
+	void processPacket(const SocketAddress& remote_address, Packet& packet);
 
 	OString				mPassword;
 };

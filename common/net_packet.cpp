@@ -140,12 +140,12 @@ uint16_t Packet::writePacketData(uint8_t* buf, uint16_t size) const
 
 	header.readBlob(buf, HEADER_SIZE);
 
-	memcpy(buf + (HEADER_SIZE >> 3), mData->mPayload.getRawData(), mData->mPayload.bytesWritten());
+	memcpy(buf + BitsToBytes(HEADER_SIZE), mData->mPayload.getRawData(), mData->mPayload.bytesWritten());
 
 	// calculate CRC32 for the packet header & payload
 	BitStream trailer;
-	const uint32_t data_size = packet_size - TRAILER_SIZE;
-	uint32_t crcvalue = Net_CRC32(buf, data_size >> 3);
+	const uint32_t data_size = BitsToBytes(packet_size - TRAILER_SIZE);
+	uint32_t crcvalue = Net_CRC32(buf, data_size);
 
 	// write the calculated CRC32 value to the buffer
 	trailer.writeU32(crcvalue);
@@ -175,11 +175,11 @@ uint16_t Packet::readPacketData(const uint8_t* buf, uint16_t size)
 	mData->mRecvHistory.read(header);
 
 	const uint32_t payload_size = size - HEADER_SIZE - TRAILER_SIZE;
-	mData->mPayload.writeBlob(buf + HEADER_SIZE, payload_size);
+	mData->mPayload.writeBlob(buf + BitsToBytes(HEADER_SIZE), payload_size);
 
 	// calculate CRC32 for the packet header & payload
-	const uint32_t data_size = size - TRAILER_SIZE;
-	uint32_t crcvalue = Net_CRC32(buf, data_size >> 3);
+	const uint32_t data_size = BitsToBytes(size - TRAILER_SIZE);
+	uint32_t crcvalue = Net_CRC32(buf, data_size);
 
 	// verify the calculated CRC32 value matches the value in the packet
 	BitStream trailer;
@@ -189,6 +189,16 @@ uint16_t Packet::readPacketData(const uint8_t* buf, uint16_t size)
 	return size;
 }
 
+
+void Packet::setType(const Packet::PacketType value)
+{
+	mData->mType = value;
+}
+
+Packet::PacketType Packet::getType() const
+{
+	return mData->mType;
+}
 
 void Packet::setSequence(const Packet::PacketSequenceNumber value)
 {
@@ -224,6 +234,45 @@ const BitField& Packet::getRecvHistory() const
 BitStream& Packet::getPayload()
 {
 	return mData->mPayload;
+}
+
+
+//
+// Packet::dump
+//
+// Writes the contents of the packet to stdout in hexidecimal.
+//
+void Packet::dump() const
+{
+	printf("Packet Contents\n");
+	printf("---------------\n");
+
+	char ack_history[33];
+	ack_history[32] = 0;
+	for (int i = 0; i < 32; i++)
+		ack_history[i] = mData->mRecvHistory.get(i) ? '1' : '0';
+	 
+	printf("Seq: %u, Ack: %u, %s\n", mData->mSequence.getInteger(),
+				mData->mRecvSequence.getInteger(), ack_history);
+
+	const uint8_t* buf = mData->mPayload.getRawData();
+	uint16_t buflen = mData->mPayload.bytesWritten();
+
+	int i, j;
+	for (i = 0; i < buflen; i += 16)
+	{
+		printf("%06x: ", i);
+		for (j = 0; j < 16; j++) 
+			if (i + j < buflen)
+				printf("%02x ", buf[i + j]);
+			else
+				printf("   ");
+		printf(" ");
+		for (j = 0; j < 16; j++) 
+			if (i + j < buflen)
+				printf("%c", isprint(buf[i + j]) ? buf[i + j] : '.');
+		printf("\n");
+	}
 }
 
 

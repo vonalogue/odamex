@@ -75,9 +75,14 @@ public:
 	uint16_t writePacketData(uint8_t* buf, uint16_t size) const;
 	uint16_t readPacketData(const uint8_t* buf, uint16_t size);
 
+	void dump() const;
+
 	// ---------------------------------------------------------------------------
 	// accessors / mutators functions
 	// ---------------------------------------------------------------------------
+	void setType(const Packet::PacketType value);
+	Packet::PacketType getType() const;
+
 	void setSequence(const Packet::PacketSequenceNumber value);
 	Packet::PacketSequenceNumber getSequence() const;
 

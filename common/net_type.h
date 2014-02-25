@@ -400,6 +400,14 @@ private:
 	uint32_t				mSequence;
 };
 
+template <uint8_t N>
+int32_t SequenceNumberDifference(const SequenceNumber<N> a, const SequenceNumber<N> b)
+{
+	if (a > b)
+		return (a - b).getInteger();
+	else
+		return -(b - a).getInteger();	
+}
 
 // ============================================================================
 //

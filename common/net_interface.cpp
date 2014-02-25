@@ -94,7 +94,8 @@
 	#include "upnpcommands.h"
 #endif	// ODA_HAVE_MINIUPNP
 
-static const uint16_t MAX_INCOMING_SIZE = 8192;
+static const uint16_t MAX_INCOMING_SIZE = 8192;		// in bytes
+static const uint16_t MAX_OUTGOING_SIZE = 8192;
 
 EXTERN_CVAR(net_ip)
 EXTERN_CVAR(net_port)
@@ -199,7 +200,7 @@ void NetInterface::setPassword(const OString& password)
 //
 ConnectionId NetInterface::requestConnection(const SocketAddress& remote_address)
 {
-	Net_LogPrintf(LogChan_Interface, "requesting connection to %s.", remote_address.getCString());
+	Net_LogPrintf(LogChan_Interface, "requesting connection to host %s.", remote_address.getCString());
 
 	Connection* conn = createNewConnection(remote_address);
 	conn->openConnection();
@@ -219,7 +220,7 @@ void NetInterface::closeConnection(const ConnectionId& connection_id)
 	if (conn == NULL)
 		return;	
 
-	Net_LogPrintf(LogChan_Interface, "closing connection to %s.", conn->getRemoteAddress().getCString());
+	Net_LogPrintf(LogChan_Interface, "closing connection to host %s.", conn->getRemoteAddress().getCString());
 	conn->closeConnection();
 }
 
@@ -290,13 +291,17 @@ const Connection* NetInterface::findConnection(const ConnectionId& connection_id
 // is queued for delivery at a later time, dictated by the network effects
 // simulation code.
 //
-void NetInterface::sendPacket(const ConnectionId& connection_id, BitStream& stream)
+void NetInterface::sendPacket(const ConnectionId& connection_id, const Packet& packet)
 {
 	Connection* conn = findConnection(connection_id);
 	if (conn)
 	{
 		// TODO: insert the data into the packet queue
-		socketSend(conn->getRemoteAddress(), stream.getRawData(), stream.bytesWritten());
+		uint8_t buf[MAX_OUTGOING_SIZE];
+
+		const uint16_t packet_size = packet.getSize();
+		if (packet.writePacketData(buf, packet_size) == packet_size)
+			socketSend(conn->getRemoteAddress(), buf, BitsToBytes(packet_size));
 	}
 }
 
@@ -312,23 +317,16 @@ void NetInterface::service()
 //	servicePendingConnections();
 
 	// check for incoming packets
-	static uint8_t data[MAX_INCOMING_SIZE];
+	uint8_t buf[MAX_INCOMING_SIZE];
 	uint16_t size = 0;
 	SocketAddress source;
 
-	while (socketRecv(source, data, size))
+	while (socketRecv(source, buf, size))
 	{
-		BitStream stream;
-		if (size * 8 > stream.writeSize())
-		{
-			Net_Warning("NetInterface::service: packet of size %u bits from host %s " \
-						"will not fit into BitStream of size %u bits\n",
-						source.getCString(), size * 8, stream.writeSize());
-			continue;
-		}
- 
-		stream.writeBlob(data, size * 8);
-		processPacket(source, stream);
+		Packet packet = PacketFactory::createPacket();
+		uint16_t packet_size = BytesToBits(size);
+		if (packet.readPacketData(buf, packet_size) == packet_size)
+			processPacket(source, packet);
 	}
 
 	// iterate through all of the connections and call their service function
@@ -342,7 +340,8 @@ void NetInterface::service()
 		// they will be freed later after a time-out period
 		if (!conn->isTerminated() && conn->isTimedOut())
 		{
-			Net_LogPrintf(LogChan_Interface, "connection to %s timed-out.", conn->getRemoteAddress().getCString());
+			Net_LogPrintf(LogChan_Interface, "connection to host %s timed-out.",
+					conn->getRemoteAddress().getCString());
 			conn->closeConnection();
 		}
 	}
@@ -357,7 +356,7 @@ void NetInterface::service()
 		Connection* conn = it->second;
 		if (conn->isTerminated() && conn->isTimedOut())
 		{
-			Net_LogPrintf(LogChan_Interface, "removing terminated connection to %s.", 
+			Net_LogPrintf(LogChan_Interface, "removing terminated connection to host %s.", 
 					conn->getRemoteAddress().getCString());
 			mConnectionsById.erase(conn->getConnectionId());
 			mConnectionsByAddress.erase(conn->getRemoteAddress());
@@ -516,7 +515,8 @@ static bool Net_UPNPClose(const SocketAddress& local_address)
 		return false;
     }
 }
-#endif
+
+#endif	// ODA_HAVE_MINIUPNP
 
 
 // ----------------------------------------------------------------------------
@@ -811,28 +811,26 @@ Connection* NetInterface::createNewConnection(const SocketAddress& remote_addres
 //
 // Handles the processing and delivery of incoming packets.
 //
-void NetInterface::processPacket(const SocketAddress& remote_address, BitStream& stream)
+void NetInterface::processPacket(const SocketAddress& remote_address, Packet& packet)
 {
 	Connection* conn = findConnection(remote_address);
-
-	if (conn)
+	if (conn == NULL)
 	{
-
-
-	}
-	else if (mHostType == HOST_SERVER)
-	{
-		// packet from an unknown host
-		Net_LogPrintf(LogChan_Interface, "received packet from an unknown host %s.", remote_address.getCString());
-		conn = createNewConnection(remote_address);
-	}
-	else
-	{
-		// clients shouldn't accept packets from unknown sources
-		return;
+		if (mHostType == HOST_SERVER)
+		{
+			// packet from an unknown host
+			Net_LogPrintf(LogChan_Interface, "received packet from an unknown host %s.", remote_address.getCString());
+			conn = createNewConnection(remote_address);
+		}
+		else
+		{
+			// clients shouldn't accept packets from unknown sources
+			Net_Warning("received packet from unknown host %s.", remote_address.getCString());
+			return;
+		}
 	}
 
-	conn->processPacket(stream);
+	conn->processPacket(packet);
 }
 
 

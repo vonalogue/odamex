@@ -280,10 +280,10 @@ void Net_Warning(const char* str, ...)
 	va_start(args, str);
 
 	vsnprintf(printbuf, printbuf_size, str, args);
-	fprintf(stderr, "%s: %s\n", prefix, printbuf);
+	fprintf(stdout, "%s: %s\n", prefix, printbuf);
 
 	va_end(args);
-	fflush(stderr);
+	fflush(stdout);
 }
 
 void Net_Error(const char* str, ...)
