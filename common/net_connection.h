@@ -140,8 +140,6 @@ private:
 	typedef std::vector<MessageManager*> MessageManagerList;
 	MessageManagerList					mMessageManagers;
 
-	Packet::PacketType checkPacketType(BitStream& stream);
-
 	void composePacketHeader(const Packet::PacketType& type, Packet& packet);
 
 	void composeGamePacket(Packet& packet);

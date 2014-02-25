@@ -296,8 +296,7 @@ void Connection::service()
 		mConnectionAttempt <= NEGOTIATION_ATTEMPTS &&
 		Net_CurrentTime() >= mConnectionAttemptTimeOutTS)
 	{
-		Net_Printf("Re-requesting connection to server %s...",
-				getRemoteAddress().getCString());
+		Net_Printf("Re-requesting connection to server %s...", getRemoteAddress().getCString());
 		clientRequest();
 	}
 
@@ -354,6 +353,7 @@ void Connection::resetState()
 	mRecvSequenceValid = false;
 	mRecvHistory.clear();
 	mSequence = generateRandomSequence();
+	mConnectionAttempt = 0;
 }
 
 
@@ -365,6 +365,8 @@ void Connection::resetState()
 //
 bool Connection::clientRequest()
 {
+	resetState();
+
 	++mConnectionAttempt;
 	mConnectionAttemptTimeOutTS = Net_CurrentTime() + NEGOTIATION_TIMEOUT;
 
@@ -395,6 +397,7 @@ bool Connection::serverProcessRequest(Packet& packet)
 	Net_LogPrintf(LogChan_Connection, "processing connection request packet from host %s.",
 			getRemoteAddress().getCString());
 
+	// received a valid sequence number from the client
 	mRecvSequenceValid = true;
 
 	BitStream& stream = packet.getPayload();
@@ -475,6 +478,7 @@ bool Connection::clientProcessOffer(Packet& packet)
 	Net_LogPrintf(LogChan_Connection, "processing connection offer packet from host %s.",
 			getRemoteAddress().getCString());
  
+	// received a valid sequence number from the server
 	mRecvSequenceValid = true;
 	
 	BitStream& stream = packet.getPayload();
@@ -535,6 +539,7 @@ bool Connection::serverProcessAcceptance(Packet& packet)
 	Net_LogPrintf(LogChan_Connection, "processing connection acceptance packet from host %s.",
 				getRemoteAddress().getCString());
 
+	// the client has acknowledged receiving the server's first packet
 	mLastAckSequenceValid = true;
 
 	BitStream& stream = packet.getPayload();
@@ -591,8 +596,8 @@ bool Connection::clientProcessConfirmation(Packet& packet)
 	Net_LogPrintf(LogChan_Connection, "processing connection confirmation packet from host %s.",
 			getRemoteAddress().getCString());
 
+	// the server has acknowledged receiving the client's first packet
 	mLastAckSequenceValid = true;
-
 
 	return true;
 }
@@ -684,22 +689,6 @@ void Connection::parseNegotiationPacket(Packet& packet)
 			resetState();
 		}
 	}
-}
-
-
-//
-// Connection::checkPacketType
-//
-// Determines the type of a packet by examining the header.
-//
-Packet::PacketType Connection::checkPacketType(BitStream& stream)
-{
-	if (stream.peekU32() == CONNECTION_SEQUENCE ||
-		stream.peekU32() == TERMINATION_SEQUENCE)
-		return Packet::NEGOTIATION_PACKET;
-
-	// the first bit of the packet determines the type
-	return static_cast<Packet::PacketType>(stream.peekU8() >> 7);
 }
 
 
