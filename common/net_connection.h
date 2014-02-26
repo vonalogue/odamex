@@ -38,6 +38,97 @@ class MessageManager;
 
 // ============================================================================
 //
+// ConnectionStatistics class interface
+//
+// Contains a set of functions to calculate various Connection statistics
+// useful for gauging the quality of the connection between two hosts.
+//
+// ============================================================================
+
+class ConnectionStatistics
+{
+public:
+	ConnectionStatistics();
+
+	void clear();
+
+	void outgoingPacketSent(const Packet::PacketSequenceNumber seq, uint16_t size);
+	void outgoingPacketAcknowledged(const Packet::PacketSequenceNumber seq);
+	void outgoingPacketLost(const Packet::PacketSequenceNumber seq);
+	void incomingPacketReceived(const Packet::PacketSequenceNumber seq, uint16_t size);
+	void incomingPacketLost(const Packet::PacketSequenceNumber seq);
+
+	// ---------------------------------------------------------------------------
+	// Accessor functions
+	// ---------------------------------------------------------------------------
+
+	uint32_t getTotalOutgoingBits() const
+	{	return mOutgoingBits;	}
+
+	uint32_t getTotalIncomingBits() const
+	{	return mIncomingBits;	}
+
+	uint32_t getTotalOutgoingPackets() const
+	{	return mOutgoingPackets;	}
+
+	uint32_t getTotalIncomingPackets() const
+	{	return mIncomingPackets;	}
+
+	uint32_t getTotalLostOutgoingPackets() const
+	{	return mLostOutgoingPackets;	}
+
+	uint32_t getTotalLostIncomingPackets() const
+	{	return mLostIncomingPackets;	}
+
+	double getRoundTripTime() const
+	{	return mAvgRoundTripTime;	}
+
+	double getJitterTime() const
+	{	return mAvgJitterTime;	}
+
+	double getOutgoingPacketLoss() const
+	{	return mAvgOutgoingPacketLoss;	}
+
+	double getIncomingPacketLoss() const
+	{	return mAvgIncomingPacketLoss;	}
+
+	double getOutgoingBitrate() const
+	{	return mAvgOutgoingBitrate;	}
+
+	double getIncomingBitrate() const
+	{	return mAvgIncomingBitrate;	}
+
+private:
+	static const double AVG_WEIGHT = 1.0 / 16.0;
+
+	uint32_t		mOutgoingBits;
+	uint32_t		mIncomingBits;
+
+	uint32_t		mOutgoingPackets;
+	uint32_t		mIncomingPackets;
+
+	uint32_t		mLostOutgoingPackets;
+	uint32_t		mLostIncomingPackets;
+
+	std::queue<dtime_t>		mOutgoingTimestamps;
+
+	double			mAvgRoundTripTime;
+	double			mAvgJitterTime;
+	double			mAvgOutgoingPacketLoss;
+	double			mAvgIncomingPacketLoss;
+	double			mAvgOutgoingBitrate;
+	double			mAvgIncomingBitrate;
+
+	double			mAvgOutgoingSize;
+	double			mAvgIncomingSize;
+
+	dtime_t			mLastOutgoingTimestamp;
+	dtime_t			mLastIncomingTimestamp;
+};
+
+
+// ============================================================================
+//
 // Connection base class Interface
 //
 // Connection classes represent a coupling between two hosts on a network.
@@ -121,18 +212,10 @@ private:
 	// ------------------------------------------------------------------------
 	// Statistical tracking
 	// ------------------------------------------------------------------------
+	ConnectionStatistics	mConnectionStats;
+
 	void remoteHostReceivedPacket(const Packet::PacketSequenceNumber seq);
 	void remoteHostLostPacket(const Packet::PacketSequenceNumber seq);
-
-	uint32_t				mSentPacketCount;
-	uint32_t				mLostPacketCount;
-	uint32_t				mRecvPacketCount;
-
-	double					mAvgRoundTripTime;
-	double					mAvgJitterTime;
-	double					mAvgLostPacketPercentage;
-
-	std::queue<dtime_t>		mPacketSendTimes;
 
 	// ------------------------------------------------------------------------
 	// Packet composition and parsing

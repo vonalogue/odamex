@@ -39,6 +39,145 @@
 
 EXTERN_CVAR(net_maxrate)
 
+
+// ============================================================================
+//
+// ConnectionStatistics
+//
+// ============================================================================
+
+ConnectionStatistics::ConnectionStatistics()
+{
+	clear();
+}
+
+//
+// ConnectionStatistics::clear
+//
+void ConnectionStatistics::clear()
+{
+	mOutgoingBits = mIncomingBits = 0;
+	mOutgoingPackets = mIncomingPackets = 0;
+	mLostOutgoingPackets = mLostIncomingPackets = 0;
+
+	while (!mOutgoingTimestamps.empty())
+		mOutgoingTimestamps.pop();
+
+	mAvgRoundTripTime = 0.0;
+	mAvgJitterTime = 0.0;
+	mAvgOutgoingPacketLoss = mAvgIncomingPacketLoss = 0.0;
+
+	mAvgOutgoingBitrate = mAvgIncomingBitrate = 0.0;
+	mAvgOutgoingSize = mAvgIncomingSize = 0.0;
+}
+
+
+//
+// ConnectionStatistics::outgoingPacketSent
+//
+void ConnectionStatistics::outgoingPacketSent(const Packet::PacketSequenceNumber seq, uint16_t size)
+{
+	const dtime_t current_timestamp = Net_CurrentTime();
+
+	if (mLastOutgoingTimestamp > 0)
+	{
+		// calculate how much time elapsed since the last packet was sent
+		double time_since_last_send = double(current_timestamp - mLastOutgoingTimestamp) / ONE_SECOND;
+		double current_outgoing_bitrate = double(size) / time_since_last_send;
+
+		mAvgOutgoingBitrate =
+				mAvgOutgoingBitrate * (1.0 - AVG_WEIGHT) + current_outgoing_bitrate * AVG_WEIGHT;
+	}
+
+	if (mAvgOutgoingSize > 0.0)
+		mAvgOutgoingSize =
+				mAvgOutgoingSize * (1.0 - AVG_WEIGHT) + size * AVG_WEIGHT;
+	else
+		mAvgOutgoingSize = double(size);
+
+	// add the timestamp to the queue
+	mOutgoingTimestamps.push(current_timestamp);
+
+	mOutgoingPackets++;	
+	mOutgoingBits += size;
+
+	mLastOutgoingTimestamp = current_timestamp;	
+}
+
+
+//
+// ConnectionStatistics::outgoingPacketAcknowledged
+//
+void ConnectionStatistics::outgoingPacketAcknowledged(const Packet::PacketSequenceNumber seq)
+{
+	const dtime_t current_timestamp = Net_CurrentTime();
+
+	// calculate round-trip-time based on current time and timestamp
+	// the packet was sent
+	assert(mOutgoingTimestamps.empty() == false);
+	double current_rtt = double(current_timestamp - mOutgoingTimestamps.front()) / ONE_SECOND;
+
+	mAvgJitterTime =
+			mAvgJitterTime * (1.0 - AVG_WEIGHT) + (current_rtt - mAvgRoundTripTime) * AVG_WEIGHT;
+
+	if (mAvgRoundTripTime > 0.0)
+		mAvgRoundTripTime = mAvgRoundTripTime * (1.0 - AVG_WEIGHT) + current_rtt * AVG_WEIGHT;
+	else
+		mAvgRoundTripTime = current_rtt;
+
+	mAvgOutgoingPacketLoss = mAvgOutgoingPacketLoss * (1.0 - AVG_WEIGHT);
+
+	mOutgoingTimestamps.pop();
+}
+
+
+//
+// ConnectionStatistics::outgoingPacketLost
+//
+void ConnectionStatistics::outgoingPacketLost(const Packet::PacketSequenceNumber seq)
+{
+	mAvgOutgoingPacketLoss = mAvgOutgoingPacketLoss * (1.0 - AVG_WEIGHT) + AVG_WEIGHT;
+
+	mLostOutgoingPackets++;
+
+	mOutgoingTimestamps.pop();
+}
+
+
+//
+// ConnectionStatistics::incomingPacketReceived
+//
+void ConnectionStatistics::incomingPacketReceived(const Packet::PacketSequenceNumber seq, uint16_t size)
+{
+	const dtime_t current_timestamp = Net_CurrentTime();
+
+	if (mLastIncomingTimestamp > 0)
+	{
+		// calculate how much time elapsed since the last packet was received
+		double time_since_last_recv = double(current_timestamp - mLastIncomingTimestamp) / ONE_SECOND;
+		double current_incoming_bitrate = double(size) / time_since_last_recv;
+
+		mAvgIncomingBitrate =
+				mAvgIncomingBitrate * (1.0 - AVG_WEIGHT) + current_incoming_bitrate * AVG_WEIGHT;
+	}
+
+	mIncomingPackets++;
+	mIncomingBits += size;
+
+	mLastIncomingTimestamp = current_timestamp;
+}
+
+
+//
+// ConnectionStatistics::incomingPacketLost
+//
+void ConnectionStatistics::incomingPacketLost(const Packet::PacketSequenceNumber seq)
+{
+	mAvgIncomingPacketLoss = mAvgIncomingPacketLoss * (1.0 - AVG_WEIGHT) + AVG_WEIGHT;
+	mLostIncomingPackets++;
+}
+
+
 // ============================================================================
 //
 // Connection class Implementation
@@ -64,9 +203,7 @@ Connection::Connection(const ConnectionId& connection_id, NetInterface* interfac
 	mToken(0), mTokenTimeOutTS(0),
 	mSequence(generateRandomSequence()),
 	mLastAckSequenceValid(false), mRecvSequenceValid(false),
-	mRecvHistory(ACKNOWLEDGEMENT_COUNT),
-	mSentPacketCount(0), mLostPacketCount(0), mRecvPacketCount(0),
-	mAvgRoundTripTime(0.0), mAvgJitterTime(0.0), mAvgLostPacketPercentage(0.0)
+	mRecvHistory(ACKNOWLEDGEMENT_COUNT)
 {
 	resetState();
 }
@@ -165,8 +302,8 @@ void Connection::sendPacket(const Packet& packet)
 		return;
 
 	mInterface->sendPacket(mConnectionId, packet);
-	++mSentPacketCount;
-	mPacketSendTimes.push(Net_CurrentTime());
+
+	mConnectionStats.outgoingPacketSent(packet.getSequence(), packet.getSize());
 }
 
 
@@ -186,8 +323,6 @@ void Connection::processPacket(Packet& packet)
 {
 	if (mState == CONN_TERMINATED)
 		return;
-
-	++mRecvPacketCount;
 
 	if (packet.isCorrupted())
 	{
@@ -210,6 +345,11 @@ void Connection::processPacket(Packet& packet)
 		int32_t diff = SequenceNumberDifference(in_seq, mRecvSequence);
 		if (diff > 0)
 		{
+			// if diff > 1 there is a gap in received sequence numbers and
+			// indicates incoming packets have been lost 
+			for (int32_t i = 1; i < diff; i++)
+				mConnectionStats.incomingPacketLost(mRecvSequence + i);
+
 			// Record the received sequence number and update the bitfield that
 			// stores acknowledgement for the N previously received sequence numbers.
 
@@ -228,6 +368,7 @@ void Connection::processPacket(Packet& packet)
 		}
 	}
 
+	mConnectionStats.incomingPacketReceived(packet.getSequence(), packet.getSize());
 	mRecvSequence = in_seq;
 
 	if (mLastAckSequenceValid)
@@ -354,6 +495,7 @@ void Connection::resetState()
 	mRecvHistory.clear();
 	mSequence = generateRandomSequence();
 	mConnectionAttempt = 0;
+	mConnectionStats.clear();
 }
 
 
@@ -771,27 +913,10 @@ void Connection::parseGamePacket(Packet& packet)
 //
 void Connection::remoteHostReceivedPacket(const Packet::PacketSequenceNumber seq)
 {
-	// weight factor for moving averages
-	static const double weight = 1.0 / 16.0;
-
 	Net_LogPrintf(LogChan_Connection, "remote host %s received packet %u.", 
 			getRemoteAddress().getCString(), seq.getInteger());
 
-	dtime_t send_time = mPacketSendTimes.front();
-	dtime_t current_time = Net_CurrentTime();
-	mPacketSendTimes.pop();
-
-	double current_rtt = double(current_time - send_time) / ONE_SECOND;
-	double current_jitter = current_rtt - mAvgRoundTripTime;
-
-	// calculate the weighted moving average for round trip time
-	mAvgRoundTripTime = weight * current_rtt + (1.0 - weight) * mAvgRoundTripTime;
-
-	// calculate the weighted moving average for jitter
-	mAvgJitterTime = weight * current_jitter + (1.0 - weight) * mAvgJitterTime;
-
-	// calculate the weighted moving average for packet loss
-	mAvgLostPacketPercentage = weight * 0.0 + (1.0 - weight) * mAvgLostPacketPercentage;
+	mConnectionStats.outgoingPacketAcknowledged(seq);
 
 	if (isConnected())
 	{
@@ -813,16 +938,10 @@ void Connection::remoteHostReceivedPacket(const Packet::PacketSequenceNumber seq
 //
 void Connection::remoteHostLostPacket(const Packet::PacketSequenceNumber seq)
 {
-	// weight factor for moving averages
-	static const double weight = 1.0 / 16.0;
-
 	Net_LogPrintf(LogChan_Connection, "remote host %s did not receive packet %u.", 
 			getRemoteAddress().getCString(), seq.getInteger());
 
-	mLostPacketCount++;
-	mPacketSendTimes.pop();
-
-	mAvgLostPacketPercentage = weight * 1.0 + (1.0 - weight) * mAvgLostPacketPercentage;
+	mConnectionStats.outgoingPacketLost(seq);
 
 	if (isConnected())
 	{
