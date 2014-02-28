@@ -39,55 +39,40 @@
 //
 // ============================================================================
 
+template <uint32_t N>
 class BitField
 {
 public:
-	BitField(uint16_t size) : mSize(size), mByteCount((size + 7) >> 3)
+	BitField()
 	{
-		mData = new uint8_t[mByteCount];
 		clear();
 	}
 
-	BitField(const BitField& other) : mSize(other.mSize), mByteCount(other.mByteCount)
+	BitField(const BitField<N>& other)
 	{
-		mData = new uint8_t[mByteCount];
-		memcpy(mData, other.mData, mByteCount);
+		memcpy(mData, other.mData, BYTE_COUNT);
 	}
 
-	~BitField()
-	{
-		delete [] mData;
-	}
-
-	BitField& operator=(const BitField& other)
+	BitField<N>& operator=(const BitField<N>& other)
 	{
 		if (&other != this)
-		{
-			if (mByteCount != other.mByteCount)
-			{
-				delete [] mData;
-				mData = new uint8_t[other.mByteCount];
-			}
-			mSize = other.mSize;
-			mByteCount = other.mByteCount;
-			memcpy(mData, other.mData, mByteCount);
-		}
+			memcpy(mData, other.mData, BYTE_COUNT);
 		return *this;
 	}
 
 	uint16_t size() const
 	{
-		return mSize;
+		return N;
 	}
 
 	void clear()
 	{
-		memset(mData, 0, mByteCount);
+		memset(mData, 0, BYTE_COUNT);
 	}
 
 	bool empty() const
 	{
-		for (uint32_t i = 0; i < mByteCount; ++i)
+		for (uint32_t i = 0; i < BYTE_COUNT; ++i)
 			if (mData[i] != 0)
 				return false;
 		return true;
@@ -95,19 +80,19 @@ public:
 
 	void set(uint32_t flag)
 	{
-		if (flag < mSize)
+		if (flag < N)
 			mData[flag >> 3] |= (1 << (flag & 0x7));
 	}
 
 	void unset(uint32_t flag)
 	{
-		if (flag < mSize)
+		if (flag < N)
 			mData[flag >> 3] &= ~(1 << (flag & 0x7));
 	}
 
 	bool get(uint32_t flag) const
 	{
-		if (flag < mSize)
+		if (flag < N)
 			return (mData[flag >> 3] & (1 << (flag & 0x7))) != 0;
 		return false;
 	}
@@ -115,103 +100,99 @@ public:
 	void read(BitStream& stream)
 	{
 		clear();
-		for (uint32_t i = 0; i < mSize; i++)
+		for (uint32_t i = 0; i < N; i++)
 			if (stream.readBit() == 1)
 				set(i);
 	}
 
 	void write(BitStream& stream) const
 	{
-		for (uint32_t i = 0; i < mSize; i++)
+		for (uint32_t i = 0; i < N; i++)
 			stream.writeBit(get(i));
 	}
 
-	bool operator== (const BitField& other) const
+	bool operator== (const BitField<N>& other) const
 	{
-		if (mByteCount != other.mByteCount)
-			return false;
-
-		for (uint32_t i = 0; i < mByteCount; ++i)
+		for (uint32_t i = 0; i < BYTE_COUNT - 1; ++i)
 			if (mData[i] != other.mData[i])
 				return false;
+		
 		return true;
 	}
 
-	bool operator!= (const BitField& other) const
+	bool operator!= (const BitField<N>& other) const
 	{
-		return (operator==(other) == false);
+		return !operator==(other);
 	}
 
-	BitField operator| (const BitField& other) const
+	BitField<N> operator| (const BitField<N>& other) const
 	{
-		BitField result(*this);
+		BitField<N> result(*this);
 		result |= other;
 		return result;
 	}
 
-	BitField operator& (const BitField& other) const
+	BitField<N> operator& (const BitField<N>& other) const
 	{
-		BitField result(*this);
+		BitField<N> result(*this);
 		result &= other;
 		return result;
 	}
 
-	BitField operator^ (const BitField& other) const
+	BitField<N> operator^ (const BitField<N>& other) const
 	{
-		BitField result(*this);
+		BitField<N> result(*this);
 		result ^= other;
 		return result;
 	}
 
-	BitField operator~ () const
+	BitField<N> operator~ () const
 	{
-		BitField result(mSize);
-		for (uint32_t i = 0; i < mByteCount; ++i)
+		BitField<N> result;
+		for (uint32_t i = 0; i < BYTE_COUNT; ++i)
 			result.mData[i] = ~mData[i];
+		
 		return result;
 	}
 
-	BitField& operator|= (const BitField& other)
+	BitField<N>& operator|= (const BitField<N>& other)
 	{
-		expand(other);
-		for (uint32_t i = 0; i < mByteCount; ++i)
+		for (uint32_t i = 0; i < BYTE_COUNT; ++i)
 			mData[i] |= other.mData[i];
 		return *this;
 	}
 
-	BitField& operator&= (const BitField& other)
+	BitField<N>& operator&= (const BitField<N>& other)
 	{
-		expand(other);
-		for (uint32_t i = 0; i < mByteCount; ++i)
+		for (uint32_t i = 0; i < BYTE_COUNT; ++i)
 			mData[i] &= other.mData[i];
 		return *this;
 	}
 
-	BitField& operator^= (const BitField& other)
+	BitField<N>& operator^= (const BitField<N>& other)
 	{
-		expand(other);
-		for (uint32_t i = 0; i < mByteCount; ++i)
+		for (uint32_t i = 0; i < BYTE_COUNT; ++i)
 			mData[i] ^= other.mData[i];
 		return *this;
 	}
 
-	BitField operator>> (uint32_t cnt) const
+	BitField<N> operator>> (uint32_t cnt) const
 	{
-		BitField result(*this);
+		BitField<N> result(*this);
 		result >>= cnt;
 		return result;
 	}
 
-	BitField operator<< (uint32_t cnt) const
+	BitField<N> operator<< (uint32_t cnt) const
 	{
-		BitField result(*this);
+		BitField<N> result(*this);
 		result <<= cnt;
 		return result;	
 	}
 
-	BitField& operator>>= (uint32_t cnt)
+	BitField<N>& operator>>= (uint32_t cnt)
 	{
-		if (cnt >= mSize)
+		if (cnt >= N)
 		{
 			clear();
 			return *this;
@@ -219,17 +200,17 @@ public:
 
 		const uint32_t byteshift = cnt >> 3;
 		const uint32_t bitshift = cnt & 0x07;
-		for (int i = 0; i < (int)mByteCount - (int)byteshift - 1; ++i)
+		for (int i = 0; i < (int)BYTE_COUNT - (int)byteshift - 1; ++i)
 			mData[i] = (mData[i + byteshift] >> bitshift) | (mData[i + byteshift + 1] << (8 - bitshift));
-		mData[mByteCount - byteshift - 1] = mData[mByteCount - 1] >> bitshift;
-		memset(mData + mByteCount - byteshift, 0, byteshift);
+		mData[BYTE_COUNT - byteshift - 1] = mData[BYTE_COUNT - 1] >> bitshift;
+		memset(mData + BYTE_COUNT - byteshift, 0, byteshift);
 
 		return *this;
 	}
 
-	BitField& operator<<= (uint32_t cnt)
+	BitField<N>& operator<<= (uint32_t cnt)
 	{
-		if (cnt >= mSize)
+		if (cnt >= N)
 		{
 			clear();
 			return *this;
@@ -237,7 +218,7 @@ public:
 
 		const uint32_t byteshift = cnt >> 3;
 		const uint32_t bitshift = cnt & 0x07;
-		for (int i = (int)mByteCount - 1; i > (int)byteshift; --i)
+		for (int i = (int)BYTE_COUNT - 1; i > (int)byteshift; --i)
 			mData[i] = (mData[i - byteshift] << bitshift) | (mData[i - byteshift - 1] >> (8 - bitshift));
 		mData[byteshift] = mData[0] << bitshift;
 		memset(mData, 0, byteshift);
@@ -246,23 +227,9 @@ public:
 	}
 
 private:
-	void expand(const BitField& other)
-	{
-		if (mByteCount < other.mByteCount)
-		{
-			uint8_t* newdata = new uint8_t[other.mByteCount];
-			memset(newdata + mByteCount, 0, other.mByteCount - mByteCount);
-			memcpy(newdata, mData, mByteCount);
-			delete [] mData;
-			mData = newdata;
-			mSize = other.mSize;
-			mByteCount = other.mByteCount;
-		}
-	}
-
-	uint16_t mSize;
-	uint16_t mByteCount;
-	uint8_t* mData;
+	static const uint32_t BYTE_COUNT = (N + 7) / 8;
+	static const uint8_t LAST_BYTE_MASK = (N & 7);
+	uint8_t		mData[BYTE_COUNT];
 };
 
 

@@ -472,11 +472,12 @@ private:
 // 
 // ============================================================================
 
+template <uint32_t N>
 class BitFieldComponent : public Component
 {
 public:
-	BitFieldComponent(uint32_t num_fields = 32);
-	BitFieldComponent(const BitField& value);
+	BitFieldComponent();
+	BitFieldComponent(const BitField<N>& value);
 	virtual ~BitFieldComponent() { }
 
 	virtual const OString& getTypeName() const
@@ -492,14 +493,14 @@ public:
 	uint16_t read(BitStream& stream);
 	uint16_t write(BitStream& stream) const;
 
-	inline operator BitField() const
+	inline operator BitField<N>() const
 		{ return mBitField; }
-	inline const BitField& get() const
+	inline const BitField<N>& get() const
 		{ return mBitField; }
 
-	inline BitFieldComponent& operator=(const BitField& value)
+	inline BitFieldComponent& operator=(const BitField<N>& value)
 		{ mBitField = value; return *this; }
-	inline void set(const BitField& value)
+	inline void set(const BitField<N>& value)
 		{ mBitField = value; }
 
 	inline BitFieldComponent* clone() const
@@ -509,7 +510,7 @@ private:
 	static const OString	mTypeName;
 	static const OString	mTypeParentName;
 
-	BitField				mBitField;
+	BitField<N>				mBitField;
 };
 
 

@@ -89,8 +89,11 @@ public:
 	void setRecvSequence(const Packet::PacketSequenceNumber value);
 	Packet::PacketSequenceNumber getRecvSequence() const;
 
-	void setRecvHistory(const BitField& value);
-	const BitField& getRecvHistory() const;
+	void setRecvHistory(const BitField<32>& value)
+	{	mData->mRecvHistory = value;	}
+
+	const BitField<32>& getRecvHistory() const
+	{	return mData->mRecvHistory;		}
 
 	BitStream& getPayload();
 
@@ -102,7 +105,7 @@ private:
 
 	struct PacketData
 	{
-		PacketData() : mRefCount(0), mRecvHistory(32), mCorrupted(false) { }
+		PacketData() : mRefCount(0), mCorrupted(false) { }
 		
 		void clear() {	mCorrupted = false; mPayload.clear();	}
 
@@ -111,7 +114,7 @@ private:
 		PacketType				mType;
 		PacketSequenceNumber	mSequence;
 		PacketSequenceNumber	mRecvSequence;
-		BitField				mRecvHistory;
+		BitField<32>			mRecvHistory;
 		bool					mCorrupted;
 
 		BitStream				mPayload;

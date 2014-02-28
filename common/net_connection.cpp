@@ -202,8 +202,7 @@ Connection::Connection(const ConnectionId& connection_id, NetInterface* interfac
 	mConnectionAttempt(0), mConnectionAttemptTimeOutTS(0),
 	mToken(0), mTokenTimeOutTS(0),
 	mSequence(generateRandomSequence()),
-	mLastAckSequenceValid(false), mRecvSequenceValid(false),
-	mRecvHistory(ACKNOWLEDGEMENT_COUNT)
+	mLastAckSequenceValid(false), mRecvSequenceValid(false)
 {
 	resetState();
 }
@@ -334,7 +333,7 @@ void Connection::processPacket(Packet& packet)
 	// examine the packet's header
 	Packet::PacketSequenceNumber in_seq(packet.getSequence());
 	Packet::PacketSequenceNumber ack_seq(packet.getRecvSequence());
-	BitField ack_history(packet.getRecvHistory());
+	BitField<32> ack_history(packet.getRecvHistory());
 
 	Net_LogPrintf(LogChan_Connection, "processing %s packet from host %s, sequence %u.",
 					packet.getType() == Packet::NEGOTIATION_PACKET ? "negotiation" : "game",
@@ -448,6 +447,9 @@ void Connection::service()
 		composeGamePacket(packet);
 		sendPacket(packet);
 	}
+
+	Printf(PRINT_HIGH, "outgoing bitrate: %f, incoming bitrate: %f\n",
+		mConnectionStats.getOutgoingBitrate(), mConnectionStats.getIncomingBitrate());
 }
 
 

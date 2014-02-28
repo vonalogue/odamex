@@ -220,17 +220,6 @@ Packet::PacketSequenceNumber Packet::getRecvSequence() const
 	return mData->mRecvSequence;
 }
 
-void Packet::setRecvHistory(const BitField& value)
-{
-	mData->mRecvHistory = value;
-}
-
-const BitField& Packet::getRecvHistory() const
-{
-	return mData->mRecvHistory;
-}
-
-
 BitStream& Packet::getPayload()
 {
 	return mData->mPayload;

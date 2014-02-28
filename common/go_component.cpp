@@ -189,18 +189,23 @@ const OString V3FixedComponent::mTypeParentName(BaseTypeName);
 // 
 // ============================================================================
 
-const OString BitFieldComponent::mTypeName("bitfield");
-const OString BitFieldComponent::mTypeParentName(BaseTypeName);
+template <uint32_t N>
+const OString BitFieldComponent<N>::mTypeName("bitfield" + N);
 
-BitFieldComponent::BitFieldComponent(uint32_t num_fields) :
-	mBitField(num_fields)
+template <uint32_t N>
+const OString BitFieldComponent<N>::mTypeParentName(BaseTypeName);
+
+template <uint32_t N>
+BitFieldComponent<N>::BitFieldComponent()
 { }
 
-BitFieldComponent::BitFieldComponent(const BitField& value) :
+template <uint32_t N>
+BitFieldComponent<N>::BitFieldComponent(const BitField<N>& value) :
 	mBitField(value)
 { }
 
-uint16_t BitFieldComponent::read(BitStream& stream)
+template <uint32_t N>
+uint16_t BitFieldComponent<N>::read(BitStream& stream)
 {
 	mBitField.clear();
 	for (size_t i = 0; i < mBitField.size(); ++i)
@@ -210,7 +215,8 @@ uint16_t BitFieldComponent::read(BitStream& stream)
 	return mBitField.size();
 }
 
-uint16_t BitFieldComponent::write(BitStream& stream) const
+template <uint32_t N>
+uint16_t BitFieldComponent<N>::write(BitStream& stream) const
 {
 	for (size_t i = 0; i < mBitField.size(); ++i)
 		stream.writeBit(mBitField.get(i));
@@ -730,7 +736,7 @@ void RegisterBuiltInComponentTypes()
 	RegisterBuiltInComponentType<RangeComponent>();
 	RegisterBuiltInComponentType<FloatComponent>();
 	RegisterBuiltInComponentType<StringComponent>();
-	RegisterBuiltInComponentType<BitFieldComponent>();
+	RegisterBuiltInComponentType<BitFieldComponent<32> >();
 	RegisterBuiltInComponentType<Md5SumComponent>();
 	RegisterBuiltInComponentType<V2FixedComponent>();
 	RegisterBuiltInComponentType<V3FixedComponent>();

@@ -32,6 +32,7 @@
 #include "net_packet.h"
 
 #include <vector>
+#include <queue>
 
 class MessageManager;
 
@@ -101,31 +102,65 @@ public:
 private:
 	static const double AVG_WEIGHT = 1.0 / 16.0;
 
-	uint32_t		mOutgoingBits;
-	uint32_t		mIncomingBits;
+	struct PacketRecord
+	{
+		float			mRoundTripTime;		// in seconds
+		float			mJitterTime;		// in seconds
+		uint16_t		mSize;				// in bits
+		bool			mReceived;			// received or lost
+	};
 
-	uint32_t		mOutgoingPackets;
-	uint32_t		mIncomingPackets;
+	uint32_t				mOutgoingBits;
+	uint32_t				mIncomingBits;
 
-	uint32_t		mLostOutgoingPackets;
-	uint32_t		mLostIncomingPackets;
+	uint32_t				mOutgoingPackets;
+	uint32_t				mIncomingPackets;
+
+	uint32_t				mLostOutgoingPackets;
+	uint32_t				mLostIncomingPackets;
 
 	std::queue<dtime_t>		mOutgoingTimestamps;
 
-	double			mAvgRoundTripTime;
-	double			mAvgJitterTime;
-	double			mAvgOutgoingPacketLoss;
-	double			mAvgIncomingPacketLoss;
-	double			mAvgOutgoingBitrate;
-	double			mAvgIncomingBitrate;
+	double					mAvgRoundTripTime;
+	double					mAvgJitterTime;
+	double					mAvgOutgoingPacketLoss;
+	double					mAvgIncomingPacketLoss;
+	double					mAvgOutgoingBitrate;
+	double					mAvgIncomingBitrate;
 
-	double			mAvgOutgoingSize;
-	double			mAvgIncomingSize;
+	double					mAvgOutgoingSize;
+	double					mAvgIncomingSize;
 
-	dtime_t			mLastOutgoingTimestamp;
-	dtime_t			mLastIncomingTimestamp;
+	dtime_t					mLastOutgoingTimestamp;
+	dtime_t					mLastIncomingTimestamp;
 };
 
+
+// ============================================================================
+//
+// ConnectionQuality class interface
+//
+// Tracks various connection statistics over a time window and tries to detect
+// changes in the connection quality such as network congestion.
+//
+// ============================================================================
+class ConnectionQuality
+{
+public:
+	ConnectionQuality()
+	{
+		clear();
+	}
+
+	void clear() {}
+
+	void updateQuality(const ConnectionStatistics& stats);
+	double getQuality() const;
+
+private:
+	
+
+};
 
 // ============================================================================
 //
@@ -206,7 +241,7 @@ private:
 	// set to true during connection negotiation
 	bool							mRecvSequenceValid;
 	// bitfield representing all of the recently received sequence numbers
-	BitField						mRecvHistory;
+	BitField<32>					mRecvHistory;
 
 
 	// ------------------------------------------------------------------------
