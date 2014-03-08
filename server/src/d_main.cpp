@@ -73,6 +73,7 @@
 #include "gi.h"
 #include "sv_main.h"
 #include "sv_banlist.h"
+#include "net_log.h"
 
 EXTERN_CVAR (sv_timelimit)
 EXTERN_CVAR (sv_nomonsters)
@@ -265,6 +266,10 @@ void D_DoomMain (void)
 
 	if (lzo_init () != LZO_E_OK)	// [RH] Initialize the minilzo package.
 		I_FatalError ("Could not initialize LZO routines");
+
+	// [SL] network logging facility
+	Net_LogStartup();
+	atterm(Net_LogShutdown);
 
     C_ExecCmdLineParams (false, true);	// [Nes] test for +logfile command
 

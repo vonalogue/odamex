@@ -87,6 +87,7 @@
 #include "stats.h"
 #include "p_ctf.h"
 #include "cl_main.h"
+#include "net_log.h"
 
 #ifdef GEKKO
 #include "i_wii.h"
@@ -621,6 +622,10 @@ void D_DoomMain (void)
 
 	if (lzo_init () != LZO_E_OK)	// [RH] Initialize the minilzo package.
 		I_FatalError ("Could not initialize LZO routines");
+
+	// [SL] network logging facility
+	Net_LogStartup();
+	atterm(Net_LogShutdown);
 
     C_ExecCmdLineParams (false, true);	// [Nes] test for +logfile command
 

@@ -121,12 +121,26 @@ void LogChannel::write(const char* str)
 
 
 //
+// Net_AddLogChannel
+//
+// Creates a new log channel and inserts it into LogChannelTable.
+//
+static void Net_AddLogChannel(const OString& channel_name)
+{
+	LogChannel* new_channel = new LogChannel(channel_name);
+	log_channels.insert(std::make_pair(channel_name, new_channel)).first;
+}
+
+
+//
 // Net_LogStartup
 //
 // Initializes the network logging system.
 //
 void Net_LogStartup()
 {
+	Net_AddLogChannel(LogChan_Interface);
+	Net_AddLogChannel(LogChan_Connection);
 }
 
 
@@ -166,6 +180,7 @@ void Net_PrintLogChannelNames()
 		Printf(PRINT_HIGH, "%s\n", channel_name.c_str());
 	}
 }
+
 
 BEGIN_COMMAND(net_logchannames)
 {
@@ -231,6 +246,7 @@ BEGIN_COMMAND(net_logchandest)
 }
 END_COMMAND(net_logchandest)
 
+
 //
 // Net_LogPrintf2
 //
@@ -246,8 +262,8 @@ void Net_LogPrintf2(const OString& channel_name, const char* func_name, const ch
 	if (it == log_channels.end())
 	{
 		// create a new LogChannel object if one doesn't already exist with this channel name
-		LogChannel* new_channel = new LogChannel(channel_name);
-		it = log_channels.insert(std::make_pair(channel_name, new_channel)).first;
+		Net_AddLogChannel(channel_name);
+		it = log_channels.find(channel_name);
 	}
 
 	LogChannel* channel = it->second;

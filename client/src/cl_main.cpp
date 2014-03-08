@@ -1763,16 +1763,16 @@ void CL_InitNetwork (void)
 {
     netgame = false;  // for old network code
 
-    const char *v = Args.CheckValue ("-port");
-    if (v)
+    const char* port_argv = Args.CheckValue("-port");
+    if (port_argv)
     {
-		localport = atoi (v);
-		Printf (PRINT_HIGH, "using alternate port %i\n", localport);
+		localport = atoi(port_argv);
+		Printf(PRINT_HIGH, "using alternate port %i\n", localport);
     }
     else
 		localport = CLIENTPORT;
 
-    size_t ParamIndex = Args.CheckParm ("-connect");
+    size_t ParamIndex = Args.CheckParm("-connect");
 
     if (ParamIndex)
     {
@@ -1789,7 +1789,7 @@ void CL_InitNetwork (void)
 		}
     }
 
-	G_SetDefaultTurbo ();
+	G_SetDefaultTurbo();
 
     connected = false;
 }
