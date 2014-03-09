@@ -53,7 +53,12 @@ public:
 		mEnabled = enabled;
 	}
 
-	void setFilename(const OString& filename);
+	const OString& getFileName() const
+	{
+		return mFileName;
+	}
+
+	void setFileName(const OString& filename);
 
 	void write(const char* str);
 	
@@ -61,6 +66,7 @@ private:
 	void close();
 
 	OString		mName;
+	OString		mFileName;
 	bool		mEnabled;
 	FILE*		mStream;
 };

@@ -57,7 +57,7 @@ const OString LogChan_Connection	= "connection";
 LogChannel::LogChannel(const OString& name, const OString& filename, bool enabled) :
 		mName(name), mEnabled(enabled), mStream(NULL)
 {
-	setFilename(filename);
+	setFileName(filename);
 }
 
 
@@ -82,20 +82,19 @@ void LogChannel::close()
 
 
 //
-// LogChannel::setFilename
+// LogChannel::setFileName
 //
 // Closes the existing log file and opens the specified file name for writing.
 //
-void LogChannel::setFilename(const OString& filename)
+void LogChannel::setFileName(const OString& filename)
 {
 	close();	
-
 	if (filename.empty() || filename.iequals("stdout"))
-		mStream = stdout;
+		mFileName = "stdout";
 	else if (filename.iequals("stderr"))
-		mStream = stderr;
+		mFileName = "stderr";
 	else
-		mStream = fopen(filename.c_str(), "w");
+		mFileName = filename;
 }
 
 
@@ -106,7 +105,21 @@ void LogChannel::setFilename(const OString& filename)
 //
 void LogChannel::write(const char* str)
 {
-	if (mStream != NULL && mEnabled)
+	if (mEnabled == false)
+		return;
+
+	if (mStream == NULL)
+	{
+		// open the file for writing
+		if (mFileName == "stdout")
+			mStream = stdout;
+		else if (mFileName == "stderr")
+			mStream = stderr;
+		else
+			mStream = fopen(mFileName.c_str(), "w");
+	}
+
+	if (mStream != NULL)
 	{
 		// ensure we're writing to the end of the file even if multiple
 		// LogChannels are writting to the same file
@@ -158,26 +171,41 @@ void STACK_ARGS Net_LogShutdown()
 
 
 //
+// LogChannelPtrComparison
+//
+// Comparison function for a pair of LogChannel* for use by sorting algorithms.
+//
+static bool LogChannelPtrComparison(const LogChannel* a, const LogChannel* b)
+{
+	return a->getName() < b->getName();
+}
+
+
+//
 // Net_PrintLogChannelNames
 //
 // Prints a list of the log channel names to the console.
 //
 void Net_PrintLogChannelNames()
 {
-	Printf(PRINT_HIGH, "Networking Subsystem Log Channels:\n");
+	Printf(PRINT_HIGH, "Networking Subsystem Log Channels\n");
+	Printf(PRINT_HIGH, "---------------------------------\n");
 	
-	std::vector<OString> sorted_channel_names;
+	std::vector<LogChannel*> sorted_channels;
 
 	for (LogChannelTable::const_iterator it = log_channels.begin(); it != log_channels.end(); ++it)
-		sorted_channel_names.push_back(it->first);
+		sorted_channels.push_back(it->second);
 
-	std::sort(sorted_channel_names.begin(), sorted_channel_names.end());
+	std::sort(sorted_channels.begin(), sorted_channels.end(), LogChannelPtrComparison);
 
-	for (std::vector<OString>::const_iterator it = sorted_channel_names.begin();
-		it != sorted_channel_names.end(); ++it)
+	for (std::vector<LogChannel*>::const_iterator it = sorted_channels.begin();
+		it != sorted_channels.end(); ++it)
 	{
-		const OString& channel_name = *it;
-		Printf(PRINT_HIGH, "%s\n", channel_name.c_str());
+		const LogChannel* channel = *it;
+		if (channel->isEnabled())
+			Printf(PRINT_HIGH, "%s (%s)\n", channel->getName().c_str(), channel->getFileName().c_str());
+		else
+			Printf(PRINT_HIGH, "%s (disabled)\n", channel->getName().c_str());
 	}
 }
 
@@ -228,7 +256,7 @@ void Net_SetLogChannelDestination(const OString& channel_name, const OString& de
 	if (it != log_channels.end())
 	{
 		LogChannel* channel = it->second;
-		channel->setFilename(destination);
+		channel->setFileName(destination);
 	}
 }
 
