@@ -61,14 +61,6 @@ else()
   message(WARNING "SDL_mixer not found, client application can not be built.")
 endif()
 
-# SDL_ttf configuration
-find_package(SDL_ttf)
-if(SDLTTF_FOUND)
-  include_directories(${SDLTTF_INCLUDE_DIR})
-else()
-  message(WARNING "SDL_ttf not found, client target not generated.")
-endif()
-
 # zlib configuration
 find_package(ZLIB QUIET)
 if(NOT ZLIB_FOUND)
@@ -104,6 +96,14 @@ if(NOT PNG_FOUND)
   add_definitions(-DUSE_PNG)
 endif()
 
+# libfreetype2 configuration
+find_package(Freetype)
+if(FREETYPE_FOUND)
+  include_directories(${FREETYPE_INCLUDE_DIRS})
+else()
+  message(WARNING "FreeType 2 not found, client application can not be built.")
+endif()
+
 include_directories(${PNG_INCLUDE_DIRS})
 add_definitions(-DUSE_PNG)
 
@@ -136,7 +136,7 @@ if(NOT APPLE AND NOT WIN32)
 endif()
 
 # Client target
-if(SDL_FOUND AND SDLMIXER_FOUND AND SDLTTF_FOUND)
+if(SDL_FOUND AND SDLMIXER_FOUND AND FREETYPE_FOUND)
   add_executable(odamex MACOSX_BUNDLE WIN32
     ${COMMON_SOURCES} ${COMMON_HEADERS}
     ${CLIENT_SOURCES} ${CLIENT_HEADERS} ${CLIENT_WIN32_RESOURCES}
@@ -144,10 +144,10 @@ if(SDL_FOUND AND SDLMIXER_FOUND AND SDLTTF_FOUND)
   target_link_libraries(odamex ${TEXTSCREEN_LIBRARY})
   target_link_libraries(odamex ${SDL_LIBRARY})
   target_link_libraries(odamex ${SDLMIXER_LIBRARY})
-  target_link_libraries(odamex ${SDLTTF_LIBRARY})
 
   target_link_libraries(odamex ${ZLIB_LIBRARY})
   target_link_libraries(odamex ${PNG_LIBRARY} ${ZLIB_LIBRARY})
+  target_link_libraries(odamex ${FREETYPE_LIBRARY})
 
   if(USE_INTREE_PORTMIDI)
     target_link_libraries(odamex portmidi-static)

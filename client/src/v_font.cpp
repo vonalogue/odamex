@@ -29,7 +29,8 @@
 
 #include "v_font.h"
 
-#include "SDL_ttf.h"
+#include <ft2build.h>
+#include FT_FREETYPE_H 
 
 extern byte *Ranges;
 
@@ -90,31 +91,31 @@ static texhandle_t V_LoadBlankDoomFontChar(int width, int height, fixed_t scale)
 //
 // ----------------------------------------------------------------------------
 
+int OFont::getAdvanceX(char c) const
+{
+	return 0;
+}
+
+int OFont::getAdvanceY(char c) const
+{
+	return 0;
+}
+
 void OFont::printCharacter(const DCanvas* canvas, int& x, int& y, char c) const
 {
-	byte charnum = (byte)c;
-	if (charnum == '\t')
-		charnum = ' ';
-	else if (charnum == '\n')
-		return;
-
-	const Texture* texture = mCharacters[charnum];
-	if (texture == NULL)
-		return;
-
-	if (c == '\t')
+	if (c == ' ' || c == '\t')
 	{
-		// convert tabs into 4 spaces
-		for (int i = 0; i < 4; i++)
-		{
-			canvas->DrawTranslatedTexture(texture, x, y);
-			x += getTextWidth((char)charnum);
-		}
+		x += getTextWidth(c);
+	}
+	else if (c == '\r' || c == '\n')
+	{
+		return;
 	}
 	else
 	{
+		const Texture* texture = mCharacters[(int)c];
 		canvas->DrawTranslatedTexture(texture, x, y);
-		x += getTextWidth((char)charnum);
+		x += getTextWidth(c);
 	}
 }
 
@@ -132,8 +133,15 @@ void OFont::printText(const DCanvas* canvas, int x, int y, int color, const char
 int OFont::getTextWidth(char c) const
 {
 	const Texture* texture = mCharacters[(int)c];
+
+	if (c == '\t')
+		return 4 * getTextWidth(' ');
+
+	if (c == ' ' && (!texture || texture->getWidth() == 0))
+		return getTextWidth('T') / 2;
+	
 	if (texture)
-		return texture->getWidth() - texture->getOffsetX();
+		return texture->getWidth() - texture->getOffsetX() + getAdvanceX(c);
 	else
 		return 0;
 }
@@ -144,10 +152,7 @@ int OFont::getTextWidth(const char* str) const
 
 	while (*str)
 	{
-		if (*str == '\t')
-			width += 4 * getTextWidth(' ');
-		else
-			width += getTextWidth(*str);
+		width += getTextWidth(*str);
 		str++;
 	}
 
@@ -157,8 +162,14 @@ int OFont::getTextWidth(const char* str) const
 int OFont::getTextHeight(char c) const
 {
 	const Texture* texture = mCharacters[(int)c];
+	if (c == '\t')
+		return 4 * getTextHeight(' ');
+
+	if (c == ' ' && (!texture || texture->getHeight() == 0))
+		return getTextHeight('T');
+
 	if (texture)
-		return texture->getHeight() - texture->getOffsetY();
+		return texture->getHeight() - texture->getOffsetY() + getAdvanceY(c);
 	else
 		return 0;
 }
@@ -376,12 +387,14 @@ inline bool is_solid(const Texture* texture, int x, int y)
 	return *(texture->getMaskData() + x * texture->getHeight() + y) != 0;
 }
 
-TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemask)
+TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemask) :
+	mHeight(0)
 {
-	memset(mCharacters, 0, sizeof(*mCharacters) * 256);
+	int error;
 
-	if (TTF_Init() == -1)
-		return;
+	memset(mCharacters, 0, sizeof(*mCharacters) * 256);
+	memset(mAdvanceX, 0, sizeof(*mAdvanceX) * 256);
+	memset(mAdvanceY, 0, sizeof(*mAdvanceX) * 256);
 
 	// read the TTF from the odamex.wad and store it in rawlumpdata
 	int lumpnum = W_CheckNumForName(lumpname);
@@ -390,6 +403,10 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 		Printf(PRINT_HIGH, "Unable to locate TrueType font %s!\n", lumpname);
 		return;
 	}
+
+	size_t lumplen = W_LumpLength(lumpnum);
+	byte* rawlumpdata = new byte[lumplen];
+	W_ReadLump(lumpnum, rawlumpdata);
 	
 	// initialize lookups
 	for (int i = 0; i < 256; i++)
@@ -398,31 +415,56 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 		mCharacterHandles[i] = TextureManager::NO_TEXTURE_HANDLE;
 	}
 
-	size_t lumplen = W_LumpLength(lumpnum);
-	byte* rawlumpdata = new byte[lumplen];
-	W_ReadLump(lumpnum, rawlumpdata);
+	// Initialize FreeType 2
+	FT_Library ftlibrary;
+	error = FT_Init_FreeType(&ftlibrary);
+	if (error)
+	{
+		Printf(PRINT_HIGH, "Error initializing FreeType 2 library: %i\n", error);
+		return;
+	}
 
 	// open the TTF for usage 
-	SDL_RWops* rw = SDL_RWFromMem(rawlumpdata, lumplen);
-	TTF_Font* font = TTF_OpenFontRW(rw, 0, size);
-	SDL_Color font_color = { 0, 0, 0 };
+	FT_Face face;
+	error = FT_New_Memory_Face(ftlibrary, rawlumpdata, lumplen, 0, &face);
+	if (error)
+	{
+		Printf(PRINT_HIGH, "Error loading TrueType font %s: %i\n", lumpname, error);
+		return;
+	}
+
+	// set the size of the font
+	error = FT_Set_Pixel_Sizes(face, 0, size);
+	if (error)
+	{
+		Printf(PRINT_HIGH, "Error resizing TrueType font %s: %i\n", lumpname, error);
+		return;
+	}
 
 	texhandle_t background_texhandle = texturemanager.getHandle("FONTBACK", Texture::TEX_PATCH);
 	const Texture* background_texture = texturemanager.getTexture(background_texhandle);
 
 	for (int charnum = ' '; charnum < '~'; charnum++)
 	{
-		const char str[2] = { char(charnum), 0 };
-		SDL_Surface* surface = TTF_RenderText_Solid(font, str, font_color);
+		int load_flags = FT_LOAD_RENDER;
+		error = FT_Load_Char(face, charnum, load_flags);
+		if (error)
+		{
+			Printf(PRINT_HIGH, "Error loading TrueType font %s glyph %i: %i\n", lumpname, charnum, error);
+			return;
+		}
 
-		if (surface == NULL)
-			continue;
+		int width = face->glyph->bitmap.width;
+		int height = face->glyph->bitmap.rows;
+		int pitch = face->glyph->bitmap.pitch;
 
-		int width = surface->w;
-		int height = surface->h;
+		mAdvanceX[charnum] = face->glyph->advance.x >> 8;
+		mAdvanceY[charnum] = face->glyph->advance.y >> 8;
 
 		mCharacterHandles[charnum] = texturemanager.createCustomHandle();
 		Texture* texture = texturemanager.createTexture(mCharacterHandles[charnum], width, height);
+		texture->setOffsetX(face->glyph->bitmap_left);
+		texture->setOffsetY(-face->glyph->bitmap_top);
 
 		if (stylemask & TTF_TEXTURE)
 		{
@@ -441,65 +483,16 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 			memset(texture, 0xB0, width * height * sizeof(byte));
 		}
 
-		SDL_PixelFormat* format = surface->format;
-		if (format->BytesPerPixel == 1)
+		const byte* source = (const byte*)face->glyph->bitmap.buffer;
+		byte* dest_mask = texture->getMaskData();
+
+		for (int x = 0; x < width; x++)
 		{
-			int pitch = surface->pitch;
-			byte* source = (byte*)surface->pixels;
-			byte* dest_mask = texture->getMaskData();
-
-			for (int x = 0; x < width; x++)
+			for (int y = 0; y < height; y++)
 			{
-				for (int y = 0; y < height; y++)
-				{
-					byte pixel = source[pitch * y + x];
-					*dest_mask = (pixel != 0);
-					dest_mask++;
-				}
-			}
-		}
-		else if (format->BytesPerPixel == 4)
-		{
-			int pitch = surface->pitch;
-			argb_t* source = (argb_t*)surface->pixels;
-			byte* dest_mask = texture->getMaskData();
-
-			for (int x = 0; x < width; x++)
-			{
-				for (int y = 0; y < height; y++)
-				{
-					argb_t pixel = source[pitch * y + x];
-					byte alpha = (byte)(((pixel & format->Amask) >> format->Ashift) << format->Aloss);
-					*dest_mask = (alpha != 0);
-					dest_mask++;
-				}
-			}
-		}
-
-		SDL_FreeSurface(surface);
-
-		if (stylemask & TTF_OUTLINE)
-		{
-			for (int x = 0; x < width; x++)
-			{
-				for (int y = 0; y < height; y++)
-				{
-					if (is_solid(texture, x, y))
-					{
-						bool edge = false;
-						if (x == 0 || (x > 0 && !is_solid(texture, x - 1, y)))
-							edge = true;
-						else if (x == width - 1 || (x < width - 1 && !is_solid(texture, x + 1, y)))
-							edge = true;
-						else if (y == 0 || (y > 0 && !is_solid(texture, x, y - 1)))
-							edge = true;
-						else if (y == height - 1 || (y < height - 1 && !is_solid(texture, x, y + 1)))
-							edge = true;
-
-						if (edge)
-							*(texture->getData() + x * height + y) = 0xBF;
-					}
-				}
+				byte pixel = *(source + pitch * y + x);
+				*dest_mask = (pixel > 127);
+				dest_mask++;
 			}
 		}
 
@@ -508,13 +501,14 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 	
 	texturemanager.freeTexture(background_texhandle);
 
-	TTF_CloseFont(font);
-	SDL_RWclose(rw);
+
+	FT_Done_Face(face);
+	FT_Done_FreeType(ftlibrary);
+
 	delete [] rawlumpdata;
-	TTF_Quit();
 
 	// base the font height on the letter T
-	mHeight = mCharacters['T']->getHeight();
+	mHeight = getTextHeight('T');
 }
 
 TrueTypeFont::~TrueTypeFont()
@@ -526,3 +520,12 @@ TrueTypeFont::~TrueTypeFont()
 	}
 }
 
+int TrueTypeFont::getAdvanceX(char c) const
+{
+	return mAdvanceX[(int)c];
+}
+
+int TrueTypeFont::getAdvanceY(char c) const
+{
+	return mAdvanceY[(int)c];
+}

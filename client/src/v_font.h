@@ -35,6 +35,8 @@ public:
 	virtual ~OFont() { }
 
 	virtual int getHeight() const = 0;
+	virtual int getAdvanceX(char c) const;
+	virtual int getAdvanceY(char c) const;
 	int getTextWidth(char c) const;
 	int getTextWidth(const char* str) const;
 	int getTextHeight(char c) const;
@@ -57,9 +59,7 @@ public:
 	virtual ~ConCharsFont();
 
 	virtual int getHeight() const
-	{
-		return mHeight;
-	}
+	{	return mHeight;	}
 
 private:
 	static const int charwidth = 8;
@@ -75,9 +75,7 @@ public:
 	virtual ~SmallDoomFont();
 
 	virtual int getHeight() const
-	{
-		return mHeight;
-	}
+	{	return mHeight;	}
 
 private:
 	int				mHeight;
@@ -90,9 +88,7 @@ public:
 	virtual ~LargeDoomFont();
 
 	virtual int getHeight() const
-	{
-		return mHeight;
-	}
+	{	return mHeight;	}
 
 private:
 	int				mHeight;
@@ -113,12 +109,16 @@ public:
 	virtual ~TrueTypeFont();
 
 	virtual int getHeight() const
-	{
-		return mHeight;
-	}
+	{	return mHeight;	}
+
+	virtual int getAdvanceX(char c) const;
+	virtual int getAdvanceY(char c) const;
 
 private:
 	int				mHeight;
+
+	int				mAdvanceX[256];
+	int				mAdvanceY[256];
 };
 
 #endif	// __V_FONT_H__
