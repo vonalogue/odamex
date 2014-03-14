@@ -26,6 +26,7 @@
 #include "r_texture.h"
 #include "z_zone.h"
 #include "w_wad.h"
+#include "m_random.h"
 
 #include "v_font.h"
 
@@ -83,6 +84,39 @@ static texhandle_t V_LoadBlankDoomFontChar(int width, int height, fixed_t scale)
 
 	return dest_texhandle;
 }
+
+//
+// V_FillTexture
+//
+// Fills dest_texture with source_texture, starting from a random x and y
+// offset and tiling.
+//
+static void V_FillTexture(Texture* dest_texture, const Texture* source_texture)
+{
+	int bgx = M_Random() % source_texture->getWidth();
+	int bgy = M_Random() % source_texture->getHeight();
+
+	for (int ty = 0; ty < dest_texture->getHeight(); )
+	{
+		int block_height = std::min(dest_texture->getHeight() - ty, source_texture->getHeight() - bgy);
+
+		for (int tx = 0; tx < dest_texture->getWidth(); )
+		{
+			int block_width = std::min(dest_texture->getWidth() - tx, source_texture->getWidth() - bgx);
+
+			R_CopySubimage(dest_texture, source_texture,
+				tx, ty, tx + block_width - 1, ty + block_height - 1,
+				bgx, bgy, bgx + block_width - 1, bgy + block_height - 1);
+
+			tx += block_width;
+			bgx = (bgx + block_width) % source_texture->getWidth();
+		}
+
+		ty += block_height;
+		bgy = (bgy + block_height) % source_texture->getHeight();
+	}
+}
+
 
 
 // ----------------------------------------------------------------------------
@@ -382,11 +416,6 @@ LargeDoomFont::~LargeDoomFont()
 //
 // ----------------------------------------------------------------------------
 
-inline bool is_solid(const Texture* texture, int x, int y)
-{
-	return *(texture->getMaskData() + x * texture->getHeight() + y) != 0;
-}
-
 TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemask) :
 	mHeight(0)
 {
@@ -469,9 +498,7 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 		if (stylemask & TTF_TEXTURE)
 		{
 			// load a texture to use for the background of the text
-			R_CopySubimage(texture, background_texture,
-					0, 0, width - 1, height - 1,
-					0, 0, width - 1, height - 1);
+			V_FillTexture(texture, background_texture);
 		}
 		else if (stylemask & TTF_GRADIENT)
 		{
@@ -500,7 +527,6 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 	}
 	
 	texturemanager.freeTexture(background_texhandle);
-
 
 	FT_Done_Face(face);
 	FT_Done_FreeType(ftlibrary);
