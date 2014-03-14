@@ -92,7 +92,7 @@ void V_LoadMenuFont()
 		V_UnloadMenuFont();
 
 	unsigned int ttf_stylemask =
-			TrueTypeFont::TTF_TEXTURE;
+			TrueTypeFont::TTF_GRADIENT;
 	menu_font = new TrueTypeFont("FONT_SM", MIN(CleanXfac, CleanYfac) * 8, ttf_stylemask);
 }
 

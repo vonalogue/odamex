@@ -32,6 +32,7 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H 
+#include FT_IMAGE_H
 
 extern byte *Ranges;
 
@@ -502,12 +503,30 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 		}
 		else if (stylemask & TTF_GRADIENT)
 		{
-			// TODO
+			// gradient from light (top) to dark (bottom)
+			palindex_t* dest = texture->getData();
+			memset(dest, 0xBF, width * height * sizeof(palindex_t));
+
+			if (size > 0)
+			{
+				fixed_t frac = FixedDiv(16*FRACUNIT, size*FRACUNIT);
+				int offsety = 0;
+
+				for (int x = 0; x < texture->getWidth(); x++)
+				{
+					for (int y = offsety; y < texture->getHeight() + offsety; y++)
+					{
+						palindex_t color = clamp(0xB0 + ((y * frac) >> FRACBITS), 0xB0, 0xBF);
+						*dest++ = color;
+					}
+				}
+			}
 		}
 		else
 		{
 			// set the background to a solid
-			memset(texture, 0xB0, width * height * sizeof(byte));
+			palindex_t* dest = texture->getData();
+			memset(dest, 0xB0, width * height * sizeof(palindex_t));
 		}
 
 		const byte* source = (const byte*)face->glyph->bitmap.buffer;
