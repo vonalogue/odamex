@@ -1,9 +1,12 @@
 # Client flags
 if(NOT MSVC)
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -mtune=native")
+  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 endif()
 
 global_compile_options()
+
+# #define CLIENT_APP for use in the source code
+add_definitions(-DCLIENT_APP)
 
 # Common
 set(COMMON_DIR ../common)
@@ -43,12 +46,20 @@ if(WIN32)
 endif()
 
 # SDL configuration
-find_package(SDL REQUIRED)
-include_directories(${SDL_INCLUDE_DIR})
+find_package(SDL)
+if(SDL_FOUND)
+  include_directories(${SDL_INCLUDE_DIR})
+else()
+  message(WARNING "SDL not found, client application can not be built.")
+endif()
 
 # SDL_Mixer configuration
-find_package(SDL_mixer REQUIRED)
-include_directories(${SDLMIXER_INCLUDE_DIR})
+find_package(SDL_mixer)
+if(SDLMIXER_FOUND)
+  include_directories(${SDLMIXER_INCLUDE_DIR})
+else()
+  message(WARNING "SDL_mixer not found, client application can not be built.")
+endif()
 
 # SDL_ttf configuration
 find_package(SDL_ttf)
@@ -59,7 +70,7 @@ else()
 endif()
 
 # zlib configuration
-find_package(ZLIB)
+find_package(ZLIB QUIET)
 if(NOT ZLIB_FOUND)
   set(USE_INTREE_ZLIB)
   set(ZLIB_LIBRARY "z")
@@ -71,13 +82,13 @@ if(NOT ZLIB_FOUND)
   file(GLOB ZLIB_SOURCES ${ZLIB_DIR}/*.c)
   include_directories(${ZLIB_DIR})
   add_library(${ZLIB_LIBRARY} STATIC ${ZLIB_SOURCES} ${ZLIB_HEADERS})
-  message(STATUS "zlib will be built and staticaly linked.")
+  message(STATUS "zlib will be built and staticaly linked when compiling the client application.")
 endif()
 
 include_directories(${ZLIB_INCLUDE_DIRS})
 
 # libpng configuration
-find_package(PNG)
+find_package(PNG QUIET)
 if(NOT PNG_FOUND)
   set(USE_INTREE_LIBPNG)
   set(PNG_LIBRARY "png")
@@ -89,7 +100,7 @@ if(NOT PNG_FOUND)
   file(GLOB PNG_SOURCES ${PNG_DIR}/*.c)
   include_directories(${LIBPNG_DIR})
   add_library(${PNG_LIBRARY} STATIC ${PNG_SOURCES} ${PNG_HEADERS})
-  message(STATUS "libpng will be built and staticaly linked.")
+  message(STATUS "libpng will be built and staticaly linked when compiling the client application.")
   add_definitions(-DUSE_PNG)
 endif()
 
@@ -101,7 +112,7 @@ if(USE_INTREE_PORTMIDI)
   include_directories(../libraries/portmidi/pm_common/ ../libraries/portmidi/porttime/)
   add_definitions(-DPORTMIDI)
 else()
-  find_package(PortMidi)
+  find_package(PortMidi QUIET)
   if(PORTMIDI_FOUND)
     include_directories(${PORTMIDI_INCLUDE_DIR})
     add_definitions(-DPORTMIDI)

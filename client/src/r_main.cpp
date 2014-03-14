@@ -856,6 +856,8 @@ void R_SetViewSize (int blocks)
 	setblocks = blocks;
 }
 
+
+
 //
 //
 // R_ExecuteSetViewSize

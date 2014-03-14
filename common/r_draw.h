@@ -236,7 +236,7 @@ extern void (*R_FillTranslucentSpan)(drawspan_t&);
 // [RH] Initialize the above function pointers
 void R_InitColumnDrawers ();
 
-void R_InitDrawers ();
+void R_InitVectorizedDrawers();
 
 void	R_BlankColumn (drawcolumn_t&);
 void	R_BlankSpan (drawspan_t&);

@@ -1525,7 +1525,6 @@ void R_InitBuffer(int width, int height)
 
 	screen->Lock();
 
-	// Precalculate all row offsets.
 	for (int i = 0; i < height; i++)
 		ylookup[i] = screen->buffer + (i + viewwindowy) * screen->pitch;
 
@@ -1671,16 +1670,18 @@ static const char *get_optimization_name(r_optimize_kind kind)
 
 static std::string get_optimization_name_list(const bool includeNone)
 {
-	std::string list;
-	std::vector<r_optimize_kind>::iterator it = optimizations_available.begin();
-	if (!includeNone) ++it;
+	std::string str;
+	std::vector<r_optimize_kind>::const_iterator it = optimizations_available.begin();
+	if (!includeNone)
+		++it;
+
 	for (; it != optimizations_available.end(); ++it)
 	{
-		list.append(get_optimization_name(*it));
+		str.append(get_optimization_name(*it));
 		if (it+1 != optimizations_available.end())
-			list.append(", ");
+			str.append(", ");
 	}
-	return list;
+	return str;
 }
 
 static void print_optimizations()
@@ -1690,7 +1691,7 @@ static void print_optimizations()
 
 static bool detect_optimizations()
 {
-	if (optimizations_available.size() != 0)
+	if (!optimizations_available.empty())
 		return false;
 
 	optimizations_available.clear();
@@ -1699,135 +1700,120 @@ static bool detect_optimizations()
 	optimizations_available.push_back(OPTIMIZE_NONE);
 
 	// Detect CPU features in ascending order of preference:
-#ifdef __MMX__
+	#ifdef __MMX__
 	if (SDL_HasMMX())
-	{
 		optimizations_available.push_back(OPTIMIZE_MMX);
-	}
-#endif
-
-#ifdef __SSE2__
+	#endif
+	#ifdef __SSE2__
 	if (SDL_HasSSE2())
-	{
 		optimizations_available.push_back(OPTIMIZE_SSE2);
-	}
-#endif
-
-#ifdef __ALTIVEC__
+	#endif
+	#ifdef __ALTIVEC__
 	if (SDL_HasAltiVec())
-	{
 		optimizations_available.push_back(OPTIMIZE_ALTIVEC);
-	}
-#endif
+	#endif
 
 	return true;
 }
 
-CVAR_FUNC_IMPL (r_optimize)
-{
-	// NOTE(jsd): Stupid hack to prevent stack overflow when trying to set the value from within this callback.
-	static bool resetting = false;
-	if (resetting)
-	{
-		resetting = false;
-		return;
-	}
+//
+// R_IsOptimizationAvailable
+//
+// Returns true if Odamex was compiled with support for the optimization
+// and the current CPU also supports it.
+//
+static bool R_IsOptimizationAvailable(r_optimize_kind kind)
+{ 
+	return std::find(optimizations_available.begin(), optimizations_available.end(), kind)
+			!= optimizations_available.end();
+}
 
-	const char *val = var.cstring();
-	//Printf(PRINT_HIGH, "r_optimize called with \"%s\"\n", val);
+
+CVAR_FUNC_IMPL(r_optimize)
+{
+	const char* val = var.cstring();
 
 	// Only print the detected list the first time:
 	if (detect_optimizations())
 		print_optimizations();
 
 	// Set the optimization based on availability:
-	r_optimize_kind trykind = optimize_kind;
 	if (stricmp(val, "none") == 0)
-		trykind = OPTIMIZE_NONE;
-	else if (stricmp(val, "sse2") == 0)
-		trykind = OPTIMIZE_SSE2;
-	else if (stricmp(val, "mmx") == 0)
-		trykind = OPTIMIZE_MMX;
-	else if (stricmp(val, "altivec") == 0)
-		trykind = OPTIMIZE_ALTIVEC;
+		optimize_kind = OPTIMIZE_NONE;
+	else if (stricmp(val, "sse2") == 0 && R_IsOptimizationAvailable(OPTIMIZE_SSE2))
+		optimize_kind = OPTIMIZE_SSE2;
+	else if (stricmp(val, "mmx") == 0 && R_IsOptimizationAvailable(OPTIMIZE_MMX))
+		optimize_kind = OPTIMIZE_MMX;
+	else if (stricmp(val, "altivec") == 0 && R_IsOptimizationAvailable(OPTIMIZE_ALTIVEC))
+		optimize_kind = OPTIMIZE_ALTIVEC;
 	else if (stricmp(val, "detect") == 0)
 		// Default to the most preferred:
-		trykind = optimizations_available.back();
+		optimize_kind = optimizations_available.back();
 	else
 	{
-		Printf(PRINT_HIGH, "Invalid value for r_optimize. Try one of \"%s, detect\"\n", get_optimization_name_list(true).c_str());
+		Printf(PRINT_HIGH, "Invalid value for r_optimize. Availible options are \"%s, detect\"\n",
+				get_optimization_name_list(true).c_str());
 
 		// Restore the original setting:
-		resetting = true;
 		var.Set(get_optimization_name(optimize_kind));
-		R_InitDrawers();
-		R_InitColumnDrawers();
 		return;
 	}
 
-	// If we found the CPU feature, use it:
-	std::vector<r_optimize_kind>::iterator it = std::find(optimizations_available.begin(), optimizations_available.end(), trykind);
-	if (it != optimizations_available.end())
+	const char* optimize_name = get_optimization_name(optimize_kind);
+	if (stricmp(val, optimize_name) != 0)
 	{
-		optimize_kind = trykind;
-		R_InitDrawers();
-		R_InitColumnDrawers();
-	}
-
-	// Update the cvar string:
-	const char *resetname = get_optimization_name(optimize_kind);
-	Printf(PRINT_HIGH, "r_optimize set to \"%s\" based on availability\n", resetname);
-	resetting = true;
-	var.Set(resetname);
-}
-
-// Sets up the r_*D function pointers based on CPU optimization selected
-void R_InitDrawers ()
-{
-	if (optimize_kind == OPTIMIZE_SSE2)
-	{
-#ifdef __SSE2__
-		R_DrawSpanD				= R_DrawSpanD_SSE2;
-		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_SSE2;
-		r_dimpatchD             = r_dimpatchD_SSE2;
-#else
-		// No SSE2 support compiled in.
-		optimize_kind = OPTIMIZE_NONE;
-		goto setNone;
-#endif
-	}
-	else if (optimize_kind == OPTIMIZE_MMX)
-	{
-#ifdef __MMX__
-		R_DrawSpanD				= R_DrawSpanD_c;		// TODO
-		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_c;	// TODO
-		r_dimpatchD             = r_dimpatchD_MMX;
-#else
-		// No MMX support compiled in.
-		optimize_kind = OPTIMIZE_NONE;
-		goto setNone;
-#endif
-	}
-	else if (optimize_kind == OPTIMIZE_ALTIVEC)
-	{
-#ifdef __ALTIVEC__
-		R_DrawSpanD				= R_DrawSpanD_c;		// TODO
-		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_c;	// TODO
-		r_dimpatchD             = r_dimpatchD_ALTIVEC;
-#else
-		// No ALTIVEC support compiled in.
-		optimize_kind = OPTIMIZE_NONE;
-		goto setNone;
-#endif
+		// update the cvar string
+		// this will trigger the callback to run a second time
+		Printf(PRINT_HIGH, "r_optimize set to \"%s\" based on availability\n", optimize_name);
+		var.Set(optimize_name);
 	}
 	else
 	{
-		// No CPU vectorization available.
-setNone:
+		// cvar string is current, now intialize the drawing function pointers
+		R_InitVectorizedDrawers();
+		R_InitColumnDrawers();
+	}
+}
+
+
+//
+// R_InitVectorizedDrawers
+//
+// Sets up the function pointers based on CPU optimization selected.
+//
+void R_InitVectorizedDrawers()
+{
+	if (optimize_kind == OPTIMIZE_NONE)
+	{
+		// [SL] set defaults to non-vectorized drawers
 		R_DrawSpanD				= R_DrawSpanD_c;
 		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_c;
 		r_dimpatchD             = r_dimpatchD_c;
 	}
+	#ifdef __SSE2__
+	if (optimize_kind == OPTIMIZE_SSE2)
+	{
+		R_DrawSpanD				= R_DrawSpanD_SSE2;
+		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_SSE2;
+		r_dimpatchD             = r_dimpatchD_SSE2;
+	}
+	#endif
+	#ifdef __MMX__
+	else if (optimize_kind == OPTIMIZE_MMX)
+	{
+		R_DrawSpanD				= R_DrawSpanD_c;		// TODO
+		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_c;	// TODO
+		r_dimpatchD             = r_dimpatchD_MMX;
+	}
+	#endif
+	#ifdef __ALTIVEC__
+	else if (optimize_kind == OPTIMIZE_ALTIVEC)
+	{
+		R_DrawSpanD				= R_DrawSpanD_c;		// TODO
+		R_DrawSlopeSpanD		= R_DrawSlopeSpanD_c;	// TODO
+		r_dimpatchD             = r_dimpatchD_ALTIVEC;
+	}
+	#endif
 
 	// Check that all pointers are definitely assigned!
 	assert(R_DrawSpanD != NULL);
