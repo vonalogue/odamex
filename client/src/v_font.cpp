@@ -118,6 +118,27 @@ static void V_FillTexture(Texture* dest_texture, const Texture* source_texture)
 	}
 }
 
+static void V_FillGradient(Texture* dest_texture, palindex_t start_color, palindex_t end_color, int dist)
+{
+	palindex_t* dest = dest_texture->getData();
+	memset(dest, end_color, dest_texture->getWidth() * dest_texture->getHeight() * sizeof(palindex_t));
+
+	if (dist > 0)
+	{
+		int color_count = end_color - start_color + 1;
+		fixed_t frac = FixedDiv(color_count*FRACUNIT, dist*FRACUNIT);
+
+		for (int x = 0; x < dest_texture->getWidth(); x++)
+		{
+			for (int y = 0; y < dest_texture->getHeight(); y++)
+			{
+				palindex_t color = start_color + ((y * frac) >> FRACBITS);
+				color = clamp(color, start_color, end_color);
+				*dest++ = color;
+			}
+		}
+	}
+}
 
 
 // ----------------------------------------------------------------------------
@@ -493,7 +514,7 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 
 		mCharacterHandles[charnum] = texturemanager.createCustomHandle();
 		Texture* texture = texturemanager.createTexture(mCharacterHandles[charnum], width, height);
-		texture->setOffsetX(face->glyph->bitmap_left);
+		texture->setOffsetX(-face->glyph->bitmap_left);
 		texture->setOffsetY(-face->glyph->bitmap_top);
 
 		if (stylemask & TTF_TEXTURE)
@@ -504,23 +525,7 @@ TrueTypeFont::TrueTypeFont(const char* lumpname, int size, unsigned int stylemas
 		else if (stylemask & TTF_GRADIENT)
 		{
 			// gradient from light (top) to dark (bottom)
-			palindex_t* dest = texture->getData();
-			memset(dest, 0xBF, width * height * sizeof(palindex_t));
-
-			if (size > 0)
-			{
-				fixed_t frac = FixedDiv(16*FRACUNIT, size*FRACUNIT);
-				int offsety = 0;
-
-				for (int x = 0; x < texture->getWidth(); x++)
-				{
-					for (int y = offsety; y < texture->getHeight() + offsety; y++)
-					{
-						palindex_t color = clamp(0xB0 + ((y * frac) >> FRACBITS), 0xB0, 0xBF);
-						*dest++ = color;
-					}
-				}
-			}
+			V_FillGradient(texture, 0xB0, 0xBF, size);
 		}
 		else
 		{
