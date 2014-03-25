@@ -293,31 +293,54 @@ void R_FreeTranslationTables (void)
     translationtablesmem = NULL;
 }
 
+//
+// R_BuildClassicPlayerTranslation
+//
 // [Nes] Vanilla player translation table.
-void R_BuildClassicPlayerTranslation (int player, int color)
+//
+void R_BuildClassicPlayerTranslation(int player_id)
 {
-	palette_t* pal = V_GetDefaultPalette();
-	int i;
+	const palindex_t range_start = 0x70;
+	const palindex_t range_stop = 0x7F;
+
+	const argb_t* palette = V_GetDefaultPalette()->basecolors;
+	palindex_t* table_pal = &translationtables[player_id * 256];
+	argb_t* table_rgb = translationRGB[player_id];
 	
-	if (color == 1) // Indigo
-		for (i = 0x70; i < 0x80; i++)
+	if (player_id == 2) // Indigo
+	{
+		for (int i = range_start; i <= range_stop; i++)
 		{
-			translationtables[i+(player * 256)] = 0x60 + (i&0xf);
-			translationRGB[player][i - 0x70] = pal->basecolors[translationtables[i+(player * 256)]];
+			table_pal[i] = 0x60 + i - range_start;
+			table_rgb[i - range_start] = palette[table_pal[i]];
 		}
-	else if (color == 2) // Brown
-		for (i = 0x70; i < 0x80; i++)
+	}
+	else if (player_id == 3) // Brown
+	{
+		for (int i = range_start; i <= range_stop; i++)
 		{
-			translationtables[i+(player * 256)] = 0x40 + (i&0xf);	
-			translationRGB[player][i - 0x70] = pal->basecolors[translationtables[i+(player * 256)]];
+			table_pal[i] = 0x40 + i - range_start;
+			table_rgb[i - range_start] = palette[table_pal[i]];
 		}
-	else if (color == 3) // Red
-		for (i = 0x70; i < 0x80; i++)
+	}
+	else if (player_id == 4) // Red
+	{
+		for (int i = range_start; i <= range_stop; i++)
 		{
-			translationtables[i+(player * 256)] = 0x20 + (i&0xf);	
-			translationRGB[player][i - 0x70] = pal->basecolors[translationtables[i+(player * 256)]];
+			table_pal[i] = 0x20 + i - range_start;
+			table_rgb[i - range_start] = palette[table_pal[i]];
 		}
+	}
+	else					// Green
+	{
+		for (int i = range_start; i <= range_stop; i++)
+		{
+			table_pal[i] = 0x70 + i - range_start;
+			table_rgb[i - range_start] = palette[table_pal[i]];
+		}
+	}
 }
+
 
 void R_CopyTranslationRGB (int fromplayer, int toplayer)
 {
@@ -328,59 +351,49 @@ void R_CopyTranslationRGB (int fromplayer, int toplayer)
 	}
 }
 
+
+//
+// R_BuildPlayerTranslation
+//
 // [RH] Create a player's translation table based on
 //		a given mid-range color.
-void R_BuildPlayerTranslation (int player, int color)
+//
+void R_BuildPlayerTranslation(int player_id, argb_t color)
 {
-	palette_t* pal = V_GetDefaultPalette();
-	byte *table = &translationtables[player * 256];
-	int i;
+	const palindex_t range_start = 0x70;
+	const palindex_t range_stop = 0x7F;
+
+	const argb_t* palette = V_GetDefaultPalette()->basecolors;
+
+	palindex_t* table_pal = &translationtables[player_id * 256];
+	argb_t* table_rgb = translationRGB[player_id];
+
 	float r = (float)RPART(color) / 255.0f;
 	float g = (float)GPART(color) / 255.0f;
 	float b = (float)BPART(color) / 255.0f;
 	float h, s, v;
-	float sdelta, vdelta;
 
-	RGBtoHSV (r, g, b, &h, &s, &v);
+	RGBtoHSV(r, g, b, &h, &s, &v);
 
-	s -= 0.23f;
-	if (s < 0.0f)
-		s = 0.0f;
-	sdelta = 0.014375f;
+	s = clamp(s - 0.23f, 0.0f, 1.0f);
+	v = clamp(v + 0.1f, 0.0f, 1.0f);
 
-	v += 0.1f;
-	if (v > 1.0f)
-		v = 1.0f;
-	vdelta = -0.05882f;
+	float sdelta = 0.23f / (range_stop - range_start + 1);
+	float vdelta = -0.94112f / (range_stop - range_start + 1); 
 
-	for (i = 0x70; i < 0x80; i++) {
-		HSVtoRGB (&r, &g, &b, h, s, v);
+	for (int i = range_start; i <= range_stop; i++)
+	{
+		HSVtoRGB(&r, &g, &b, h, clamp(s, 0.0f, 1.0f), clamp(v, 0.0f, 1.0f));
 
-		// Set up RGB values for 32bpp translation:
-		translationRGB[player][i - 0x70] = MAKERGB(
-			(int)(r * 255.0f),
-			(int)(g * 255.0f),
-			(int)(b * 255.0f)
-		);
+		argb_t transcolor = MAKERGB(int(r * 255.0f), int(g * 255.0f), int(b * 255.0f));
+	
+		table_pal[i] = V_BestColor(palette, transcolor);
+		table_rgb[i - range_start] = transcolor;
 
-		table[i] = V_BestColor(pal->basecolors,
-							  (int)(r * 255.0f),
-							  (int)(g * 255.0f),
-							  (int)(b * 255.0f));
 		s += sdelta;
-		if (s > 1.0f) {
-			s = 1.0f;
-			sdelta = 0.0f;
-		}
-
 		v += vdelta;
-		if (v < 0.0f) {
-			v = 0.0f;
-			vdelta = 0.0f;
-		}
 	}
 }
-
 
 // ============================================================================
 //

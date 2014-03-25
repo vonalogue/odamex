@@ -303,10 +303,10 @@ void R_FreeTranslationTables (void);
 void R_CopyTranslationRGB (int fromplayer, int toplayer);
 
 // [RH] Actually create a player's translation table.
-void R_BuildPlayerTranslation (int player, int color);
+void R_BuildPlayerTranslation(int player_id, argb_t color);
 
 // [Nes] Classic player translation table.
-void R_BuildClassicPlayerTranslation (int player, int color);
+void R_BuildClassicPlayerTranslation(int player_id);
 
 
 // If the view size is not full screen, draws a border around it.

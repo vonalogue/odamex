@@ -2042,7 +2042,7 @@ void G_DoPlayDemo(bool justStreamInput)
 
 				for (Players::iterator it = players.begin(); it != players.end(); ++it)
 					if (it->ingame())
-						R_BuildClassicPlayerTranslation(it->id, it->id - 1);
+						R_BuildClassicPlayerTranslation(it->id);
 			}
 			else
 			{
