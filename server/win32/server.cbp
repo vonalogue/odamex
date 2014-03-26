@@ -20,8 +20,9 @@
 					<Add option="-DWIN32" />
 					<Add option="-D_WINDOWS" />
 					<Add option="-DNDEBUG" />
+					<Add option="-DSERVER_APP" />
 					<Add option="-DODA_HAVE_MINIUPNP" />
-					<Add directory="../../libminiupnpc" />
+					<Add directory="../../libraries/libminiupnpc" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -49,8 +50,9 @@
 					<Add option="-DWIN32" />
 					<Add option="-D_WINDOWS" />
 					<Add option="-D_DEBUG" />
+					<Add option="-DSERVER_APP" />
 					<Add option="-DODA_HAVE_MINIUPNP" />
-					<Add directory="../../libminiupnpc" />
+					<Add directory="../../libraries/libminiupnpc" />
 				</Compiler>
 				<Linker>
 					<Add library="..\..\lib\libminiupnpc-dbg.a" />
@@ -59,82 +61,6 @@
 					<Add library="iphlpapi" />
 					<Add directory="../../lib" />
 				</Linker>
-			</Target>
-			<Target title="Unix Release">
-				<Option platforms="Unix;" />
-				<Option output="../../odasrv" prefix_auto="0" extension_auto="0" />
-				<Option working_dir="../../" />
-				<Option object_output="../../obj/server/release/" />
-				<Option deps_output="../../deps" />
-				<Option type="1" />
-				<Option compiler="gcc" />
-				<Option use_console_runner="0" />
-				<Option projectResourceIncludeDirsRelation="1" />
-				<Compiler>
-					<Add option="-O2" />
-					<Add option="-DUNIX" />
-					<Add option="-DLINUX" />
-					<Add option="-DNDEBUG" />
-				</Compiler>
-				<Linker>
-					<Add option="-s" />
-				</Linker>
-			</Target>
-			<Target title="Unix Debug">
-				<Option platforms="Unix;" />
-				<Option output="../../odasrv-dbg" prefix_auto="0" extension_auto="0" />
-				<Option working_dir="../../" />
-				<Option object_output="../../obj/server/debug/" />
-				<Option deps_output="../../deps" />
-				<Option type="1" />
-				<Option compiler="gcc" />
-				<Option use_console_runner="0" />
-				<Option projectResourceIncludeDirsRelation="1" />
-				<Compiler>
-					<Add option="-Wall" />
-					<Add option="-g" />
-					<Add option="-DUNIX" />
-					<Add option="-DLINUX" />
-					<Add option="-DDEBUG" />
-				</Compiler>
-			</Target>
-			<Target title="Mac Release">
-				<Option platforms="Mac;" />
-				<Option output="../../odasrv" prefix_auto="0" extension_auto="0" />
-				<Option working_dir="../../" />
-				<Option object_output="../../obj/server/release/" />
-				<Option deps_output="../../deps" />
-				<Option type="1" />
-				<Option compiler="gcc" />
-				<Option use_console_runner="0" />
-				<Option projectResourceIncludeDirsRelation="1" />
-				<Compiler>
-					<Add option="-O2" />
-					<Add option="-DUNIX" />
-					<Add option="-DLINUX" />
-					<Add option="-DNDEBUG" />
-				</Compiler>
-				<Linker>
-					<Add option="-s" />
-				</Linker>
-			</Target>
-			<Target title="Mac Debug">
-				<Option platforms="Mac;" />
-				<Option output="../../odasrv-dbg" prefix_auto="0" extension_auto="0" />
-				<Option working_dir="../../" />
-				<Option object_output="../../obj/server/debug/" />
-				<Option deps_output="../../deps" />
-				<Option type="1" />
-				<Option compiler="gcc" />
-				<Option use_console_runner="0" />
-				<Option projectResourceIncludeDirsRelation="1" />
-				<Compiler>
-					<Add option="-Wall" />
-					<Add option="-g" />
-					<Add option="-DUNIX" />
-					<Add option="-DLINUX" />
-					<Add option="-DDEBUG" />
-				</Compiler>
 			</Target>
 			<Target title="Win Release (VC)">
 				<Option platforms="Windows;" />
@@ -166,13 +92,14 @@
 					<Add option="/D_WINDOWS" />
 					<Add option="/DNOMINMAX" />
 					<Add option="/D_CRT_SECURE_NO_WARNINGS" />
+					<Add option="/DSERVER_APP" />
 					<Add option="/DODA_HAVE_MINIUPNP" />
 					<Add option="/DJSON_IS_AMALGAMATION" />
 					<Add directory="." />
 					<Add directory="../src" />
 					<Add directory="../../common" />
-					<Add directory="../../libminiupnpc" />
-					<Add directory="../../jsoncpp" />
+					<Add directory="../../libraries/libminiupnpc" />
+					<Add directory="../../libraries/jsoncpp" />
 				</Compiler>
 				<Linker>
 					<Add option="/MANIFESTFILE:$(TARGET_OUTPUT_FILE).manifest /MANIFEST" />
@@ -230,13 +157,14 @@
 					<Add option="/D_WINDOWS" />
 					<Add option="/DNOMINMAX" />
 					<Add option="/D_CRT_SECURE_NO_WARNINGS" />
+					<Add option="/DSERVER_APP" />
 					<Add option="/DODA_HAVE_MINIUPNP" />
 					<Add option="/DJSON_IS_AMALGAMATION" />
 					<Add directory="." />
 					<Add directory="../src" />
 					<Add directory="../../common" />
-					<Add directory="../../libminiupnpc" />
-					<Add directory="../../jsoncpp" />
+					<Add directory="../../libraries/libminiupnpc" />
+					<Add directory="../../libraries/jsoncpp" />
 				</Compiler>
 				<Linker>
 					<Add option="/DEBUG" />
@@ -265,8 +193,6 @@
 			</Target>
 		</Build>
 		<VirtualTargets>
-			<Add alias="All (MAC)" targets="Mac Release;Mac Debug;" />
-			<Add alias="All (UNIX)" targets="Unix Release;Unix Debug;" />
 			<Add alias="All (WIN GCC)" targets="Win Release (GCC);Win Debug (GCC);" />
 			<Add alias="All (WIN VC)" targets="Win Release (VC);Win Debug (VC);" />
 		</VirtualTargets>
@@ -278,11 +204,13 @@
 			<Add option="-Wno-long-long" />
 			<Add option="-fno-optimize-sibling-calls" />
 			<Add option="-D_WIN32_WINNT=0x0500" />
+			<Add option="-DSERVER_APP" />
 			<Add option="-DJSON_IS_AMALGAMATION" />
 			<Add directory="." />
 			<Add directory="../src" />
 			<Add directory="../../common" />
-			<Add directory="../../jsoncpp" />
+			<Add directory="../../libraries/jsoncpp" />
+			<Add directory="../../libraries/libminiupnpc" />
 		</Compiler>
 		<Unit filename="../../common/actor.h" />
 		<Unit filename="../../common/c_console.h" />
@@ -448,9 +376,9 @@
 		<Unit filename="../../common/win32time.h" />
 		<Unit filename="../../common/z_zone.cpp" />
 		<Unit filename="../../common/z_zone.h" />
-		<Unit filename="../../jsoncpp/json/json-forwards.h" />
-		<Unit filename="../../jsoncpp/json/json.h" />
-		<Unit filename="../../jsoncpp/jsoncpp.cpp" />
+		<Unit filename="../../libraries/jsoncpp/json/json-forwards.h" />
+		<Unit filename="../../libraries/jsoncpp/json/json.h" />
+		<Unit filename="../../libraries/jsoncpp/jsoncpp.cpp" />
 		<Unit filename="../src/c_console.cpp" />
 		<Unit filename="../src/d_main.cpp" />
 		<Unit filename="../src/d_netinfo.cpp" />
@@ -492,18 +420,9 @@
 		<Unit filename="../src/sv_vote.cpp" />
 		<Unit filename="../src/sv_vote.h" />
 		<Unit filename="../src/v_palette.cpp" />
-		<Unit filename="resource.h">
-			<Option target="Win Release (GCC)" />
-			<Option target="Win Debug (GCC)" />
-			<Option target="Win Release (VC)" />
-			<Option target="Win Debug (VC)" />
-		</Unit>
+		<Unit filename="resource.h" />
 		<Unit filename="server.rc">
 			<Option compilerVar="WINDRES" />
-			<Option target="Win Release (GCC)" />
-			<Option target="Win Debug (GCC)" />
-			<Option target="Win Release (VC)" />
-			<Option target="Win Debug (VC)" />
 		</Unit>
 		<Extensions>
 			<code_completion />

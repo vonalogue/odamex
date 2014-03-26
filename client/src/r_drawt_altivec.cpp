@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1998-2006 by Randy Heit (ZDoom).
-// Copyright (C) 2006-2012 by The Odamex Team.
+// Copyright (C) 2006-2014 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -25,7 +25,10 @@
 //
 //-----------------------------------------------------------------------------
 
+#include <SDL.h>
+#if (SDL_VERSION > SDL_VERSIONNUM(1, 2, 7))
 #include "SDL_cpuinfo.h"
+#endif
 #include "r_intrin.h"
 
 #ifdef __ALTIVEC__
@@ -33,8 +36,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Compile on g++-4.0.1 with -faltivec, not -maltivec
+#if !defined(__APPLE_ALTIVEC__)
 #include <altivec.h>
+#endif
 
 #define ALTIVEC_ALIGNED(x) x __attribute__((aligned(16)))
 

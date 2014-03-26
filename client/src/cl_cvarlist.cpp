@@ -350,6 +350,9 @@ CVAR_FUNC_DECL(		cl_screenshotname, "Odamex_%g_%d_%t",
 CVAR(				cl_autorecord, "0", "Automatically record netdemos",
 					CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)
 
+CVAR(				cl_autoscreenshot, "0", "Automatically capture a screenshot at the end of a match.",
+					CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)
+
 CVAR(				cl_splitnetdemos, "0", "Create separate netdemos for each map",
 					CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)
 
@@ -627,7 +630,7 @@ CVAR_RANGE(		r_wipetype, "1", "",
 				CVARTYPE_BYTE, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE, 0.0f, 3.0f)
 #endif
 
-CVAR(			r_showendoom, "1", "Display the ENDDOOM text after quitting",
+CVAR(			r_showendoom, "0", "Display the ENDDOOM text after quitting",
 				CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)   // [ML] 1/5/10: Add endoom support
 
 CVAR(			r_loadicon, "1", "Display the disk icon when loading data from disk",

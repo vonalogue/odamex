@@ -1,9 +1,19 @@
 # Client flags
 if(NOT MSVC)
-  set(CMAKE_CXX_FLAGS_RELEASE "-O3 -mtune=native")
+  if(GCC_VERSION VERSION_GREATER 4.2)
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
+  else(GCC_VERSION VERSION_GREATER 4.2)
+    if(APPLE)
+      set(CMAKE_CXX_FLAGS_RELEASE "-faltivec")
+    endif()
+  endif()
 endif()
 
+
 global_compile_options()
+
+# #define CLIENT_APP for use in the source code
+add_definitions(-DCLIENT_APP)
 
 # Common
 set(COMMON_DIR ../common)
@@ -29,7 +39,7 @@ include_directories(${COMMON_DIR} ${CLIENT_DIR})
 
 # Textscreen
 set(TEXTSCREEN_LIBRARY "textscreen")
-set(TEXTSCREEN_DIR ../textscreen)
+set(TEXTSCREEN_DIR ../libraries/textscreen)
 set(TEXTSCREEN_HEADERS ${TEXTSCREEN_DIR}/txt_sdl.h ${TEXTSCREEN_DIR}/txt_main.h)
 set(TEXTSCREEN_SOURCES ${TEXTSCREEN_DIR}/txt_sdl.c)
 
@@ -47,7 +57,7 @@ find_package(SDL)
 if(SDL_FOUND)
   include_directories(${SDL_INCLUDE_DIR})
 else()
-  message(WARNING "SDL not found, client target not generated.")
+  message(WARNING "SDL not found, client application can not be built.")
 endif()
 
 # SDL_Mixer configuration
@@ -55,15 +65,53 @@ find_package(SDL_mixer)
 if(SDLMIXER_FOUND)
   include_directories(${SDLMIXER_INCLUDE_DIR})
 else()
-  message(WARNING "SDL_mixer not found, client target not generated.")
+  message(WARNING "SDL_mixer not found, client application can not be built.")
 endif()
+
+# zlib configuration
+find_package(ZLIB QUIET)
+if(NOT ZLIB_FOUND)
+  set(USE_INTREE_ZLIB)
+  set(ZLIB_LIBRARY "z")
+  set(ZLIB_LIBRARIES ${ZLIB_LIBRARY})
+  set(ZLIB_DIR ../libraries/zlib/)
+  set(ZLIB_INCLUDE_DIR ${ZLIB_DIR})
+  set(ZLIB_INCLUDE_DIRS ${ZLIB_DIR})
+  file(GLOB ZLIB_HEADERS ${ZLIB_DIR}/*.h)
+  file(GLOB ZLIB_SOURCES ${ZLIB_DIR}/*.c)
+  include_directories(${ZLIB_DIR})
+  add_library(${ZLIB_LIBRARY} STATIC ${ZLIB_SOURCES} ${ZLIB_HEADERS})
+  message(STATUS "zlib will be built and staticaly linked when compiling the client application.")
+endif()
+
+include_directories(${ZLIB_INCLUDE_DIRS})
+
+# libpng configuration
+find_package(PNG QUIET)
+if(NOT PNG_FOUND)
+  set(USE_INTREE_LIBPNG)
+  set(PNG_LIBRARY "png")
+  set(PNG_LIBRARIES ${PNG_LIBRARY})
+  set(PNG_DIR ../libraries/libpng/)
+  set(PNG_INCLUDE_DIR ${PNG_DIR})
+  set(PNG_INCLUDE_DIRS ${PNG_DIR})
+  file(GLOB PNG_HEADERS ${PNG_DIR}/*.h)
+  file(GLOB PNG_SOURCES ${PNG_DIR}/*.c)
+  include_directories(${LIBPNG_DIR})
+  add_library(${PNG_LIBRARY} STATIC ${PNG_SOURCES} ${PNG_HEADERS})
+  message(STATUS "libpng will be built and staticaly linked when compiling the client application.")
+  add_definitions(-DUSE_PNG)
+endif()
+
+include_directories(${PNG_INCLUDE_DIRS})
+add_definitions(-DUSE_PNG)
 
 # PortMidi configuration
 if(USE_INTREE_PORTMIDI)
-  include_directories(../portmidi/pm_common/ ../portmidi/porttime/)
+  include_directories(../libraries/portmidi/pm_common/ ../libraries/portmidi/porttime/)
   add_definitions(-DPORTMIDI)
 else()
-  find_package(PortMidi)
+  find_package(PortMidi QUIET)
   if(PORTMIDI_FOUND)
     include_directories(${PORTMIDI_INCLUDE_DIR})
     add_definitions(-DPORTMIDI)
@@ -95,6 +143,9 @@ if(SDL_FOUND AND SDLMIXER_FOUND)
   target_link_libraries(odamex ${TEXTSCREEN_LIBRARY})
   target_link_libraries(odamex ${SDL_LIBRARY})
   target_link_libraries(odamex ${SDLMIXER_LIBRARY})
+
+  target_link_libraries(odamex ${ZLIB_LIBRARY})
+  target_link_libraries(odamex ${PNG_LIBRARY} ${ZLIB_LIBRARY})
 
   if(USE_INTREE_PORTMIDI)
     target_link_libraries(odamex portmidi-static)

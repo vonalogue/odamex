@@ -5,6 +5,9 @@ endif()
 
 global_compile_options()
 
+# #define SERVER_APP for use in the source code
+add_definitions(-DSERVER_APP)
+
 # Common
 set(COMMON_DIR ../common)
 file(GLOB COMMON_HEADERS ${COMMON_DIR}/*.h)
@@ -21,12 +24,12 @@ if(WIN32)
 endif()
 
 # JsonCpp
-set(JSONCPP_DIR ../jsoncpp)
+set(JSONCPP_DIR ../libraries/jsoncpp)
 file(GLOB JSONCPP_HEADERS ${JSONCPP_DIR}/json/*.h)
 set(JSONCPP_SOURCE ${JSONCPP_DIR}/jsoncpp.cpp)
 
 # MiniUPnPc
-set(MINIUPNPC_DIR ../libminiupnpc)
+set(MINIUPNPC_DIR ../libraries/libminiupnpc)
 set(MINIUPNPC_STATIC_LIBRARIES upnpc-static)
 
 # Platform definitions
