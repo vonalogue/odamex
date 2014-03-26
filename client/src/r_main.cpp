@@ -439,8 +439,8 @@ static fixed_t R_LineLength(fixed_t px1, fixed_t py1, fixed_t px2, fixed_t py2)
 //
 bool R_ProjectSeg(const seg_t* segline, drawseg_t* ds, wall_t* wall, fixed_t clipdist)
 {
-	const v2fixed_t pt1 = { segline->v1->x, segline->v1->y };
-	const v2fixed_t pt2 = { segline->v2->x, segline->v2->y };
+	const v2fixed_t pt1(segline->v1->x, segline->v1->y);
+	const v2fixed_t pt2(segline->v2->x, segline->v2->y);
 
 	int32_t lclip, rclip;
 

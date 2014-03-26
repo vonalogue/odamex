@@ -1133,7 +1133,6 @@ void M_OptInit (void)
 	if (I_NextMode(&dummy1, &dummy2))
 	{
 		Depths[currval].value = currval;
-		delete [] Depths[currval].name;
 		Depths[currval].name = NULL;
 		currval++;
 	}

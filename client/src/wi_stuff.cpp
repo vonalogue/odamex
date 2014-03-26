@@ -42,6 +42,7 @@
 #include "c_console.h"
 #include "hu_stuff.h"
 #include "v_palette.h"
+#include "c_dispatch.h"
 #include "gi.h"
 #include "v_font.h"
 #include "v_text.h"
@@ -367,7 +368,7 @@ static const char*		lnametexts[2];
 
 EXTERN_CVAR (sv_maxplayers)
 EXTERN_CVAR (wi_newintermission)
-
+EXTERN_CVAR (cl_autoscreenshot)
 //
 // CODE
 //
@@ -1227,6 +1228,8 @@ void WI_checkForAccelerate(void)
 	}
 }
 
+
+
 // Updates stuff each tick
 void WI_Ticker (void)
 {
@@ -1265,6 +1268,13 @@ void WI_Ticker (void)
 		case NoState:
 			WI_updateNoState();
 			break;
+	}
+
+	// [ML] If cl_autoscreenshot is on, take a screenshot 3 seconds
+	//		after the level end. (Multiplayer only)
+	if (multiplayer && bcnt == (3 * TICRATE))
+	{
+		AddCommandString("screenshot");
 	}
 }
 

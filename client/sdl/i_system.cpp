@@ -205,28 +205,28 @@ void *I_ZoneBase (size_t *size)
 void I_BeginRead(void)
 {
 	// NOTE(jsd): This is called before V_Palette is set causing crash in 32bpp mode.
-#if 0
-	if (r_loadicon)
-	{
-		patch_t *diskpatch = W_CachePatch("STDISK");
+	// [SL] Check that V_Palette has been properly initalized to work around this
 
-		if (!screen || !diskpatch || in_endoom)
+	if (r_loadicon && V_Palette.isValid())
+	{
+		const Texture* texture = R_LoadTexture("STDISK");
+
+		if (!screen || !texture || in_endoom)
 			return;
 
 		screen->Lock();
 
 		int scale = MIN(CleanXfac, CleanYfac);
-		int w = diskpatch->width() * scale;
-		int h = diskpatch->height() * scale;
+		int w = texture->getWidth() * scale;
+		int h = texture->getHeight() * scale;
 		// offset x and y for the lower right corner of the screen
-		int ofsx = screen->width - w + (scale * diskpatch->leftoffset());
-		int ofsy = screen->height - h + (scale * diskpatch->topoffset());
+		int ofsx = screen->width - w + (scale * texture->getOffsetX());
+		int ofsy = screen->height - h + (scale * texture->getOffsetY());
 
-		screen->DrawPatchStretched(diskpatch, ofsx, ofsy, w, h);
+		screen->DrawTextureStretched(texture, ofsx, ofsy, w, h);
 
 		screen->Unlock();
 	}
-#endif
 }
 
 void I_EndRead(void)
