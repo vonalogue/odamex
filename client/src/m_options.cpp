@@ -103,7 +103,6 @@ EXTERN_CVAR (gammalevel)
 EXTERN_CVAR (language)
 
 // [Ralphis - Menu] Compatibility Menu
-EXTERN_CVAR (co_level8soundfeature)
 EXTERN_CVAR (hud_targetnames)
 EXTERN_CVAR (hud_gamemsgtype)
 EXTERN_CVAR (hud_scale)
@@ -114,16 +113,14 @@ EXTERN_CVAR (hud_transparency)
 EXTERN_CVAR (hud_revealsecrets)
 EXTERN_CVAR (co_allowdropoff)
 EXTERN_CVAR (co_realactorheight)
-EXTERN_CVAR (co_boomlinecheck)
 EXTERN_CVAR (wi_newintermission)
 EXTERN_CVAR (co_zdoomphys)
-EXTERN_CVAR (co_zdoomswitches)
+EXTERN_CVAR (co_zdoomsound)
 EXTERN_CVAR (co_fixweaponimpacts)
-EXTERN_CVAR (co_zdoomsoundcurve)
 EXTERN_CVAR (cl_deathcam)
 EXTERN_CVAR (co_fineautoaim)
 EXTERN_CVAR (co_nosilentspawns)
-EXTERN_CVAR (co_boomsectortouch)
+EXTERN_CVAR (co_boomphys)			// [ML] Roll-up of various compat options
 EXTERN_CVAR (co_blockmapfix)
 
 // [Toke - Menu] New Menu Stuff.
@@ -294,7 +291,7 @@ menu_t OptionMenu = {
  * Controls Menu
  *
  *=======================================*/
- 
+
 static menuitem_t ControlsItems[] = {
 #ifdef _XBOX
 	{ whitetext,"A to change, START to clear", {NULL}, {0.0}, {0.0}, {0.0}, {NULL} },
@@ -358,21 +355,21 @@ static menuitem_t ControlsItems[] = {
 	{ control,	"Save menu",			{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_save"} },
 	{ control,	"Load menu",			{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_load"} },
 	{ control,	"Options menu",			{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_options"} },
-	{ control,	"Display options",	    {NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_display"} },	
+	{ control,	"Display options",	    {NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_display"} },
 	{ control,	"Player setup menu",	{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_player"} },
 	{ control,	"Configure controls",	{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_keys"} },
 	{ control,	"Change resolution",	{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_video"} },
 	{ redtext,	" ",					{NULL},	{0.0}, {0.0}, {0.0}, {NULL} },
 	{ bricktext,"Other",				{NULL},	{0.0}, {0.0}, {0.0}, {NULL} },
-    { control,	"Increase screen size",	{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"sizeup"} },		
-	{ control,	"Reduce screen size",	{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"sizedown"} },	
+    { control,	"Increase screen size",	{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"sizeup"} },
+	{ control,	"Reduce screen size",	{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"sizedown"} },
 	{ control,	"Chasecam",				{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"chase"} },
 	{ control,	"Screenshot",			{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"screenshot"} },
 	{ control,  "Open console",			{NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"toggleconsole"} },
 	{ control,  "End current game",     {NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_endgame"} },
 	{ control,  "Quit Odamex",	        {NULL}, {0.0}, {0.0}, {0.0}, {(value_t *)"menu_quit"} }
 };
- 
+
 menu_t ControlsMenu = {
 	"M_CONTRO",
 	3,
@@ -427,8 +424,8 @@ void G_ConvertMouseSettings(int old_type, int new_type);
 static void M_UpdateMouseOptions()
 {
 	const static size_t menu_length = STACKARRAY_LENGTH(MouseItems);
-	const static size_t mouse_sens_index = M_FindCvarInMenu(mouse_sensitivity, MouseItems, menu_length); 
-	const static size_t mouse_pitch_index = M_FindCvarInMenu(m_pitch, MouseItems, menu_length); 
+	const static size_t mouse_sens_index = M_FindCvarInMenu(mouse_sensitivity, MouseItems, menu_length);
+	const static size_t mouse_pitch_index = M_FindCvarInMenu(m_pitch, MouseItems, menu_length);
 	const static size_t mouse_accel_index = M_FindCvarInMenu(mouse_acceleration, MouseItems, menu_length);
 	const static size_t mouse_thresh_index = M_FindCvarInMenu(mouse_threshold, MouseItems, menu_length);
 	const static size_t mouse_driver_index = M_FindCvarInMenu(mouse_driver, MouseItems, menu_length);
@@ -478,10 +475,10 @@ static void M_UpdateMouseOptions()
 		for (int i = 0; i < NUM_MOUSE_DRIVERS; i++)
 		{
 			if (MouseDriverInfo[i].avail_test() == true)
-			{			
+			{
 				// update the menu with the pair of {value,name} for this driver
 				MouseDrivers[num_avail_drivers].value = float(MouseDriverInfo[i].id);
-				MouseDrivers[num_avail_drivers].name = MouseDriverInfo[i].name; 
+				MouseDrivers[num_avail_drivers].name = MouseDriverInfo[i].name;
 				num_avail_drivers++;
 			}
 		}
@@ -500,7 +497,7 @@ void M_ResetMouseValues()
 	mouse_sensitivity.RestoreDefault();
 	m_pitch.RestoreDefault();
 	cl_mouselook.RestoreDefault();
-	invertmouse.RestoreDefault();	
+	invertmouse.RestoreDefault();
 	lookstrafe.RestoreDefault();
 	novert.RestoreDefault();
 	m_side.RestoreDefault();
@@ -584,12 +581,12 @@ static value_t VoxType[] = {
 static float num_mussys = static_cast<float>(STACKARRAY_LENGTH(MusSys));
 
 static menuitem_t SoundItems[] = {
-    { redtext,	" ",					{NULL},	{0.0}, {0.0}, {0.0}, {NULL} },    
+    { redtext,	" ",					{NULL},	{0.0}, {0.0}, {0.0}, {NULL} },
 	{ bricktext ,   "Sound Levels"                      , {NULL},	            {0.0},      	{0.0},      {0.0},      {NULL} },
 	{ slider    ,	"Music Volume"                      , {&snd_musicvolume},	{0.0},      	{1.0},	    {0.1},      {NULL} },
 	{ slider    ,	"Sound Volume"                      , {&snd_sfxvolume},		{0.0},      	{1.0},	    {0.1},      {NULL} },
 	{ slider    ,	"Announcer Volume"             		, {&snd_announcervolume},	{0.0},      {1.0},	    {0.1},      {NULL} },
-	{ discrete  ,   "Stereo Switch"                     , {&snd_crossover},	    {2.0},			{0.0},		{0.0},		{OnOff} },	
+	{ discrete  ,   "Stereo Switch"                     , {&snd_crossover},	    {2.0},			{0.0},		{0.0},		{OnOff} },
 	{ redtext   ,	" "                                 , {NULL},	            {0.0},      	{0.0},      {0.0},      {NULL} },
 	{ discrete	,	"Music System Backend"				, {&snd_musicsystem},	{num_mussys},	{0.0},		{0.0},		{MusSys} },
 	{ redtext   ,	" "                                 , {NULL},	            {0.0},      	{0.0},      {0.0},      {NULL} },
@@ -597,9 +594,9 @@ static menuitem_t SoundItems[] = {
 	{ discrete  ,   "Game SFX"                          , {&snd_gamesfx},		{2.0},			{0.0},		{0.0},		{OnOff} },
 	{ discrete  ,   "Announcer Type"                    , {&snd_voxtype},		{3.0},			{0.0},		{0.0},		{VoxType} },
 	{ discrete  ,   "Player Connect Alert"              , {&cl_connectalert},	{2.0},			{0.0},		{0.0},		{OnOff} },
-	{ discrete  ,   "Player Disconnect Alert"           , {&cl_disconnectalert},{2.0},			{0.0},		{0.0},		{OnOff} }	
+	{ discrete  ,   "Player Disconnect Alert"           , {&cl_disconnectalert},{2.0},			{0.0},		{0.0},		{OnOff} }
  };
- 
+
 menu_t SoundMenu = {
 	"M_SOUND",
 	2,
@@ -622,22 +619,19 @@ static menuitem_t CompatItems[] ={
 	{discrete,  "Camera follows killer on death",  {&cl_deathcam},          {2.0}, {0.0}, {0.0}, {OnOff}},
 	{discrete,  "Finer-precision Autoaim",         {&co_fineautoaim},       {2.0}, {0.0}, {0.0}, {OnOff}},
 	{discrete,  "Fix hit detection at grid edges", {&co_blockmapfix},       {2.0}, {0.0}, {0.0}, {OnOff}},
-	{discrete,  "ZDOOM 1.23 physics",              {&co_zdoomphys},         {2.0}, {0.0}, {0.0}, {OnOff}},
 	{redtext,   " ",                               {NULL},                  {0.0}, {0.0}, {0.0}, {NULL}},
 	{bricktext, "Items and Decoration",            {NULL},                  {0.0}, {0.0}, {0.0}, {NULL}},
 	{discrete,  "Fix invisible puffs under skies", {&co_fixweaponimpacts},  {2.0}, {0.0}, {0.0}, {OnOff}},
 	{discrete,  "Items can be walked over/under",  {&co_realactorheight},   {2.0}, {0.0}, {0.0}, {OnOff}},
 	{discrete,  "Items can drop off ledges",       {&co_allowdropoff},      {2.0}, {0.0}, {0.0}, {OnOff}},
 	{redtext,   " ",                               {NULL},                  {0.0}, {0.0}, {0.0}, {NULL}},
-	{bricktext, "Map Compatibility",               {NULL},                  {0.0}, {0.0}, {0.0}, {NULL}},
-	{discrete,  "BOOM actor-in-sector check",      {&co_boomsectortouch},   {2.0}, {0.0}, {0.0}, {OnOff}},
-	{discrete,  "BOOM extra line checks on use",   {&co_boomlinecheck},     {2.0}, {0.0}, {0.0}, {OnOff}},
+	{bricktext, "Engine Compatibility",            {NULL},                  {0.0}, {0.0}, {0.0}, {NULL}},
+	{discrete,  "BOOM actor/sector/line checks",   {&co_boomphys},		    {2.0}, {0.0}, {0.0}, {OnOff}},
+	{discrete,  "ZDOOM 1.23 physics",              {&co_zdoomphys},         {2.0}, {0.0}, {0.0}, {OnOff}},
 	{redtext,   " ",                               {NULL},                  {0.0}, {0.0}, {0.0}, {NULL}},
 	{bricktext, "Sound",                           {NULL},                  {0.0}, {0.0}, {0.0}, {NULL}},
 	{discrete,  "Fix silent west spawns",          {&co_nosilentspawns},    {2.0}, {0.0}, {0.0}, {OnOff}},
-	{discrete,  "Louder sounds on map 8",          {&co_level8soundfeature},{2.0}, {0.0}, {0.0}, {OnOff}},
-	{discrete,  "Positional switch sounds",        {&co_zdoomswitches},     {2.0}, {0.0}, {0.0}, {OnOff}},
-	{discrete,  "ZDOOM 1.23 extended sound curve", {&co_zdoomsoundcurve},   {2.0}, {0.0}, {0.0}, {OnOff}},
+	{discrete,  "ZDoom Sound Response",        		{&co_zdoomsound},     {2.0}, {0.0}, {0.0}, {OnOff}},
 };
 
 menu_t CompatMenu = {
@@ -672,7 +666,7 @@ static value_t UpdateRate[] = {
 };
 
 static menuitem_t NetworkItems[] = {
-    { redtext,	" ",					{NULL},	{0.0}, {0.0}, {0.0}, {NULL} },    
+    { redtext,	" ",					{NULL},	{0.0}, {0.0}, {0.0}, {NULL} },
 	{ bricktext,	"Adjust Network Settings",		{NULL},				{0.0},		{0.0},		{0.0},		{NULL} },
 	{ discrete,		"Bandwidth",					{&rate},			{4.0},		{0.0},		{0.0},		{BandwidthLevels} },
 	{ discrete,		"Position update freq",			{&cl_updaterate},	{3.0},		{0.0},		{0.0},		{UpdateRate} },
@@ -824,13 +818,13 @@ static menuitem_t VideoItems[] = {
 	{ redtext,	" ",					    {NULL},					{0.0}, {0.0},	{0.0},  {NULL} },
 	{ slider,	"Screen size",			    {&screenblocks},	   	{3.0}, {12.0},	{1.0},  {NULL} },
 	{ slider,	"Brightness",			    {&gammalevel},			{1.0}, {8.0},	{1.0},  {NULL} },
-	{ slider,	"Red Pain Intensity",		{&r_painintensity},		{0.0}, {1.0},	{0.1},  {NULL} },	
+	{ slider,	"Red Pain Intensity",		{&r_painintensity},		{0.0}, {1.0},	{0.1},  {NULL} },
 	{ slider,	"Movement bobbing",			{&cl_movebob},			{0.0}, {1.0},	{0.1},	{NULL} },
 	{ discrete,	"Visible Spawn Points",		{&cl_showspawns},		{2.0}, {0.0},	{0.0},	{OnOff} },
-	{ redtext,	" ",					    {NULL},					{0.0}, {0.0},	{0.0},  {NULL} },	
+	{ redtext,	" ",					    {NULL},					{0.0}, {0.0},	{0.0},  {NULL} },
 	{ discrete, "Scale status bar",	        {&st_scale},			{2.0}, {0.0},	{0.0},  {OnOff} },
 	{ discrete, "Scale HUD",	            {&hud_scale},			{2.0}, {0.0},	{0.0},  {OnOff} },
-	{ slider,   "HUD Visibility",           {&hud_transparency},    {0.0}, {1.0},   {0.1},  {NULL} },	
+	{ slider,   "HUD Visibility",           {&hud_transparency},    {0.0}, {1.0},   {0.1},  {NULL} },
 	{ slider,   "Scale scoreboard",         {&hud_scalescoreboard}, {0.0}, {1.0},   {0.125},  {NULL} },
 	{ discrete, "HUD Timer Visibility",     {&hud_timer},           {2.0}, {0.0},   {0.0},  {OnOff} },
 	{ discrete, "Held Flag Border",         {&hud_heldflag},        {2.0}, {0.0},   {0.0},  {OnOff} },
@@ -855,12 +849,12 @@ static menuitem_t VideoItems[] = {
 	{ slider,   "UI Background Red",        {&ui_transred},         {0.0}, {255.0}, {16.0}, {NULL} },
 	{ slider,   "UI Background Green",      {&ui_transgreen},       {0.0}, {255.0}, {16.0}, {NULL} },
 	{ slider,   "UI Background Blue",       {&ui_transblue},        {0.0}, {255.0}, {16.0}, {NULL} },
-	{ slider,   "UI Background Visibility", {&ui_dimamount},        {0.0}, {1.0},   {0.1},  {NULL} },	
+	{ slider,   "UI Background Visibility", {&ui_dimamount},        {0.0}, {1.0},   {0.1},  {NULL} },
 	{ redtext,	" ",					    {NULL},					{0.0}, {0.0},	{0.0},  {NULL} },
 	{ discrete, "Stretch short skies",	    {&r_stretchsky},	   	{3.0}, {0.0},	{0.0},  {OnOffAuto} },
 	{ discrete, "Invuln changes skies",		{&r_skypalette},		{2.0}, {0.0},	{0.0},	{OnOff} },
 	{ discrete, "Screen wipe style",	    {&r_wipetype},			{4.0}, {0.0},	{0.0},  {Wipes} },
-	{ discrete, "Multiplayer Intermissions",{&wi_newintermission},	{2.0}, {0.0},	{0.0},  {DoomOrOdamex} },	
+	{ discrete, "Multiplayer Intermissions",{&wi_newintermission},	{2.0}, {0.0},	{0.0},  {DoomOrOdamex} },
 	{ discrete, "Show loading disk icon",	{&r_loadicon},			{2.0}, {0.0},	{0.0},	{OnOff} },
     { discrete,	"Show DOS ending screen" ,  {&r_showendoom},		{2.0}, {0.0},	{0.0},  {OnOff} },
 };
@@ -868,7 +862,7 @@ static menuitem_t VideoItems[] = {
 static void M_UpdateDisplayOptions()
 {
 	const static size_t menu_length = STACKARRAY_LENGTH(VideoItems);
-	const static size_t gamma_index = M_FindCvarInMenu(gammalevel, VideoItems, menu_length); 
+	const static size_t gamma_index = M_FindCvarInMenu(gammalevel, VideoItems, menu_length);
 
 	// update the parameters for gammalevel based on vid_gammatype (doom or zdoom gamma)
 	VideoItems[gamma_index].b.leftval = gammastrat->min();
@@ -934,7 +928,7 @@ static value_t Languages[] = {
 static menuitem_t MessagesItems[] = {
 	{ discrete, "Language", 			 {&language},		   	{4.0}, {0.0},   {0.0}, {Languages} },
 	{ discrete, "Minimum message level", {&msglevel},		   	{3.0}, {0.0},   {0.0}, {MessageLevels} },
-	{ slider,	"Scale message text",    {&hud_scaletext},		{1.0}, {4.0}, 	{1.0}, {NULL} },	
+	{ slider,	"Scale message text",    {&hud_scaletext},		{1.0}, {4.0}, 	{1.0}, {NULL} },
     { discrete,	"Show player target names",	{&hud_targetnames},	{2.0}, {0.0},   {0.0},	{OnOff} },
 	{ discrete ,"Game Message Type",    {&hud_gamemsgtype},		{3.0}, {0.0},   {0.0}, {VoxType} },
 	{ discrete, "Reveal Secrets",       {&hud_revealsecrets},	{2.0}, {0.0},   {0.0}, {OnOff} },
@@ -964,7 +958,7 @@ menu_t MessagesMenu = {
  * Automap Menu
  *
  *=======================================*/
- 
+
 static value_t ClassicMapStringTypes[] = {
 	{ 0.0, "Odamex" },
 	{ 1.0, "Classic" }
@@ -978,9 +972,9 @@ static menuitem_t AutomapItems[] = {
     { discrete, "Show secrets count",	{&am_showsecrets},	   	{2.0}, {0.0},	{0.0},  {OnOff} },
     { discrete, "Show map timer", 	    {&am_showtime}, 	   	{2.0}, {0.0},	{0.0},  {OnOff} },
     { discrete, "Map name style",       {&am_classicmapstring},	{2.0}, {0.0},	{0.0},  {ClassicMapStringTypes} },
-        
+
 	{ redtext,	" ",					{NULL},					{0.0}, {0.0},	{0.0}, {NULL} },
-	{ bricktext, "Automap Colors",		{NULL},					{0.0}, {0.0},	{0.0}, {NULL} },	
+	{ bricktext, "Automap Colors",		{NULL},					{0.0}, {0.0},	{0.0}, {NULL} },
 	{ discrete, "Custom map colors",	{&am_usecustomcolors},	{2.0}, {0.0},	{0.0},  {OnOff} },
 	{ more,     "Reset custom map colors",  {NULL},             {0.0}, {0.0},   {0.0},  {(value_t *)ResetCustomColors} },
 };
@@ -1216,7 +1210,7 @@ void M_SwitchMenu (menu_t *menu)
 	MenuStack[MenuStackDepth].isNewStyle = true;
 	MenuStack[MenuStackDepth].drawSkull = false;
 	MenuStackDepth++;
-	
+
 	CanScrollUp = false;
 	CanScrollDown = false;
 	CurrentMenu = menu;
@@ -1325,7 +1319,7 @@ void M_OptDrawer (void)
 	{
 		if (i == CurrentMenu->scrolltop)
 			i += CurrentMenu->scrollpos;
-				
+
 		item = CurrentMenu->items + i;
 
 		if (item->type == screenres)
@@ -1512,7 +1506,7 @@ void M_OptDrawer (void)
 				screen->DrawTextureClean(R_LoadTexture("LITLCURS"), CurrentMenu->indent + 3, y);
 		}
 	}
-	
+
 	VisBottom = i - 1;
 	CanScrollUp = (CurrentMenu->scrollpos != 0);
 	CanScrollDown = (i < CurrentMenu->numitems);
@@ -1575,16 +1569,16 @@ void M_OptResponder (event_t *ev)
 				// to make sure we get the one that is intended -- Hyper_Eye
 				if( (ev->data3 > (SHRT_MAX / 2)) || (ev->data3 < (SHRT_MIN / 2)) )
 				{
-					if( (ev->data2 == (int)joy_forwardaxis) && 
+					if( (ev->data2 == (int)joy_forwardaxis) &&
 							strcmp(joy_forwardaxis.name(), item->a.cvar->name()) )
 						joy_forwardaxis.Set(item->a.cvar->value());
-					else if( (ev->data2 == (int)joy_strafeaxis) && 
+					else if( (ev->data2 == (int)joy_strafeaxis) &&
 							strcmp(joy_strafeaxis.name(), item->a.cvar->name()) )
 						joy_strafeaxis.Set(item->a.cvar->value());
-					else if( (ev->data2 == (int)joy_turnaxis) && 
+					else if( (ev->data2 == (int)joy_turnaxis) &&
 							strcmp(joy_turnaxis.name(), item->a.cvar->name()) )
 						joy_turnaxis.Set(item->a.cvar->value());
-					else if( (ev->data2 == (int)joy_lookaxis) && 
+					else if( (ev->data2 == (int)joy_lookaxis) &&
 							strcmp(joy_lookaxis.name(), item->a.cvar->name()) )
 						joy_lookaxis.Set(item->a.cvar->value());
 
@@ -1703,7 +1697,7 @@ void M_OptResponder (event_t *ev)
 				S_Sound (CHAN_INTERFACE, "plats/pt1_stop", 1, ATTN_NONE);
 			}
 			break;
-			
+
 		case KEY_PGUP:
 			{
 				if (CanScrollUp)
@@ -1750,7 +1744,7 @@ void M_OptResponder (event_t *ev)
 				}
 			}
 			break;
-		
+
 		case KEY_HAT4:
 		case KEY_LEFTARROW:
 			switch (item->type)

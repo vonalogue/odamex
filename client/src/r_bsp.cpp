@@ -53,7 +53,7 @@ bool			r_underwater;
 
 static BYTE		FakeSide;
 
-const fixed_t NEARCLIP = FRACUNIT/4;
+const fixed_t NEARCLIP = 2*FRACUNIT;
 
 drawseg_t*		ds_p;
 drawseg_t*		drawsegs;

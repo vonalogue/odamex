@@ -1039,7 +1039,7 @@ void R_DrawFuzzMaskedColumnP(drawcolumn_t& drawcolumn)
 {
 	// adjust the borders (prevent buffer over/under-reads)
 	drawcolumn.yl = MAX(1, drawcolumn.yl);
-	drawcolumn.yh = MIN(realviewheight - 2, drawcolumn.yh);
+	drawcolumn.yh = MIN(viewheight - 2, drawcolumn.yh);
 	drawcolumn.dest = R_CalculateDestination(drawcolumn);
 
 	R_FillMaskedColumnGeneric<palindex_t, PaletteFuzzyFunc>(drawcolumn);
@@ -1386,7 +1386,7 @@ void R_DrawFuzzMaskedColumnD(drawcolumn_t& drawcolumn)
 {
 	// adjust the borders (prevent buffer over/under-reads)
 	drawcolumn.yl = MAX(1, drawcolumn.yl);
-	drawcolumn.yh = MIN(realviewheight - 2, drawcolumn.yh);
+	drawcolumn.yh = MIN(viewheight - 2, drawcolumn.yh);
 	drawcolumn.dest = R_CalculateDestination(drawcolumn);
 
 	R_FillMaskedColumnGeneric<argb_t, DirectFuzzyFunc>(drawcolumn);
