@@ -84,6 +84,11 @@ void D_RunTics(void (*sim_func)(), void(*display_func)());
 void D_AddWadCommandLineFiles(std::vector<std::string>& filenames);
 void D_AddDehCommandLineFiles(std::vector<std::string>& filenames);
 
+std::string D_GetTitleString();
+
+void D_Init();
+void STACK_ARGS D_Shutdown();
+
 #endif
 
 

@@ -151,7 +151,7 @@ CVAR_FUNC_IMPL (sv_maxplayers)
 
 			if (normalcount > var)
 			{
-				for (Players::iterator pit = players.begin();it != players.end();++it)
+				for (Players::iterator pit = players.begin();pit != players.end();++pit)
 				{
 					MSG_WriteMarker (&(pit->client.reliablebuf), svc_spectate);
 					MSG_WriteByte (&(pit->client.reliablebuf), it->id);
@@ -879,9 +879,15 @@ bool SV_SetupUserInfo(player_t &player)
 {
 	// read in userinfo from packet
 	std::string		old_netname(player.userinfo.netname);
-	std::string		new_netname(MSG_ReadString());
 
-	if (!ValidString(new_netname)) {
+	std::string		new_netname(MSG_ReadString());
+	StripColorCodes(new_netname);
+
+	if (new_netname.length() > MAXPLAYERNAME)
+		new_netname.erase(MAXPLAYERNAME);
+
+	if (!ValidString(new_netname))
+	{
 		SV_InvalidateClient(player, "Name contains invalid characters");
 		return false;
 	}
@@ -2766,14 +2772,17 @@ void SVC_PrivMsg(player_t &player, player_t &dplayer, const char* message)
 bool SV_Say(player_t &player)
 {
 	byte who = MSG_ReadByte();
-	const char* s = MSG_ReadString();
 
-	if (!ValidString(s)) {
+	std::string str(MSG_ReadString());
+	StripColorCodes(str);
+
+	if (!ValidString(str))
+	{
 		SV_InvalidateClient(player, "Chatstring contains invalid characters");
 		return false;
 	}
 
-	if (!strlen(s) || strlen(s) > MAX_CHATSTR_LEN)
+	if (str.empty() || str.length() > MAX_CHATSTR_LEN)
 		return true;
 
 	// Flood protection
@@ -2792,24 +2801,24 @@ bool SV_Say(player_t &player)
 	if (!player.LastMessage.Time)
 	{
 		player.LastMessage.Time = I_MSTime() * TICRATE / 1000;
-		player.LastMessage.Message = s;
+		player.LastMessage.Message = str.c_str();
 	}
 
 	switch (who)
 	{
 	case 1:
 		if (player.spectator)
-			SVC_SpecSay(player, s);
+			SVC_SpecSay(player, str.c_str());
 		else if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
-			SVC_TeamSay(player, s);
+			SVC_TeamSay(player, str.c_str());
 		else
-			SVC_Say(player, s);
+			SVC_Say(player, str.c_str());
 		break;
 	case 0:
 		if (player.spectator && !sv_globalspectatorchat)
-			SVC_SpecSay(player, s);
+			SVC_SpecSay(player, str.c_str());
 		else
-			SVC_Say(player, s);
+			SVC_Say(player, str.c_str());
 		break;
 	default:
 		// Invalid destination
@@ -2826,9 +2835,12 @@ bool SV_Say(player_t &player)
 bool SV_PrivMsg(player_t &player)
 {
 	player_t& dplayer = idplayer(MSG_ReadByte());
-	const char* s = MSG_ReadString();
 
-	if (!ValidString(s)) {
+	std::string str(MSG_ReadString());
+	StripColorCodes(str);
+
+	if (!ValidString(str))
+	{
 		SV_InvalidateClient(player, "Private Message contains invalid characters");
 		return false;
 	}
@@ -2836,7 +2848,7 @@ bool SV_PrivMsg(player_t &player)
 	if (!validplayer(dplayer))
 		return true;
 
-	if (!strlen(s) || strlen(s) > MAX_CHATSTR_LEN)
+	if (str.empty() || str.length() > MAX_CHATSTR_LEN)
 		return true;
 
 	// In competitive gamemodes, don't allow spectators to message players.
@@ -2858,10 +2870,10 @@ bool SV_PrivMsg(player_t &player)
 	if (!player.LastMessage.Time)
 	{
 		player.LastMessage.Time = I_MSTime() * TICRATE / 1000;
-		player.LastMessage.Message = s;
+		player.LastMessage.Message = str.c_str();
 	}
 
-	SVC_PrivMsg(player, dplayer, s);
+	SVC_PrivMsg(player, dplayer, str.c_str());
 
 	return true;
 }
@@ -3683,6 +3695,15 @@ void SV_SetPlayerSpec(player_t &player, bool setting, bool silent) {
 			CTF_CheckFlags(player);
 		}
 
+		// [tm512 2014/04/18] Avoid setting spectator flags on a dead player
+		// Instead we respawn the player, move him back, and immediately spectate him afterwards
+		if (player.playerstate == PST_DEAD)
+		{
+			player.deadspectator = true; // prevent teleport fog
+			G_DoReborn (player);
+			player.deadspectator = false;
+		}
+
 		player.spectator = true;
 
 		// [AM] Set player unready if we're in warmup mode.
@@ -4127,13 +4148,14 @@ void SV_ParseCommands(player_t &player)
 
 		case clc_rcon:
 			{
-				const char *str = MSG_ReadString();
+				std::string str(MSG_ReadString());
+				StripColorCodes(str);
 
 				if (player.client.allow_rcon)
 				{
 					Printf(PRINT_HIGH, "rcon command from %s - %s -> %s",
-							player.userinfo.netname.c_str(), NET_AdrToString(net_from), str);
-					AddCommandString (str);
+							player.userinfo.netname.c_str(), NET_AdrToString(net_from), str.c_str());
+					AddCommandString(str);
 				}
 			}
 			break;

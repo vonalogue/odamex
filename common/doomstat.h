@@ -123,13 +123,6 @@ extern	int 			viewwindowy;
 extern	"C" int 		viewheight;
 extern	"C" int 		viewwidth;
 
-extern	"C" int			realviewwidth;		// [RH] Physical width of view window
-extern	"C" int			realviewheight;		// [RH] Physical height of view window
-extern	"C" int			detailxshift;		// [RH] X shift for horizontal detail level
-extern	"C" int			detailyshift;		// [RH] Y shift for vertical detail level
-
-
-
 
 
 // This one is related to the 3-screen display mode.
@@ -219,8 +212,8 @@ extern	BOOL	 		precache;
 extern gamestate_t wipegamestate;
 
 // denis - is this from hexen?
-extern BOOL setsizeneeded;
-extern BOOL setmodeneeded;
+extern bool setsizeneeded;
+extern bool setmodeneeded;
 
 EXTERN_CVAR (mouse_sensitivity) // removeme // ?
 
@@ -228,11 +221,6 @@ EXTERN_CVAR (mouse_sensitivity) // removeme // ?
 // Used for rendering,
 //	as well as tracking projectiles etc.
 extern int				skyflatnum;
-
-// Netgame stuff (buffers and pointers, i.e. indices).
-extern	int 			maketic;
-extern	int 			ticdup;
-
 
 // ---- [RH] ----
 EXTERN_CVAR (developer) // removeme

@@ -145,9 +145,6 @@ std::map<unsigned short, SectorSnapshotManager> sector_snaps;
 
 EXTERN_CVAR (sv_weaponstay)
 
-EXTERN_CVAR (cl_name)
-EXTERN_CVAR (cl_color)
-EXTERN_CVAR (cl_gender)
 EXTERN_CVAR (cl_predictsectors)
 
 EXTERN_CVAR (mute_spectators)
@@ -161,28 +158,28 @@ EXTERN_CVAR(cl_interp)
 // [SL] Force enemies to have the specified color
 EXTERN_CVAR (r_forceenemycolor)
 EXTERN_CVAR (r_forceteamcolor)
-static int enemycolor = 0, teamcolor = 0;
+static argb_t enemycolor = 0, teamcolor = 0;
 
 int CL_GetPlayerColor(player_t *player)
 {
 	if (!player)
 		return 0;
 
-	int color = player->userinfo.color;
+	argb_t color = player->userinfo.color;
 
 	// Adjust the shade of color for team games
 	if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
 	{
-		int red = RPART(player->userinfo.color);
-		int green = GPART(player->userinfo.color);
-		int blue = BPART(player->userinfo.color);
+		int red = player->userinfo.color.r;
+		int green = player->userinfo.color.g;
+		int blue = player->userinfo.color.b;
 
 		int intensity = MAX(MAX(red, green), blue) / 3;
 
 		if (player->userinfo.team == TEAM_BLUE)
-			color = MAKERGB(0, 0,  0xAA + intensity);
+			color = argb_t(0, 0,  0xAA + intensity);
 		else if (player->userinfo.team == TEAM_RED)
-			color = MAKERGB(0xAA + intensity, 0, 0);
+			color = argb_t(0xAA + intensity, 0, 0);
 	}
 
 	// apply r_teamcolor & r_enemycolor overrides
@@ -319,8 +316,6 @@ team_t D_TeamByName (const char *team);
 gender_t D_GenderByName (const char *gender);
 int V_GetColorFromString (const DWORD *palette, const char *colorstring);
 void AM_Stop();
-
-void ST_AdjustStatusBarScale(bool scale);
 
 
 // ============================================================================
@@ -533,32 +528,7 @@ void CL_QuitNetGame(void)
 		netdemo.stopPlaying();
 
 	// Reset the palette to default
-	if (I_HardwareInitialized())
-	{
-		int lu_palette = W_GetNumForName("PLAYPAL");
-		if (lu_palette != -1)
-		{
-			byte *pal = (byte *)W_CacheLumpNum(lu_palette, PU_CACHE);
-			if (pal)
-			{
-				I_SetOldPalette(pal);
-			}
-		}
-	}
-
-	// Reset the palette to default
-	if (I_HardwareInitialized())
-	{
-		int lu_palette = W_GetNumForName("PLAYPAL");
-		if (lu_palette != -1)
-		{
-			byte *pal = (byte *)W_CacheLumpNum(lu_palette, PU_CACHE);
-			if (pal)
-			{
-				I_SetOldPalette(pal);
-			}
-		}
-	}
+	V_ResetPalette();
 
 	cvar_t::C_RestoreCVars();
 }
@@ -613,7 +583,7 @@ void CL_CheckDisplayPlayer()
 		MSG_WriteByte(&net_buffer, newid);
 		displayplayer_id = newid;
 
-		ST_AdjustStatusBarScale(st_scale != 0);
+		ST_ForceRefresh();
 	}
 
 	previd = newid;
@@ -628,8 +598,6 @@ void CL_CheckDisplayPlayer()
 template<class Iterator>
 void CL_SpyCycle(Iterator begin, Iterator end)
 {
-	extern bool st_firsttime;
-
 	// Make sure we have players to iterate over
 	if (players.empty())
 		return;
@@ -673,7 +641,7 @@ void CL_SpyCycle(Iterator begin, Iterator end)
 			if (demoplayback)
 			{
 				consoleplayer_id = player.id;
-				st_firsttime = true;
+				ST_ForceRefresh();
 			}
 
 			return;
@@ -879,7 +847,8 @@ BEGIN_COMMAND (playerinfo)
 	Printf (PRINT_HIGH, "---------------[player info]----------- \n");
 	Printf (PRINT_HIGH, " userinfo.netname     - %s \n",	player->userinfo.netname.c_str());
 	Printf (PRINT_HIGH, " userinfo.team        - %d \n",	player->userinfo.team);
-	Printf (PRINT_HIGH, " userinfo.color       - #%06x \n",	player->userinfo.color);
+	Printf (PRINT_HIGH, " userinfo.color       - #%02x%02x%02x\n",
+			player->userinfo.color.r, player->userinfo.color.g, player->userinfo.color.b);
 	Printf (PRINT_HIGH, " userinfo.gender      - %d \n",	player->userinfo.gender);
 	Printf (PRINT_HIGH, " spectator            - %d \n",	player->spectator);
 	Printf (PRINT_HIGH, " time                 - %d \n",	player->GameTime);
@@ -1430,8 +1399,7 @@ void CL_SetupUserInfo(void)
 	int color = CL_GetPlayerColor(p);
 	R_BuildPlayerTranslation (p->id, color);
 
-	extern bool st_firsttime;
-	st_firsttime = true;
+	ST_ForceRefresh();
 }
 
 
@@ -1847,14 +1815,19 @@ void CL_Print (void)
 	byte level = MSG_ReadByte();
 	const char *str = MSG_ReadString();
 
-	Printf (level, "%s", str);
+	if (level == PRINT_CHAT)
+		Printf(level, "\\c*%s", str);
+	else if (level == PRINT_TEAMCHAT)
+		Printf(level, "\\c!%s", str);
+	else
+		Printf(level, "%s", str);
 
 	if (show_messages)
 	{
 		if (level == PRINT_CHAT)
-			S_Sound (CHAN_INTERFACE, gameinfo.chatSound, 1, ATTN_NONE);
+			S_Sound(CHAN_INTERFACE, gameinfo.chatSound, 1, ATTN_NONE);
 		else if (level == PRINT_TEAMCHAT)
-			S_Sound (CHAN_INTERFACE, "misc/teamchat", 1, ATTN_NONE);
+			S_Sound(CHAN_INTERFACE, "misc/teamchat", 1, ATTN_NONE);
 	}
 }
 
@@ -1901,17 +1874,19 @@ void CL_Say()
 	{
 	case 0:
 		if (strnicmp(message, "/me ", 4) == 0)
-			Printf(PRINT_CHAT, "* %s %s\n", name, &message[4]);
+			Printf(PRINT_CHAT, "\\c** %s %s\n", name, &message[4]);
 		else
-			Printf(PRINT_CHAT, "%s: %s\n", name, message);
+			Printf(PRINT_CHAT, "\\c*%s: %s\n", name, message);
+
 		if (show_messages)
 			S_Sound(CHAN_INTERFACE, gameinfo.chatSound, 1, ATTN_NONE);
 		break;
+
 	case 1:
 		if (strnicmp(message, "/me ", 4) == 0)
-			Printf(PRINT_TEAMCHAT, "* %s %s\n", name, &message[4]);
+			Printf(PRINT_TEAMCHAT, "\\c!* %s %s\n", name, &message[4]);
 		else
-			Printf(PRINT_TEAMCHAT, "%s: %s\n", name, message);
+			Printf(PRINT_TEAMCHAT, "\\c!%s: %s\n", name, message);
 		if (show_messages)
 			S_Sound(CHAN_INTERFACE, "misc/teamchat", 1, ATTN_NONE);
 		break;
@@ -3069,7 +3044,7 @@ void CL_GetServerSettings(void)
 	R_InitSkyMap ();
 
 	// [AM] - Adhere to sv_allowwidescreen setting.
-	ST_AdjustStatusBarScale(st_scale != 0);
+	ST_ForceRefresh();
 	setsizeneeded = true;
 }
 
@@ -3433,13 +3408,31 @@ void CL_Spectate()
 	if (player.spectator && wasalive)
 		P_DisconnectEffect(player.mo);
 
-	if (&player == &consoleplayer()) {
-		st_scale.Callback (); // refresh status bar size
-		if (player.spectator) {
+	// [tm512 2014/04/11] Do as the server does when unspectating a player.
+	// If the player has a "valid" mo upon going to PST_LIVE, any enemies
+	// that are still targeting the spectating player will cause a stack
+	// overflow in P_SetMobjState.
+
+	if (!player.spectator && !wasalive)
+	{
+		if (player.mo)
+			P_KillMobj(NULL, player.mo, NULL, true);
+
+		player.playerstate = PST_REBORN;
+	}
+
+	if (&player == &consoleplayer())
+	{
+		ST_ForceRefresh();
+
+		if (player.spectator)
+		{
 			player.playerstate = PST_LIVE; // resurrect dead spectators
 			// GhostlyDeath -- Sometimes if the player spectates while he is falling down he squats
 			player.deltaviewheight = 1000 << FRACBITS;
-		} else {
+		}
+		else
+		{
 			displayplayer_id = consoleplayer_id; // get out of spynext
 			player.cheats &= ~CF_FLY;	// remove flying ability
 		}

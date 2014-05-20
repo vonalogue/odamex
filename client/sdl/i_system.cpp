@@ -70,7 +70,6 @@
 
 #include <sys/stat.h>
 
-#include "hardware.h"
 #include "errors.h"
 #include <math.h>
 
@@ -82,6 +81,7 @@
 #include "m_argv.h"
 #include "m_misc.h"
 #include "i_video.h"
+#include "v_video.h"
 #include "i_sound.h"
 
 #include "d_main.h"
@@ -202,31 +202,10 @@ void *I_ZoneBase (size_t *size)
 	return zone;
 }
 
-void I_BeginRead(void)
+void I_BeginRead()
 {
-	// NOTE(jsd): This is called before V_Palette is set causing crash in 32bpp mode.
-	// [SL] Check that V_Palette has been properly initalized to work around this
-
-	if (r_loadicon && V_Palette.isValid())
-	{
-		patch_t *diskpatch = W_CachePatch("STDISK");
-
-		if (!screen || !diskpatch || in_endoom)
-			return;
-
-		screen->Lock();
-
-		int scale = MIN(CleanXfac, CleanYfac);
-		int w = diskpatch->width() * scale;
-		int h = diskpatch->height() * scale;
-		// offset x and y for the lower right corner of the screen
-		int ofsx = screen->width - w + (scale * diskpatch->leftoffset());
-		int ofsy = screen->height - h + (scale * diskpatch->topoffset());
-
-		screen->DrawPatchStretched(diskpatch, ofsx, ofsy, w, h);
-
-		screen->Unlock();
-	}
+	if (r_loadicon)
+		I_DrawLoadingIcon();
 }
 
 void I_EndRead(void)
@@ -257,24 +236,42 @@ dtime_t I_GetTime()
 
 #elif defined WIN32 && !defined _XBOX
 	static bool initialized = false;
-	static uint64_t initial_count;
+	static LARGE_INTEGER initial_count;
 	static double nanoseconds_per_count;
+	static LARGE_INTEGER last_count;
 
 	if (!initialized)
 	{
-		QueryPerformanceCounter((LARGE_INTEGER*)&initial_count);
+		LARGE_INTEGER freq;
+		QueryPerformanceFrequency(&freq);
+		nanoseconds_per_count = 1000.0 * 1000.0 * 1000.0 / double(freq.QuadPart);
 
-		uint64_t temp;
-		QueryPerformanceFrequency((LARGE_INTEGER*)&temp);
-		nanoseconds_per_count = 1000.0 * 1000.0 * 1000.0 / double(temp);
+        QueryPerformanceCounter(&initial_count);
+        last_count = initial_count;
 
 		initialized = true;
 	}
 
-	uint64_t current_count;
-	QueryPerformanceCounter((LARGE_INTEGER*)&current_count);
+	LARGE_INTEGER current_count;
+	QueryPerformanceCounter(&current_count);
 
-	return nanoseconds_per_count * (current_count - initial_count);
+	// [SL] ensure current_count is a sane value
+	// AMD dual-core CPUs and buggy BIOSes sometimes cause QPC
+	// to return different values from different CPU cores,
+	// which ruins our timing. We check that the new value is
+	// at least equal to the last value and that the new value
+	// isn't too far past the last value (1 frame at 10fps).
+
+	const int64_t min_count = last_count.QuadPart;
+	const int64_t max_count = last_count.QuadPart +
+			nanoseconds_per_count * I_ConvertTimeFromMs(100);
+
+	if (current_count.QuadPart < min_count || current_count.QuadPart > max_count)
+		current_count = last_count;
+
+	last_count = current_count;
+
+	return nanoseconds_per_count * (current_count.QuadPart - initial_count.QuadPart);
 
 #else
 	// [SL] use SDL_GetTicks, but account for the fact that after
@@ -638,7 +635,7 @@ void I_Endoom(void)
 
 	TXT_Init();
 
-    I_SetWindowCaption();
+	I_SetWindowCaption(D_GetTitleString());
     I_SetWindowIcon();
 
 	// Write the data to the screen memory
@@ -788,7 +785,7 @@ void I_SetTitleString (const char *title)
 // by Denis Lukianov - 20 Mar 2006
 // Cross-platform clipboard functionality
 //
-std::string I_GetClipboardText (void)
+std::string I_GetClipboardText()
 {
 #ifdef X11
 	std::string ret;
@@ -916,12 +913,13 @@ std::string I_GetClipboardText (void)
 #endif
 
 #ifdef OSX
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 1050 
 	ScrapRef scrap;
 	Size size;
 
 	int err = GetCurrentScrap(&scrap);
 
-	if(err)
+	if (err)
 	{
 		Printf(PRINT_HIGH, "GetCurrentScrap error: %d", err);
 		return "";
@@ -929,13 +927,13 @@ std::string I_GetClipboardText (void)
 
 	err = GetScrapFlavorSize(scrap, FOUR_CHAR_CODE('TEXT'), &size);
 
-	if(err)
+	if (err)
 	{
 		Printf(PRINT_HIGH, "GetScrapFlavorSize error: %d", err);
 		return "";
 	}
 
-	char *data = new char[size+1];
+	char* data = new char[size+1];
 
 	err = GetScrapFlavorData(scrap, FOUR_CHAR_CODE('TEXT'), &size, data);
 	data[size] = 0;
@@ -950,10 +948,17 @@ std::string I_GetClipboardText (void)
 
 	std::string ret(data);
 
-	delete[] data;
+	delete [] data;
 
 	return ret;
+
+#elif MAC_OS_X_VERSION_MIN_REQUIRED >= 1050
+
+	// TODO: Not currently supported
+	return "";
+
 #endif
+#endif	// OSX
 
 	return "";
 }
@@ -1094,6 +1099,26 @@ std::string I_ConsoleInput (void)
     return "";
 }
 #endif
+
+
+//
+// I_IsHeadless
+//
+// Returns true if no application window will be created.
+//
+bool I_IsHeadless()
+{
+	static bool headless;
+	static bool initialized = false;
+	if (!initialized)
+	{
+		headless = Args.CheckParm("-novideo") || Args.CheckParm("+demotest");
+		initialized = true;
+	}
+
+	return headless;
+}
+
 
 VERSION_CONTROL (i_system_cpp, "$Id$")
 

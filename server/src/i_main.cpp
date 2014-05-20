@@ -79,11 +79,15 @@ void STACK_ARGS call_terms (void)
 		TermFuncs.top().first(), TermFuncs.pop();
 }
 
-int PrintString (int printlevel, char const *outline)
+int PrintString(int printlevel, char const* str)
 {
-	int ret = printf("%s", outline);
+	std::string sanitized_str(str);
+	StripColorCodes(sanitized_str);
+
+	printf("%s", sanitized_str.c_str());
 	fflush(stdout);
-	return ret;
+
+	return sanitized_str.length();
 }
 
 #ifdef _WIN32
@@ -150,9 +154,9 @@ int __cdecl main(int argc, char *argv[])
 		progdir = I_GetBinaryDir();
 		startdir = I_GetCWD();
 
-		C_InitConsole (80*8, 25*8, false);
+		C_InitConsole();
 
-		D_DoomMain ();
+		D_DoomMain();
     }
     catch (CDoomError &error)
     {
@@ -274,9 +278,9 @@ int main (int argc, char **argv)
 
 		progdir = I_GetBinaryDir();
 
-		C_InitConsole (80*8, 25*8, false);
+		C_InitConsole();
 
-		D_DoomMain ();
+		D_DoomMain();
     }
     catch (CDoomError &error)
     {

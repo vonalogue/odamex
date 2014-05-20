@@ -30,6 +30,7 @@
 #include "doomtype.h"
 #include "doomdef.h"
 #include "doomstat.h"
+#include "cmdlib.h"
 #include "d_netinf.h"
 #include "d_net.h"
 #include "v_palette.h"
@@ -85,6 +86,15 @@ enum
     INFO_Unlag
 };
 
+
+CVAR_FUNC_IMPL(cl_name)
+{
+	std::string newname(var.str());
+	StripColorCodes(newname);
+
+	if (var.str().compare(newname) != 0)
+		var.Set(newname.c_str());
+}
 
 
 
@@ -145,7 +155,9 @@ void D_SetupUserInfo(void)
 {
 	UserInfo* coninfo = &consoleplayer().userinfo;
 
-	std::string netname = cl_name.str();
+	std::string netname(cl_name.str());
+	StripColorCodes(netname);
+	
 	if (netname.length() > MAXPLAYERNAME)
 		netname.erase(MAXPLAYERNAME);
 
@@ -214,7 +226,12 @@ FArchive &operator>> (FArchive &arc, UserInfo &info)
 	arc.Read(&info.team, sizeof(info.team));  // [Toke - Teams]
 	arc.Read(&info.gender, sizeof(info.gender));
 
-	arc >> info.aimdist >> info.color;
+	arc >> info.aimdist;
+
+	// [SL] can't read argb_t directly so read unsigned and convert
+	unsigned int colortemp;
+	arc >> colortemp;
+	info.color = colortemp;
 
 	// [SL] place holder for deprecated skins
 	unsigned int skin;

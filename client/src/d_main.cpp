@@ -89,6 +89,8 @@
 #include "cl_main.h"
 #include "net_log.h"
 
+#include "res_texture.h"
+
 #ifdef GEKKO
 #include "i_wii.h"
 #endif
@@ -99,10 +101,6 @@
 
 extern size_t got_heapsize;
 
-//extern void M_RestoreMode (void); // [Toke - Menu]
-extern void R_ExecuteSetViewSize (void);
-void V_InitPalette (void);
-
 void D_CheckNetGame (void);
 void D_ProcessEvents (void);
 void D_DoAdvanceDemo (void);
@@ -110,9 +108,9 @@ void D_DoAdvanceDemo (void);
 void D_DoomLoop (void);
 
 extern QWORD testingmode;
-extern BOOL setsizeneeded;
-extern BOOL setmodeneeded;
-extern int NewWidth, NewHeight, NewBits, DisplayBits;
+extern bool setsizeneeded;
+extern bool setmodeneeded;
+extern int NewWidth, NewHeight, NewBits;
 EXTERN_CVAR (st_scale)
 extern BOOL gameisdead;
 extern BOOL demorecording;
@@ -134,8 +132,9 @@ event_t events[MAXEVENTS];
 int eventhead;
 int eventtail;
 gamestate_t wipegamestate = GS_DEMOSCREEN;	// can be -1 to force a wipe
-DCanvas *page;
 bool demotest;
+
+IWindowSurface* page_surface;
 
 static int demosequence;
 static int pagetic;
@@ -149,6 +148,13 @@ EXTERN_CVAR (sv_allowjump)
 EXTERN_CVAR (sv_allowredscreen)
 EXTERN_CVAR (snd_sfxvolume)				// maximum volume for sound
 EXTERN_CVAR (snd_musicvolume)			// maximum volume for music
+
+EXTERN_CVAR (vid_ticker)
+EXTERN_CVAR (vid_defwidth)
+EXTERN_CVAR (vid_defheight)
+EXTERN_CVAR (vid_32bpp)
+EXTERN_CVAR (vid_fullscreen)
+EXTERN_CVAR (vid_vsync)
 
 const char *LOG_FILE;
 
@@ -214,7 +220,7 @@ void D_DisplayTicker()
 // D_Display
 //  draw current display, possibly wiping it from the previous
 //
-void D_Display (void)
+void D_Display()
 {
 	if (nodrawers)
 		return; 				// for comparative timing / profiling
@@ -234,15 +240,15 @@ void D_Display (void)
 		}
 
 		// Change screen mode.
-		if (!V_SetResolution (NewWidth, NewHeight, NewBits))
-			I_FatalError ("Could not change screen mode");
+		if (!V_SetResolution(NewWidth, NewHeight, NewBits))
+			I_FatalError("Could not change screen mode");
 
 		// Recalculate various view parameters.
 		setsizeneeded = true;
 		// Trick status bar into rethinking its position
-		st_scale.Callback ();
+		st_scale.Callback();
 		// Refresh the console.
-		C_NewModeAdjust ();
+		C_NewModeAdjust();
 	}
 
 	// [AM] Moved to below setmodeneeded so we have accurate screen size info.
@@ -257,11 +263,11 @@ void D_Display (void)
 	// change the view size if needed
 	if (setsizeneeded)
 	{
-		R_ExecuteSetViewSize ();
+		R_InitViewWindow();
 		setmodeneeded = false;
 	}
 
-	I_BeginUpdate ();
+	I_BeginUpdate();
 
 	// [RH] Allow temporarily disabling wipes
 	if (NoWipe)
@@ -282,45 +288,50 @@ void D_Display (void)
 		case GS_DOWNLOAD:
 		case GS_CONNECTING:
         case GS_CONNECTED:
-			C_DrawConsole ();
-			M_Drawer ();
-			I_FinishUpdate ();
+			C_DrawConsole();
+			M_Drawer();
+			I_FinishUpdate();
 			return;
 
 		case GS_LEVEL:
 			if (!gametic)
 				break;
 
-			// denis - freshen the borders (ffs..)
-			R_DrawViewBorder ();    // erase old menu stuff
-
-			if (viewactive)
-				R_RenderPlayerView (&displayplayer());
-			if (automapactive)
-				AM_Drawer ();
-			C_DrawMid ();
-			C_DrawGMid();
-			CTF_DrawHud ();
-			ST_Drawer ();
-			HU_Drawer ();
 			V_DoPaletteEffects();
+
+			// Drawn to R_GetRenderingSurface()
+			if (viewactive)
+				R_RenderPlayerView(&displayplayer());
+			R_DrawViewBorder();
+			ST_Drawer();
+
+			if (I_GetEmulatedSurface())
+				I_BlitEmulatedSurface();
+
+			if (automapactive)
+				AM_Drawer();
+
+			C_DrawMid();
+			C_DrawGMid();
+			CTF_DrawHud();
+			HU_Drawer();
 			break;
 
 		case GS_INTERMISSION:
 			if (viewactive)
-				R_RenderPlayerView (&displayplayer());
-			C_DrawMid ();
-			CTF_DrawHud ();
-			WI_Drawer ();
-			HU_Drawer ();
+				R_RenderPlayerView(&displayplayer());
+			C_DrawMid();
+			CTF_DrawHud();
+			WI_Drawer();
+			HU_Drawer();
 			break;
 
 		case GS_FINALE:
-			F_Drawer ();
+			F_Drawer();
 			break;
 
 		case GS_DEMOSCREEN:
-			D_PageDrawer ();
+			D_PageDrawer();
 			break;
 
 	default:
@@ -334,7 +345,7 @@ void D_Display (void)
 		int y;
 
 		y = (automapactive && !viewactive) ? 4 : viewwindowy + 4;
-		screen->DrawPatchCleanNoMove (pause, (screen->width-(pause->width())*CleanXfac)/2, y);
+		screen->DrawPatchCleanNoMove (pause, (I_GetSurfaceWidth()-(pause->width())*CleanXfac)/2, y);
 	}
 
 	// [RH] Draw icon, if any
@@ -403,17 +414,29 @@ void D_PageTicker (void)
 //
 // D_PageDrawer
 //
-void D_PageDrawer (void)
+void D_PageDrawer()
 {
-	if (page)
+	IWindowSurface* primary_surface = I_GetPrimarySurface();
+	primary_surface->clear();		// ensure black background in matted modes
+
+	if (page_surface)
 	{
-		page->Blit (0, 0, page->width, page->height,
-			screen, 0, 0, screen->width, screen->height);
-	}
-	else
-	{
-		screen->Clear (0, 0, screen->width, screen->height, 0);
-		//screen->PrintStr (0, 0, "Page graphic goes here", 22);
+		int destw, desth;
+
+		if (primary_surface->getWidth() * 3 >= primary_surface->getHeight() * 4)
+		{
+			desth = primary_surface->getHeight();
+			destw = desth * 8 / 6;
+		}
+		else
+		{
+			destw = primary_surface->getWidth();
+			desth = destw * 6 / 8;
+		}
+
+		primary_surface->blit(page_surface, 0, 0, page_surface->getWidth(), page_surface->getHeight(),
+				(primary_surface->getWidth() - destw) / 2, (primary_surface->getHeight() - desth) / 2,
+				destw, desth);
 	}
 }
 
@@ -516,33 +539,32 @@ void D_DoAdvanceDemo (void)
     // [Russell] - Still need this toilet humor for now unfortunately
 	if (pagename)
 	{
-		const int width = 320, height = 200;
-		patch_t *data;
+		const patch_t* patch = W_CachePatch(pagename);
 
-		if (page && (page->width != screen->width || page->height != screen->height))
+		if (page_surface)
 		{
-			I_FreeScreen(page);
-			page = NULL;
+			I_FreeSurface(page_surface);
+			page_surface = NULL;
 		}
 
-		data = W_CachePatch (pagename);
-
-		if (page == NULL)
-        {
-            if (screen->isProtectedRes())
-                page = I_AllocateScreen(data->width(), data->height(), 8);
-            else
-                page = I_AllocateScreen(screen->width, screen->height, 8);
-        }
-
-		page->Lock ();
-
 		if (gameinfo.flags & GI_PAGESARERAW)
-            page->DrawBlock (0, 0, width, height, (byte *)data);
-		else
-			page->DrawPatchFullScreen(data);
+		{
+			page_surface = I_AllocateSurface(320, 200, 8);
+			DCanvas* canvas = page_surface->getDefaultCanvas();
 
-		page->Unlock ();
+			page_surface->lock();
+            canvas->DrawBlock(0, 0, 320, 200, (byte*)patch);
+			page_surface->unlock();
+		}
+		else
+		{
+			page_surface = I_AllocateSurface(patch->width(), patch->height(), 8);
+			DCanvas* canvas = page_surface->getDefaultCanvas();
+
+			page_surface->lock();
+			canvas->DrawPatchFullScreen(patch);
+			page_surface->unlock();
+		}
 	}
 }
 
@@ -551,10 +573,10 @@ void D_DoAdvanceDemo (void)
 //
 void STACK_ARGS D_Close (void)
 {
-	if(page)
+	if (page_surface)
 	{
-		I_FreeScreen(page);
-		page = NULL;
+		I_FreeSurface(page_surface);
+		page_surface = NULL;
 	}
 
 	D_ClearTaskSchedulers();
@@ -583,65 +605,186 @@ bool HashOk(std::string &required, std::string &available)
 	return required == available;
 }
 
-//
-// D_NewWadInit
-//
-// Client code that should be reset every time a new set of WADs are loaded
-//
-void D_NewWadInit()
-{
-	AM_Stop();
-
-	HU_Init ();
-
-	if (!(InitPalettes("PLAYPAL")))
-		I_Error("Could not reinitialize palette");
-	V_InitPalette();
-
-	G_SetLevelStrings ();
-	G_ParseMapInfo ();
-	G_ParseMusInfo ();
-	S_ParseSndInfo();
-
-	M_Init();
-	R_Init();
-	P_InitEffects();	// [ML] Do this here so we don't have to put particle crap in server
-	P_Init();
-
-	S_Init (snd_sfxvolume, snd_musicvolume);
-	ST_Init();
-}
 
 void CL_NetDemoRecord(const std::string &filename);
 void CL_NetDemoPlay(const std::string &filename);
 
+
 //
-// D_DoomMain
+// D_Init
 //
-void D_DoomMain (void)
+// Called to initialize subsystems when loading a new set of WAD resource
+// files.
+//
+void D_Init()
 {
-	unsigned p;
-	extern std::string defdemoname;
+	// only print init messages during startup, not when changing WADs
+	static bool first_time = true;
+
+	SetLanguageIDs();
 
 	M_ClearRandom();
 
-	gamestate = GS_STARTUP;
-	SetLanguageIDs ();
-	M_FindResponseFile();		// [ML] 23/1/07 - Add Response file support back in
+	// start the Zone memory manager
+	Z_Init();
+	if (first_time)
+		Printf(PRINT_HIGH, "Z_Init: Heapsize: %u megabytes\n", got_heapsize);
 
-	if (lzo_init () != LZO_E_OK)	// [RH] Initialize the minilzo package.
-		I_FatalError ("Could not initialize LZO routines");
+	// Load palette and set up colormaps
+	V_Init();
+
+	if (first_time)
+		Printf(PRINT_HIGH, "Res_InitTextureManager: Init image resource management.\n");
+	Res_InitTextureManager();
+
+	// [RH] Initialize localizable strings.
+	GStrings.LoadStrings(W_GetNumForName("LANGUAGE"), STRING_TABLE_SIZE, false);
+	GStrings.Compact();
+
+	// init the renderer
+	if (first_time)
+		Printf(PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
+	R_Init();
+
+//	V_LoadFonts();
+
+	C_InitConsoleBackground();
+
+	C_InitConCharsFont();
+
+	HU_Init();
+
+	G_SetLevelStrings();
+	G_ParseMapInfo();
+	G_ParseMusInfo();
+	S_ParseSndInfo();
+
+	// init the menu subsystem
+	if (first_time)
+		Printf(PRINT_HIGH, "M_Init: Init miscellaneous info.\n");
+	M_Init();
+
+	if (first_time)
+		Printf(PRINT_HIGH, "P_Init: Init Playloop state.\n");
+	P_InitEffects();
+	P_Init();
+
+	// init sound and music
+	if (first_time)
+	{
+		Printf (PRINT_HIGH, "S_Init: Setting up sound.\n");
+		Printf (PRINT_HIGH, "S_Init: default sfx volume is %g\n", (float)snd_sfxvolume);
+		Printf (PRINT_HIGH, "S_Init: default music volume is %g\n", (float)snd_musicvolume);
+	}
+	S_Init(snd_sfxvolume, snd_musicvolume);
+
+//	R_InitViewBorder();
+
+	// init the status bar
+	if (first_time)
+		Printf(PRINT_HIGH, "ST_Init: Init status bar.\n");
+	ST_Init();
+
+	first_time = false;
+}
+
+
+//
+// D_Shutdown
+//
+// Called to shutdown subsystems when unloading a set of WAD resource files.
+// Should be called prior to D_Init when loading a new set of WADs.
+//
+void STACK_ARGS D_Shutdown()
+{
+	if (gamestate == GS_LEVEL)
+		G_ExitLevel(0, 0);
+
+	// [ML] 9/11/10: Reset custom wad level information from MAPINFO et al.
+	for (size_t i = 0; i < wadlevelinfos.size(); i++)
+	{
+		if (wadlevelinfos[i].snapshot)
+		{
+			delete wadlevelinfos[i].snapshot;
+			wadlevelinfos[i].snapshot = NULL;
+		}
+	}
+
+	wadlevelinfos.clear();
+	wadclusterinfos.clear();
+
+	F_ShutdownFinale();
+
+	ST_Shutdown();
+
+//	R_ShutdownViewBorder();
+
+	// stop sound effects and music
+	S_Stop();
+	
+	// shutdown automap
+	AM_Stop();
+
+	DThinker::DestroyAllThinkers();
+
+	UndoDehPatch();
+
+	// close all open WAD files
+	W_Close();
+
+//	V_UnloadFonts();
+
+	HU_Shutdown();
+
+	C_ShutdownConCharsFont();
+
+	C_ShutdownConsoleBackground();
+
+	R_Shutdown();
+
+	GStrings.FreeData();
+
+
+	Res_ShutdownTextureManager();
+
+//	R_ShutdownColormaps();
+
+	V_Close();
+
+	// reset the Zone memory manager
+	Z_Close();
+}
+
+
+//
+// D_DoomMain
+//
+void D_DoomMain()
+{
+	unsigned int p;
+
+	gamestate = GS_STARTUP;
+
+	// init console so it can capture all of the startup messages
+	C_InitConsole();
+	atterm(C_ShutdownConsole);
 
 	// [SL] network logging facility
 	Net_LogStartup();
 	atterm(Net_LogShutdown);
 
-    C_ExecCmdLineParams (false, true);	// [Nes] test for +logfile command
+	// [RH] Initialize items. Still only used for the give command. :-(
+	InitItems();
 
-	Printf (PRINT_HIGH, "Heapsize: %u megabytes\n", got_heapsize);
+	M_FindResponseFile();		// [ML] 23/1/07 - Add Response file support back in
 
-	M_LoadDefaults ();					// load before initing other systems
-	C_ExecCmdLineParams (true, false);	// [RH] do all +set commands on the command line
+	if (lzo_init() != LZO_E_OK)	// [RH] Initialize the minilzo package.
+		I_FatalError("Could not initialize LZO routines");
+
+    C_ExecCmdLineParams(false, true);	// [Nes] test for +logfile command
+
+	M_LoadDefaults();					// load before initing other systems
+	C_ExecCmdLineParams(true, false);	// [RH] do all +set commands on the command line
 
 	const char* iwad = Args.CheckValue("-iwad");
 	if (!iwad)
@@ -654,29 +797,78 @@ void D_DoomMain (void)
 
 	D_LoadResourceFiles(newwadfiles, newpatchfiles);
 
-	// [RH] Initialize configurable strings.
-	//D_InitStrings ();
+	int video_width = M_GetParmValue("-width");
+	int video_height = M_GetParmValue("-height");
+	int video_bpp = M_GetParmValue("-bits");
 
-	// [RH] Moved these up here so that we can do most of our
-	//		startup output in a fullscreen console.
+	// ensure the width & height cvars are sane
+	if (vid_defwidth.asInt() <= 0 || vid_defheight.asInt() <= 0)
+	{
+		vid_defwidth.RestoreDefault();
+		vid_defheight.RestoreDefault();
+	}
+	
+	if (video_width == 0 && video_height == 0)
+	{
+		video_width = vid_defwidth.asInt();
+		video_height = vid_defheight.asInt();
+	}
+	else if (video_width == 0)
+	{
+		video_width = video_height * 4 / 3;
+	}
+	else if (video_height == 0)
+	{
+		video_height = video_width * 3 / 4;
+	}
 
-	HU_Init ();
-	I_Init ();
-	V_Init ();
+	if (video_bpp == 0 || (video_bpp != 8 && video_bpp != 32))
+		video_bpp = vid_32bpp ? 32 : 8;
+
+	Printf(PRINT_HIGH, "I_Init: Init hardware.\n");
+	I_Init();
+	Printf(PRINT_HIGH, "I_SetVideoMode: %ix%ix%i %s\n", video_width, video_height, video_bpp,
+			vid_fullscreen != 0.0f ? "FULLSCREEN" : "WINDOWED");
+	I_SetVideoMode(video_width, video_height, video_bpp, vid_fullscreen, vid_vsync);
+
+	std::string video_driver = I_GetVideoDriverName();
+	if (!video_driver.empty())
+		Printf(PRINT_HIGH, "I_SetVideoMode: Using %s video driver.\n", video_driver.c_str());
 
     // SDL needs video mode set up first before input code can be used
     I_InitInput();
 
+	// [SL] Call init routines that need to be reinitialized every time WAD changes
+	D_Init();
+	atterm(D_Shutdown);
+
+	setmodeneeded = false; // [Fly] we don't need to set a video mode here!
+
 	// Base systems have been inited; enable cvar callbacks
-	cvar_t::EnableCallbacks ();
+	cvar_t::EnableCallbacks();
+
+	Printf(PRINT_HIGH, "S_Init: Setting up sound.\n");
+	Printf(PRINT_HIGH, "S_Init: default sfx volume is %g\n", (float)snd_sfxvolume);
+	Printf(PRINT_HIGH, "S_Init: default music volume is %g\n", (float)snd_musicvolume);
+	S_Init(snd_sfxvolume, snd_musicvolume);
 
 	// [RH] User-configurable startup strings. Because BOOM does.
-	if (GStrings(STARTUP1)[0])	Printf (PRINT_HIGH, "%s\n", GStrings(STARTUP1));
-	if (GStrings(STARTUP2)[0])	Printf (PRINT_HIGH, "%s\n", GStrings(STARTUP2));
-	if (GStrings(STARTUP3)[0])	Printf (PRINT_HIGH, "%s\n", GStrings(STARTUP3));
-	if (GStrings(STARTUP4)[0])	Printf (PRINT_HIGH, "%s\n", GStrings(STARTUP4));
-	if (GStrings(STARTUP5)[0])	Printf (PRINT_HIGH, "%s\n", GStrings(STARTUP5));
+	if (GStrings(STARTUP1)[0])	Printf(PRINT_HIGH, "%s\n", GStrings(STARTUP1));
+	if (GStrings(STARTUP2)[0])	Printf(PRINT_HIGH, "%s\n", GStrings(STARTUP2));
+	if (GStrings(STARTUP3)[0])	Printf(PRINT_HIGH, "%s\n", GStrings(STARTUP3));
+	if (GStrings(STARTUP4)[0])	Printf(PRINT_HIGH, "%s\n", GStrings(STARTUP4));
+	if (GStrings(STARTUP5)[0])	Printf(PRINT_HIGH, "%s\n", GStrings(STARTUP5));
 
+    // developer mode
+	devparm = Args.CheckParm("-devparm");
+
+	if (devparm)
+		Printf(PRINT_HIGH, "%s", GStrings(D_DEVSTR));        // D_DEVSTR
+ 
+	// set the default value for vid_ticker based on the presence of -devparm
+	if (devparm)
+		vid_ticker.SetDefault("1");
+ 
 	// Nomonsters
 	sv_nomonsters = Args.CheckParm("-nomonsters");
 
@@ -686,33 +878,91 @@ void D_DoomMain (void)
 	// Fast
 	sv_fastmonsters = Args.CheckParm("-fast");
 
-    // developer mode
-	devparm = Args.CheckParm ("-devparm");
+	// get skill / episode / map from parms
+	strcpy(startmap, (gameinfo.flags & GI_MAPxx) ? "MAP01" : "E1M1");
+
+	const char* val = Args.CheckValue("-skill");
+	if (val)
+		sv_skill.Set(val[0]-'0');
+
+	p = Args.CheckParm("-warp");
+	if (p && p < Args.NumArgs() - (1+(gameinfo.flags & GI_MAPxx ? 0 : 1)))
+	{
+		int ep, map;
+
+		if (gameinfo.flags & GI_MAPxx)
+		{
+			ep = 1;
+			map = atoi(Args.GetArg(p+1));
+		}
+		else
+		{
+			ep = Args.GetArg(p+1)[0]-'0';
+			map = Args.GetArg(p+2)[0]-'0';
+		}
+
+		strncpy(startmap, CalcMapName(ep, map), 8);
+		autostart = true;
+	}
+
+	// [RH] Hack to handle +map
+	p = Args.CheckParm("+map");
+	if (p && p < Args.NumArgs()-1)
+	{
+		strncpy(startmap, Args.GetArg(p+1), 8);
+		((char *)Args.GetArg(p))[0] = '-';
+		autostart = true;
+	}
+
+	// NOTE(jsd): Set up local player color
+	EXTERN_CVAR(cl_color);
+	R_BuildPlayerTranslation(0, V_GetColorFromString(NULL, cl_color.cstring()));
+
+	I_FinishClockCalibration();
+
+	Printf(PRINT_HIGH, "D_CheckNetGame: Checking network game status.\n");
+	D_CheckNetGame();
+
+	// [RH] Lock any cvars that should be locked now that we're
+	// about to begin the game.
+	cvar_t::EnableNoSet();
+
+	// [RH] Now that all game subsystems have been initialized,
+	// do all commands on the command line other than +set
+	C_ExecCmdLineParams(false, false);
+
+	// --- process vanilla demo cli switches ---
+
+	// shorttics (quantize yaw like recording a vanilla demo)
+	extern bool longtics;
+	longtics = !(Args.CheckParm("-shorttics"));
 
 	// Record a vanilla demo
-	p = Args.CheckParm ("-record");
-	if (p)
+	p = Args.CheckParm("-record");
+	if (p && p < Args.NumArgs() - 1)
 	{
 		autorecord = true;
 		autostart = true;
-		demorecordfile = Args.GetArg (p+1);
+		demorecordfile = Args.GetArg(p + 1);
+
+		// extended vanilla demo format
+		longtics = Args.CheckParm("-longtics");
 	}
 
-	// get skill / episode / map from parms
-	strcpy (startmap, (gameinfo.flags & GI_MAPxx) ? "MAP01" : "E1M1");
-
 	// Check for -playdemo, play a single demo then quit.
-	p = Args.CheckParm ("-playdemo");
+	p = Args.CheckParm("-playdemo");
 	// Hack to check for +playdemo command, since if you just add it normally
 	// it won't run because it's attempting to run a demo and still set up the
 	// first map as normal.
 	if (!p)
-		p = Args.CheckParm ("+playdemo");
-	if (p && p < Args.NumArgs()-1)
+		p = Args.CheckParm("+playdemo");
+	if (p && p < Args.NumArgs() - 1)
 	{
-		Printf (PRINT_HIGH, "Playdemo parameter found on command line.\n");
+		Printf(PRINT_HIGH, "Playdemo parameter found on command line.\n");
 		singledemo = true;
-		defdemoname = Args.GetArg (p+1);
+
+		extern std::string defdemoname;
+		defdemoname = Args.GetArg(p+1);
 	}
 
 	// [SL] check for -timedemo (was removed at some point)
@@ -723,138 +973,39 @@ void D_DoomMain (void)
 		G_TimeDemo(Args.GetArg(p + 1));
 	}
 
-	const char *val = Args.CheckValue ("-skill");
-	if (val)
-	{
-		sv_skill.Set (val[0]-'0');
-	}
 
-	p = Args.CheckParm ("-warp");
-	if (p && p < Args.NumArgs() - (1+(gameinfo.flags & GI_MAPxx ? 0 : 1)))
-	{
-		int ep, map;
-
-		if (gameinfo.flags & GI_MAPxx)
-		{
-			ep = 1;
-			map = atoi (Args.GetArg(p+1));
-		}
-		else
-		{
-			ep = Args.GetArg(p+1)[0]-'0';
-			map = Args.GetArg(p+2)[0]-'0';
-		}
-
-		strncpy (startmap, CalcMapName (ep, map), 8);
-		autostart = true;
-	}
-
-	// [RH] Hack to handle +map
-	p = Args.CheckParm ("+map");
-	if (p && p < Args.NumArgs()-1)
-	{
-		strncpy (startmap, Args.GetArg (p+1), 8);
-		((char *)Args.GetArg (p))[0] = '-';
-		autostart = true;
-	}
-	if (devparm)
-		Printf (PRINT_HIGH, "%s", GStrings(D_DEVSTR));        // D_DEVSTR
-
-	// [RH] Now that all text strings are set up,
-	// insert them into the level and cluster data.
-	G_SetLevelStrings ();
-
-	// [RH] Parse through all loaded mapinfo lumps
-	G_ParseMapInfo ();
-
-	// [ML] Parse musinfo lump
-	G_ParseMusInfo ();
-
-	// [RH] Parse any SNDINFO lumps
-	S_ParseSndInfo();
-
-	// Check for -file in shareware
-	if (modifiedgame && (gameinfo.flags & GI_SHAREWARE))
-		I_Error ("You cannot -file with the shareware version. Register!");
-
-#ifdef _WIN32
-	const char *sdlv = getenv("SDL_VIDEODRIVER");
-	Printf (PRINT_HIGH, "Using %s video driver.\n",sdlv);
-#endif
-
-	Printf (PRINT_HIGH, "M_Init: Init miscellaneous info.\n");
-	M_Init ();
-
-	Printf (PRINT_HIGH, "R_Init: Init DOOM refresh daemon.\n");
-	R_Init ();
-
-	Printf (PRINT_HIGH, "P_Init: Init Playloop state.\n");
-	P_InitEffects();	// [ML] Do this here so we don't have to put particle crap in server
-	P_Init ();
-
-	// NOTE(jsd): Set up local player color
-	EXTERN_CVAR(cl_color);
-	R_BuildPlayerTranslation (0, V_GetColorFromString (NULL, cl_color.cstring()));
-
-	Printf (PRINT_HIGH, "S_Init: Setting up sound.\n");
-	Printf (PRINT_HIGH, "S_Init: default sfx volume is %g\n", (float)snd_sfxvolume);
-	Printf (PRINT_HIGH, "S_Init: default music volume is %g\n", (float)snd_musicvolume);
-	S_Init (snd_sfxvolume, snd_musicvolume);
-
-	I_FinishClockCalibration ();
-
-	Printf (PRINT_HIGH, "D_CheckNetGame: Checking network game status.\n");
-	D_CheckNetGame ();
-
-	Printf (PRINT_HIGH, "ST_Init: Init status bar.\n");
-	ST_Init ();
-
-	// [RH] Initialize items. Still only used for the give command. :-(
-	InitItems ();
-
-	// [RH] Lock any cvars that should be locked now that we're
-	// about to begin the game.
-	cvar_t::EnableNoSet ();
-
-	// [RH] Now that all game subsystems have been initialized,
-	// do all commands on the command line other than +set
-	C_ExecCmdLineParams (false, false);
-
-	Printf_Bold("\n\35\36\36\36\36 Odamex Client Initialized \36\36\36\36\37\n");
-	if(gamestate != GS_CONNECTING)
-		Printf(PRINT_HIGH, "Type connect <address> or use the Odamex Launcher to connect to a game.\n");
-    Printf(PRINT_HIGH, "\n");
-
-	setmodeneeded = false; // [Fly] we don't need to set a video mode here!
-    //gamestate = GS_FULLCONSOLE;
+	// --- process network demo cli switches ---
 
 	// [SL] allow the user to pass the name of a netdemo as the first argument.
 	// This allows easy launching of netdemos from Windows Explorer or other GUIs.
-
+	//
 	// [Xyltol]
 	if (Args.GetArg(1))
 	{
 		std::string demoarg = Args.GetArg(1);
-		if (demoarg.find(".odd") != std::string::npos)
+		const std::string demoext(".odd");
+
+		// does demoarg have a .odd extensions?
+		if (demoarg.find(".odd") == demoarg.length() - demoext.length())
 			CL_NetDemoPlay(demoarg);
 	}
 
 	p = Args.CheckParm("-netplay");
-	if (p)
+	if (p && p < Args.NumArgs() - 1)
 	{
-		if (Args.GetArg(p + 1))
-		{
-			std::string filename = Args.GetArg(p + 1);
-			CL_NetDemoPlay(filename);
-		}
-		else
-		{
-			Printf(PRINT_HIGH, "No netdemo filename specified.\n");
-		}
+		std::string filename = Args.GetArg(p + 1);
+		CL_NetDemoPlay(filename);
 	}
 
+
+	Printf_Bold("\n\35\36\36\36\36 Odamex Client Initialized \36\36\36\36\37\n");
+	if (gamestate != GS_CONNECTING)
+		Printf(PRINT_HIGH, "Type connect <address> or use the Odamex Launcher to connect to a game.\n");
+    Printf(PRINT_HIGH, "\n");
+
+
 	// denis - bring back the demos
-    if ( gameaction != ga_loadgame )
+    if (gameaction != ga_loadgame)
     {
 		if (autostart || netgame || singledemo)
 		{
@@ -862,7 +1013,7 @@ void D_DoomMain (void)
 				G_DoPlayDemo();
 			else
 			{
-				if(autostart)
+				if (autostart)
 				{
 					// single player warp (like in g_level)
 					serverside = true;
@@ -878,7 +1029,7 @@ void D_DoomMain (void)
 					consoleplayer_id = displayplayer_id = players.back().id = 1;
 				}
 
-				G_InitNew (startmap);
+				G_InitNew(startmap);
 				if (autorecord)
 					G_RecordDemo(startmap, demorecordfile);
 			}
@@ -893,30 +1044,32 @@ void D_DoomMain (void)
 			if (gamemode == commercial_bfg) // DOOM 2 BFG Edtion
                 AddCommandString("menu_main");
 
-			D_StartTitle (); // start up intro loop
+			D_StartTitle(); // start up intro loop
 		}
     }
 
 	// denis - this will run a demo and quit
-	p = Args.CheckParm ("+demotest");
-	if (p && p < Args.NumArgs()-1)
+	p = Args.CheckParm("+demotest");
+	if (p && p < Args.NumArgs() - 1)
 	{
 		demotest = 1;
-		defdemoname = Args.GetArg (p+1);
+
+		extern std::string defdemoname;
+		defdemoname = Args.GetArg(p + 1);
 		G_DoPlayDemo();
 
-		while(demoplayback)
+		while (demoplayback)
 		{
-			DObject::BeginFrame ();
+			DObject::BeginFrame();
 			G_Ticker();
-			DObject::EndFrame ();
+			DObject::EndFrame();
 			gametic++;
 		}
 	}
 	else
 	{
 		demotest = 0;
-		D_DoomLoop ();		// never returns
+		D_DoomLoop();		// never returns
 	}
 }
 

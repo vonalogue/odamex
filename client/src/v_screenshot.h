@@ -1,7 +1,7 @@
-// Emacs style mode select   -*- C++ -*- 
+// Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id$
+// $Id: v_screenshot.h 4731 2014-04-03 21:55:53Z dr_sean $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 2006-2014 by The Odamex Team.
@@ -17,35 +17,17 @@
 // GNU General Public License for more details.
 //
 // DESCRIPTION:
-//	F_FINALE
-//    
+//
+// Screenshots
+//
 //-----------------------------------------------------------------------------
 
 
-#ifndef __F_FINALE__
-#define __F_FINALE__
+#ifndef __V_SCREENSHOT_H__
+#define __V_SCREENSHOT_H__
 
+#include <string>
 
-#include "doomtype.h"
-#include "d_event.h"
-//
-// FINALE
-//
+void V_ScreenShot(std::string filename);
 
-// Called by main loop.
-BOOL F_Responder (event_t* ev);
-
-// Called by main loop.
-void F_Ticker (void);
-
-// Called by main loop.
-void F_Drawer (void);
-
-
-void F_StartFinale(char *music, char *flat, const char *text);
-void STACK_ARGS F_ShutdownFinale();
-
-
-
-
-#endif
+#endif // __V_SCREENSHOT_H__

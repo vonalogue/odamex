@@ -27,7 +27,6 @@
 #include "doomtype.h"
 
 uint32_t Net_CRC32(const uint8_t* buf, uint32_t len);
-uint32_t Net_Log2(uint32_t n);
 uint32_t Net_BitsNeeded(uint32_t n);
 
 const dtime_t ONE_SECOND = 1000000000uLL;

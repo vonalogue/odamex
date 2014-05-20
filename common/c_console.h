@@ -44,7 +44,14 @@ typedef enum cstate_t {
 extern constate_e	ConsoleState;
 
 // Initialize the console
-void C_InitConsole (int width, int height, BOOL ingame);
+void C_InitConsole();
+void STACK_ARGS C_ShutdownConsole();
+
+void C_InitConsoleBackground();
+void STACK_ARGS C_ShutdownConsoleBackground();
+
+void C_InitConCharsFont();
+void STACK_ARGS C_ShutdownConCharsFont();
 
 // SoM
 void C_ServerDisconnectEffect(void);
@@ -55,7 +62,6 @@ void C_NewModeAdjust (void);
 void C_Ticker (void);
 
 int PrintString (int printlevel, const char *string);
-int VPrintf (int printlevel, const char *format, va_list parms);
 int STACK_ARGS Printf_Bold (const char *format, ...);
 
 void C_AddNotifyString (int printlevel, const char *s);

@@ -548,22 +548,26 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 
 	static const int NUM_CHECKLUMPS = 11;
 	static const char checklumps[NUM_CHECKLUMPS][8] = {
-		"E1M1", "E2M1", "E4M1", "MAP01",
-		{ 'A','N','I','M','D','E','F','S'},
-		"FINAL2", "REDTNT2", "CAMO1",
-		{ 'E','X','T','E','N','D','E','D'},
-		{ 'D','M','E','N','U','P','I','C'},
-		{ 'F','R','E','E','D','O','O','M'}
+		{ 'E','1','M','1' },					// 0
+		{ 'E','2','M','1' },					// 1
+		{ 'E','4','M','1' },					// 2
+		{ 'M','A','P','0','1' },				// 3
+		{ 'A','N','I','M','D','E','F','S' },	// 4
+		{ 'F','I','N','A','L','2' },			// 5
+		{ 'R','E','D','T','N','T','2' },		// 6
+		{ 'C','A','M','O','1' },				// 7
+		{ 'E','X','T','E','N','D','E','D' },	// 8
+		{ 'D','M','E','N','U','P','I','C' },	// 9
+		{ 'F','R','E','E','D','O','O','M' }		// 10
 	};
 
-	int lumpsfound[NUM_CHECKLUMPS];
-	wadinfo_t header;
-	FILE *f;
+	int lumpsfound[NUM_CHECKLUMPS] = { 0 };
 
-	memset(lumpsfound, 0, sizeof(lumpsfound));
-	if ( (f = fopen(iwad_filename.c_str(), "rb")) )
+	FILE* fp = fopen(iwad_filename.c_str(), "rb");
+	if (fp)
 	{
-		fread(&header, sizeof(header), 1, f);
+		wadinfo_t header;
+		fread(&header, sizeof(header), 1, fp);
 
 		// [SL] Allow both IWAD & PWAD identifiers since chex.wad is a PWAD
 		header.identification = LELONG(header.identification);
@@ -571,13 +575,13 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 			header.identification == PWAD_ID)
 		{
 			header.numlumps = LELONG(header.numlumps);
-			if (0 == fseek(f, LELONG(header.infotableofs), SEEK_SET))
+			if (0 == fseek(fp, LELONG(header.infotableofs), SEEK_SET))
 			{
 				for (int i = 0; i < header.numlumps; i++)
 				{
 					filelump_t lump;
 
-					if (0 == fread(&lump, sizeof(lump), 1, f))
+					if (0 == fread(&lump, sizeof(lump), 1, fp))
 						break;
 					for (int j = 0; j < NUM_CHECKLUMPS; j++)
 						if (!strnicmp(lump.name, checklumps[j], 8))
@@ -585,7 +589,8 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 				}
 			}
 		}
-		fclose(f);
+		fclose(fp);
+		fp = NULL;
 	}
 
 	// [SL] Check for FreeDoom / Ultimate FreeDoom
@@ -687,7 +692,7 @@ static void D_ConfigureGameInfo(const std::string& iwad_filename)
 //
 // Returns the proper name of the game currently loaded into gameinfo & gamemission
 //
-static std::string D_GetTitleString()
+std::string D_GetTitleString()
 {
 	if (gamemission == pack_tnt)
 		return "DOOM 2: TNT - Evilution";
@@ -1044,35 +1049,7 @@ bool D_DoomWadReboot(
 
 	lastWadRebootSuccess = false;
 
-	if (gamestate == GS_LEVEL)
-		G_ExitLevel(0, 0);
-
-	S_Stop();
-
-	DThinker::DestroyAllThinkers();
-
-	// Close all open WAD files
-	W_Close();
-
-	// [ML] 9/11/10: Reset custom wad level information from MAPINFO et al.
-	for (size_t i = 0; i < wadlevelinfos.size(); i++)
-	{
-		if (wadlevelinfos[i].snapshot)
-		{
-			delete wadlevelinfos[i].snapshot;
-			wadlevelinfos[i].snapshot = NULL;
-		}
-	}
-
-	wadlevelinfos.clear();
-	wadclusterinfos.clear();
-
-	UndoDehPatch();
-
-	// Restart the memory manager
-	Z_Init();
-
-	SetLanguageIDs ();
+	D_Shutdown();
 
 	gamestate_t oldgamestate = gamestate;
 	gamestate = GS_STARTUP; // prevent console from trying to use nonexistant font
@@ -1083,7 +1060,7 @@ bool D_DoomWadReboot(
 	// get skill / episode / map from parms
 	strcpy(startmap, (gameinfo.flags & GI_MAPxx) ? "MAP01" : "E1M1");
 
-	D_NewWadInit();
+	D_Init();
 
 	// preserve state
 	lastWadRebootSuccess = missingfiles.empty();

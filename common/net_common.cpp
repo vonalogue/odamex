@@ -23,6 +23,7 @@
 
 #include "doomtype.h"
 #include "i_system.h"
+#include "cmdlib.h"
 
 //
 // Net_CRC32
@@ -119,32 +120,6 @@ uint32_t Net_CRC32(const uint8_t* buf, uint32_t len)
 }
 
 //
-// Net_Log2
-//
-// Calculates the log base 2 of a 32-bit number using a lookup table.
-//
-// Based on public domain code written by Sean Eron Anderson.
-// Taken from http://graphics.stanford.edu/~seander/bithacks.html
-//
-uint32_t Net_Log2(uint32_t n)
-{
-	#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-	static const char LogTable256[256] = 
-	{
-		-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-		LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
-		LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
-	};
-
-	register unsigned int t, tt;		// temporaries
-
-	if ((tt = n) >> 16)
-		return ((t = tt) >> 8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
-	else
-		return ((t = n) >> 8) ? 8 + LogTable256[t] : LogTable256[n];
-}
-
-//
 // Net_BitsNeeded
 //
 // Calculates the minimum number of bits needed to store the number n
@@ -153,7 +128,7 @@ uint32_t Net_BitsNeeded(uint32_t n)
 {
 	if (n == 0)
 		return 0;
-	return Net_Log2(n) + ( (n & (n - 1)) ? 1 : 0);
+	return Log2(n) + ( (n & (n - 1)) ? 1 : 0);
 }
 
 //
