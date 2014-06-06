@@ -383,7 +383,7 @@ CVAR_FUNC_DECL(	mouse_driver, C_GetDefaultMouseDriver(), "Mouse driver backend",
 				CVARTYPE_BYTE, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE)
 
 CVAR_RANGE(		mouse_type, "0", "Use vanilla Doom mouse sensitivity or ZDoom mouse sensitivity",
-				CVARTYPE_BYTE, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE, 0.0f, 2.0f)
+				CVARTYPE_BYTE, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE, 0.0f, 1.0f)
 
 CVAR_RANGE(		mouse_sensitivity, "35.0", "Overall mouse sensitivity",
 				CVARTYPE_FLOAT, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE, 0.0f, 500.0f)
@@ -596,10 +596,10 @@ CVAR(			r_drawhitboxes, "0", "Draws a box outlining every actor's hitboxes",
 #endif
 
 CVAR(			r_drawplayersprites, "1", "Draw player sprites (weapons)",
-				CVARTYPE_BOOL, CVAR_NULL)
+				CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)
 
 CVAR(			r_particles, "1", "Draw particles",
-				CVARTYPE_BOOL, CVAR_NULL)
+				CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)
 
 CVAR_RANGE_FUNC_DECL(r_stretchsky, "2", "Stretch sky textures. (0 - always off, 1 - always on, 2 - auto)",
 				CVARTYPE_BYTE, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE, 0.0f, 2.0f)
@@ -644,9 +644,6 @@ CVAR(			vid_defwidth, "640", "",
 
 CVAR(			vid_defheight, "480", "",
 				CVARTYPE_WORD, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE)
-
-CVAR(			vid_defbits, "8", "",
-				CVARTYPE_BYTE, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE)
 
 CVAR_FUNC_DECL(	vid_widescreen, "0", "Use wide field-of-view with widescreen video modes",
 				CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)

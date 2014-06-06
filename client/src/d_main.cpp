@@ -108,19 +108,14 @@ void D_DoAdvanceDemo (void);
 void D_DoomLoop (void);
 
 extern QWORD testingmode;
-extern bool setsizeneeded;
-extern bool setmodeneeded;
 extern int NewWidth, NewHeight, NewBits;
-EXTERN_CVAR (st_scale)
 extern BOOL gameisdead;
 extern BOOL demorecording;
 extern bool M_DemoNoPlay;	// [RH] if true, then skip any demos in the loop
 extern DThinker ThinkerCap;
-extern int NoWipe;			// [RH] Don't wipe when travelling in hubs
 
 BOOL devparm;				// started game with -devparm
 const char *D_DrawIcon;			// [RH] Patch name of icon to draw on next refresh
-int NoWipe;					// [RH] Allow wipe? (Needs to be set each time)
 static bool wiping_screen = false;
 
 char startmap[8];
@@ -132,7 +127,7 @@ event_t events[MAXEVENTS];
 int eventhead;
 int eventtail;
 gamestate_t wipegamestate = GS_DEMOSCREEN;	// can be -1 to force a wipe
-bool demotest;
+bool demotest = false;
 
 IWindowSurface* page_surface;
 
@@ -222,50 +217,12 @@ void D_DisplayTicker()
 //
 void D_Display()
 {
-	if (nodrawers)
+	if (nodrawers || I_IsHeadless())
 		return; 				// for comparative timing / profiling
 
 	BEGIN_STAT(D_Display);
 
-	// [RH] change the screen mode if needed
-	if (setmodeneeded)
-	{
-		// [SL] surface buffer address will be changing
-		// so just end the screen-wipe
-		if (wiping_screen)
-		{
-			Wipe_Stop();
-			wiping_screen = false;
-			NoWipe = 0;
-		}
-
-		// Change screen mode.
-		if (!V_SetResolution(NewWidth, NewHeight, NewBits))
-			I_FatalError("Could not change screen mode");
-
-		// Recalculate various view parameters.
-		setsizeneeded = true;
-		// Trick status bar into rethinking its position
-		st_scale.Callback();
-		// Refresh the console.
-		C_NewModeAdjust();
-	}
-
-	// [AM] Moved to below setmodeneeded so we have accurate screen size info.
-	if (gamestate == GS_LEVEL && viewactive && consoleplayer().camera)
-	{
-		if (consoleplayer().camera->player)
-			R_SetFOV(consoleplayer().camera->player->fov, setmodeneeded || setsizeneeded);
-		else
-			R_SetFOV(90.0f, setmodeneeded || setsizeneeded);
-	}
-
-	// change the view size if needed
-	if (setsizeneeded)
-	{
-		R_InitViewWindow();
-		setmodeneeded = false;
-	}
+	V_AdjustVideoMode();
 
 	I_BeginUpdate();
 
@@ -300,15 +257,14 @@ void D_Display()
 			V_DoPaletteEffects();
 
 			// Drawn to R_GetRenderingSurface()
-			if (viewactive)
-				R_RenderPlayerView(&displayplayer());
+			R_RenderPlayerView(&displayplayer());
 			R_DrawViewBorder();
 			ST_Drawer();
 
 			if (I_GetEmulatedSurface())
 				I_BlitEmulatedSurface();
 
-			if (automapactive)
+			if (AM_ClassicAutomapVisible() || AM_OverlayAutomapVisible())
 				AM_Drawer();
 
 			C_DrawMid();
@@ -318,8 +274,6 @@ void D_Display()
 			break;
 
 		case GS_INTERMISSION:
-			if (viewactive)
-				R_RenderPlayerView(&displayplayer());
 			C_DrawMid();
 			CTF_DrawHud();
 			WI_Drawer();
@@ -344,7 +298,7 @@ void D_Display()
 		patch_t *pause = W_CachePatch ("M_PAUSE");
 		int y;
 
-		y = (automapactive && !viewactive) ? 4 : viewwindowy + 4;
+		y = AM_ClassicAutomapVisible() ? 4 : viewwindowy + 4;
 		screen->DrawPatchCleanNoMove (pause, (I_GetSurfaceWidth()-(pause->width())*CleanXfac)/2, y);
 	}
 
@@ -417,26 +371,26 @@ void D_PageTicker (void)
 void D_PageDrawer()
 {
 	IWindowSurface* primary_surface = I_GetPrimarySurface();
+	int surface_width = primary_surface->getWidth(), surface_height = primary_surface->getHeight();
 	primary_surface->clear();		// ensure black background in matted modes
 
 	if (page_surface)
 	{
 		int destw, desth;
 
-		if (primary_surface->getWidth() * 3 >= primary_surface->getHeight() * 4)
-		{
-			desth = primary_surface->getHeight();
-			destw = desth * 8 / 6;
-		}
+		if (I_IsProtectedResolution(I_GetVideoWidth(), I_GetVideoHeight()))
+			destw = surface_width, desth = surface_height;
+		else if (surface_width * 3 >= surface_height * 4)
+			destw = surface_height * 4 / 3, desth = surface_height;
 		else
-		{
-			destw = primary_surface->getWidth();
-			desth = destw * 6 / 8;
-		}
+			destw = surface_width, desth = surface_width * 3 / 4;
+
+		page_surface->lock();
 
 		primary_surface->blit(page_surface, 0, 0, page_surface->getWidth(), page_surface->getHeight(),
-				(primary_surface->getWidth() - destw) / 2, (primary_surface->getHeight() - desth) / 2,
-				destw, desth);
+				(surface_width - destw) / 2, (surface_height - desth) / 2, destw, desth);
+
+		page_surface->unlock();
 	}
 }
 
@@ -562,7 +516,7 @@ void D_DoAdvanceDemo (void)
 			DCanvas* canvas = page_surface->getDefaultCanvas();
 
 			page_surface->lock();
-			canvas->DrawPatchFullScreen(patch);
+			canvas->DrawPatch(patch, 0, 0);
 			page_surface->unlock();
 		}
 	}
@@ -571,7 +525,7 @@ void D_DoAdvanceDemo (void)
 //
 // D_Close
 //
-void STACK_ARGS D_Close (void)
+void STACK_ARGS D_Close()
 {
 	if (page_surface)
 	{
@@ -588,13 +542,10 @@ void STACK_ARGS D_Close (void)
 void D_StartTitle (void)
 {
 	// CL_QuitNetGame();
-	bool firstTime = true;
-	if(firstTime)
-		atterm (D_Close);
 
 	gameaction = ga_nothing;
 	demosequence = -1;
-	D_AdvanceDemo ();
+	D_AdvanceDemo();
 }
 
 bool HashOk(std::string &required, std::string &available)
@@ -765,6 +716,8 @@ void D_DoomMain()
 
 	gamestate = GS_STARTUP;
 
+	atterm(D_Close);
+
 	// init console so it can capture all of the startup messages
 	C_InitConsole();
 	atterm(C_ShutdownConsole);
@@ -781,7 +734,7 @@ void D_DoomMain()
 	if (lzo_init() != LZO_E_OK)	// [RH] Initialize the minilzo package.
 		I_FatalError("Could not initialize LZO routines");
 
-    C_ExecCmdLineParams(false, true);	// [Nes] test for +logfile command
+	C_ExecCmdLineParams(false, true);	// [Nes] test for +logfile command
 
 	M_LoadDefaults();					// load before initing other systems
 	C_ExecCmdLineParams(true, false);	// [RH] do all +set commands on the command line
@@ -835,14 +788,12 @@ void D_DoomMain()
 	if (!video_driver.empty())
 		Printf(PRINT_HIGH, "I_SetVideoMode: Using %s video driver.\n", video_driver.c_str());
 
-    // SDL needs video mode set up first before input code can be used
-    I_InitInput();
+	// SDL needs video mode set up first before input code can be used
+	I_InitInput();
 
 	// [SL] Call init routines that need to be reinitialized every time WAD changes
 	D_Init();
 	atterm(D_Shutdown);
-
-	setmodeneeded = false; // [Fly] we don't need to set a video mode here!
 
 	// Base systems have been inited; enable cvar callbacks
 	cvar_t::EnableCallbacks();
@@ -916,7 +867,7 @@ void D_DoomMain()
 
 	// NOTE(jsd): Set up local player color
 	EXTERN_CVAR(cl_color);
-	R_BuildPlayerTranslation(0, V_GetColorFromString(NULL, cl_color.cstring()));
+	R_BuildPlayerTranslation(0, V_GetColorFromString(cl_color));
 
 	I_FinishClockCalibration();
 
@@ -973,6 +924,14 @@ void D_DoomMain()
 		G_TimeDemo(Args.GetArg(p + 1));
 	}
 
+	// denis - this will run a demo and quit
+	p = Args.CheckParm("+demotest");
+	if (p && p < Args.NumArgs() - 1)
+	{
+		singledemo = true;
+		G_TestDemo(Args.GetArg(p + 1));
+	}
+
 
 	// --- process network demo cli switches ---
 
@@ -997,80 +956,50 @@ void D_DoomMain()
 		CL_NetDemoPlay(filename);
 	}
 
+	// --- initialization complete ---
 
 	Printf_Bold("\n\35\36\36\36\36 Odamex Client Initialized \36\36\36\36\37\n");
 	if (gamestate != GS_CONNECTING)
 		Printf(PRINT_HIGH, "Type connect <address> or use the Odamex Launcher to connect to a game.\n");
     Printf(PRINT_HIGH, "\n");
 
-
-	// denis - bring back the demos
-    if (gameaction != ga_loadgame)
-    {
-		if (autostart || netgame || singledemo)
+	// Play a demo, start a map, or show the title screen	
+	if (singledemo)
+	{
+		G_DoPlayDemo();
+	}
+	else if (autostart || netgame)
+	{
+		if (autostart)
 		{
-			if (singledemo)
-				G_DoPlayDemo();
-			else
-			{
-				if (autostart)
-				{
-					// single player warp (like in g_level)
-					serverside = true;
-                    sv_allowexit = "1";
-                    sv_freelook = "1";
-                    sv_allowjump = "1";
-                    sv_allowredscreen = "1";
-                    sv_gametype = GM_COOP;
+			// single player warp (like in g_level)
+			serverside = true;
+			sv_allowexit = "1";
+			sv_freelook = "1";
+			sv_allowjump = "1";
+			sv_allowredscreen = "1";
+			sv_gametype = GM_COOP;
 
-					players.clear();
-					players.push_back(player_t());
-					players.back().playerstate = PST_REBORN;
-					consoleplayer_id = displayplayer_id = players.back().id = 1;
-				}
-
-				G_InitNew(startmap);
-				if (autorecord)
-					G_RecordDemo(startmap, demorecordfile);
-			}
+			players.clear();
+			players.push_back(player_t());
+			players.back().playerstate = PST_REBORN;
+			consoleplayer_id = displayplayer_id = players.back().id = 1;
 		}
-        else
-		{
-            if (gamestate != GS_CONNECTING)
-                gamestate = GS_HIDECONSOLE;
 
-			C_HideConsole();
+		G_InitNew(startmap);
+		if (autorecord)
+			G_RecordDemo(startmap, demorecordfile);
+	}
+	else if (gamestate != GS_CONNECTING)
+	{
+		C_HideConsole();
+		D_StartTitle();		// start up intro loop
 
-			if (gamemode == commercial_bfg) // DOOM 2 BFG Edtion
-                AddCommandString("menu_main");
-
-			D_StartTitle(); // start up intro loop
-		}
+		if (gamemode == commercial_bfg) // DOOM 2 BFG Edtion
+			AddCommandString("menu_main");
     }
 
-	// denis - this will run a demo and quit
-	p = Args.CheckParm("+demotest");
-	if (p && p < Args.NumArgs() - 1)
-	{
-		demotest = 1;
-
-		extern std::string defdemoname;
-		defdemoname = Args.GetArg(p + 1);
-		G_DoPlayDemo();
-
-		while (demoplayback)
-		{
-			DObject::BeginFrame();
-			G_Ticker();
-			DObject::EndFrame();
-			gametic++;
-		}
-	}
-	else
-	{
-		demotest = 0;
-		D_DoomLoop();		// never returns
-	}
+	D_DoomLoop();		// never returns
 }
 
 VERSION_CONTROL (d_main_cpp, "$Id$")

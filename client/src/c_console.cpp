@@ -46,7 +46,6 @@
 #include "r_draw.h"
 #include "st_stuff.h"
 #include "s_sound.h"
-#include "s_sndseq.h"
 #include "doomstat.h"
 #include "gi.h"
 
@@ -66,8 +65,6 @@ static bool TabbedLast;		// Last key pressed was tab
 static IWindowSurface* background_surface;
 
 extern int		gametic;
-extern BOOL		automapactive;	// in AM_map.c
-extern BOOL		advancedemo;
 
 static unsigned int		ConRows, ConCols, PhysRows;
 
@@ -856,6 +853,15 @@ static int C_PrintString(int printlevel, const char* color_code, const char* out
 	const char* line_start = outline;
 	const char* line_end = line_start;
 
+	// [SL] the user's message color preference overrides the given color_code
+	// ...unless it's supposed to be formatted bold.
+	if (color_code && color_code[2] != '+' && printlevel >= 0 && printlevel < PRINTLEVELS)
+	{
+		static char printlevel_color_code[4];
+		sprintf(printlevel_color_code, "\\c%c", 'a' + PrintColors[printlevel]);
+		color_code = printlevel_color_code;
+	}
+
 	while (*line_start)
 	{
 		// Find the next line-breaking character (\n or \0) and set
@@ -1002,34 +1008,6 @@ void C_FlushDisplay()
 		NotifyStrings[i].timeout = 0;
 }
 
-void C_AdjustBottom()
-{
-	int surface_height = I_GetSurfaceHeight();
-	if (gamestate == GS_FULLCONSOLE || gamestate == GS_STARTUP)
-		ConBottom = surface_height; 
-	else if (ConBottom > surface_height / 2 || ConsoleState == c_down)
-		ConBottom = surface_height / 2;
-}
-
-void C_NewModeAdjust()
-{
-	int surface_width = I_GetSurfaceWidth(), surface_height = I_GetSurfaceHeight();
-
-	if (I_VideoInitialized())
-		C_SetConsoleDimensions(surface_width, surface_height);
-	else
-		C_SetConsoleDimensions(80 * 8, 25 * 8);
-
-	// clear HUD notify text
-	C_FlushDisplay();
-
-	if (gamestate == GS_FULLCONSOLE)
-		ConBottom = surface_height; 
-	else if (ConBottom > surface_height / 2 || ConsoleState == c_down)
-		ConBottom = surface_height / 2;
-}
-
-
 void C_Ticker()
 {
 	int surface_height = I_GetSurfaceHeight();
@@ -1054,7 +1032,7 @@ void C_Ticker()
 
 		if (ConsoleState == c_falling)
 		{
-			ConBottom += (gametic - lasttic) * (surface_height*2/25);
+			ConBottom += (gametic - lasttic) * (surface_height * 2 / 25);
 			if (ConBottom >= surface_height / 2)
 			{
 				ConBottom = surface_height / 2;
@@ -1063,7 +1041,7 @@ void C_Ticker()
 		}
 		else if (ConsoleState == c_fallfull)
 		{
-			ConBottom += (gametic - lasttic) * (surface_height*2/15);
+			ConBottom += (gametic - lasttic) * (surface_height * 2 / 15);
 			if (ConBottom >= surface_height)
 			{
 				ConBottom = surface_height;
@@ -1072,7 +1050,7 @@ void C_Ticker()
 		}
 		else if (ConsoleState == c_rising)
 		{
-			ConBottom -= (gametic - lasttic) * (surface_height*2/25);
+			ConBottom -= (gametic - lasttic) * (surface_height * 2 / 25);
 			if (ConBottom <= 0)
 			{
 				ConsoleState = c_up;
@@ -1081,7 +1059,7 @@ void C_Ticker()
 		}
 		else if (ConsoleState == c_risefull)
 		{
-			ConBottom -= (gametic - lasttic) * (surface_height*2/15);
+			ConBottom -= (gametic - lasttic) * (surface_height * 2 / 15);
 			if (ConBottom <= 0)
 			{
 				ConsoleState = c_up;
@@ -1148,6 +1126,139 @@ void C_SetTicker(unsigned int at)
 	TickerAt = at > TickerMax ? TickerMax : at;
 }
 
+
+//
+// C_UseFullConsole
+//
+// Returns true if the console should be drawn fullscreen. This should be
+// any time the client is not in a level, intermission or playing the demo loop.
+static bool C_UseFullConsole()
+{
+	return (gamestate != GS_LEVEL && gamestate != GS_DEMOSCREEN && gamestate != GS_INTERMISSION);
+}
+
+
+//
+// C_AdjustBottom
+//
+// Changes ConBottom based on the console's state. In a fullscreen console,
+// ConBottom should be the bottom of the screen. Otherwise, it should be
+// the middle of the screen.
+//
+void C_AdjustBottom()
+{
+	int surface_height = I_GetSurfaceHeight();
+
+	if (C_UseFullConsole())
+		ConBottom = surface_height; 
+	else if (ConsoleState == c_up)
+		ConBottom = 0;
+	else if (ConsoleState == c_down || ConBottom > surface_height / 2)
+		ConBottom = surface_height / 2;
+
+	// don't adjust if the console is raising or lowering because C_Ticker
+	// handles that already
+}
+
+
+//
+// C_NewModeAdjust
+//
+// Reinitializes the console after a video mode change.
+//
+void C_NewModeAdjust()
+{
+	int surface_width = I_GetSurfaceWidth(), surface_height = I_GetSurfaceHeight();
+
+	if (I_VideoInitialized())
+		C_SetConsoleDimensions(surface_width, surface_height);
+	else
+		C_SetConsoleDimensions(80 * 8, 25 * 8);
+
+	// clear HUD notify text
+	C_FlushDisplay();
+
+	C_AdjustBottom();
+}
+
+
+//
+//	C_FullConsole
+//
+void C_FullConsole()
+{
+	// SoM: disconnect effect.
+	if ((gamestate == GS_LEVEL || gamestate == GS_INTERMISSION) && ConsoleState == c_up && !menuactive)
+		screen->Dim(0, 0, I_GetSurfaceWidth(), I_GetSurfaceHeight());
+
+	ConsoleState = c_down;
+
+	TabbedLast = false;
+
+	C_AdjustBottom();
+}
+
+
+//
+// C_HideConsole
+//
+// Sets the console's state to hidden.
+//
+void C_HideConsole()
+{
+	ConsoleState = c_up;
+	ConBottom = 0;
+	if (!menuactive)
+		I_DisableKeyRepeat();
+
+	CmdLine.clear();
+	History.resetPosition();
+}
+
+
+//
+// C_ToggleConsole
+//
+// Toggles the console's state (if possible). This has no effect in fullscreen
+// console mode.
+//
+void C_ToggleConsole()
+{
+	if (C_UseFullConsole())
+		return;
+
+	bool bring_console_down =
+				(ConsoleState == c_up || ConsoleState == c_rising || ConsoleState == c_risefull);
+
+	if (bring_console_down)
+	{
+		if (C_UseFullConsole())
+			ConsoleState = c_fallfull;
+		else
+			ConsoleState = c_falling;
+
+		TabbedLast = false;
+		I_EnableKeyRepeat();
+	}
+	else
+	{
+		if (ConBottom == I_GetSurfaceHeight())
+			ConsoleState = c_risefull;
+		else
+			ConsoleState = c_rising;
+
+		C_FlushDisplay();
+		I_DisableKeyRepeat();
+	}
+
+	CmdLine.clear();
+	History.resetPosition();
+}
+
+
+//
+// C_DrawConsole
+//
 void C_DrawConsole()
 {
 	IWindowSurface* primary_surface = I_GetPrimarySurface();
@@ -1169,7 +1280,7 @@ void C_DrawConsole()
 		return;
 	}
 
-	if (gamestate == GS_LEVEL || gamestate == GS_DEMOSCREEN || gamestate == GS_INTERMISSION)
+	if (!C_UseFullConsole())
 	{
 		// Non-fullscreen console. Overlay a translucent background.
 		screen->Dim(0, 0, primary_surface_width, ConBottom);
@@ -1181,9 +1292,14 @@ void C_DrawConsole()
 
 		int x = (primary_surface_width - background_surface->getWidth()) / 2;
 		int y = (primary_surface_height - background_surface->getHeight()) / 2;
+
+		background_surface->lock();
+
 		primary_surface->blit(background_surface, 0, 0,
 				background_surface->getWidth(), background_surface->getHeight(),
 				x, y, background_surface->getWidth(), background_surface->getHeight());
+
+		background_surface->unlock();
 	}
 
 	if (ConBottom >= 12)
@@ -1196,10 +1312,7 @@ void C_DrawConsole()
 
 		// Download progress bar hack
 		if (gamestate == GS_DOWNLOAD)
-		{
-			screen->PrintStr(left + 2, ConBottom - 10,
-					DownloadStr.c_str(), CR_GRAY);
-		}
+			screen->PrintStr(left + 2, ConBottom - 10, DownloadStr.c_str(), CR_GRAY);
 
 		if (TickerMax)
 		{
@@ -1279,82 +1392,6 @@ void C_DrawConsole()
 			}
 		}
 	}
-}
-
-
-//
-//	C_FullConsole
-//
-void C_FullConsole()
-{
-	// SoM: disconnect effect.
-	if (gamestate == GS_LEVEL && ConsoleState == c_up && !menuactive)
-		C_ServerDisconnectEffect();
-
-	if (demoplayback)
-		G_CheckDemoStatus();
-	advancedemo = false;
-	ConsoleState = c_down;
-	TabbedLast = false;
-	if (gamestate != GS_STARTUP)
-	{
-		gamestate = GS_FULLCONSOLE;
-		level.music[0] = '\0';
-		S_Start();
- 		SN_StopAllSequences();
-		V_SetBlend(0,0,0,0);
-		I_EnableKeyRepeat();
-	}
-	else
-	{
-		C_AdjustBottom();
-	}
-}
-
-void C_ToggleConsole()
-{
-	if (HU_ChatMode() == CHAT_INACTIVE &&
-		(ConsoleState == c_up || ConsoleState == c_rising || ConsoleState == c_risefull))
-	{
-		if (gamestate == GS_CONNECTING)
-			ConsoleState = c_fallfull;
-		else
-			ConsoleState = c_falling;
-		TabbedLast = false;
-		I_EnableKeyRepeat();
-	}
-	else if (gamestate != GS_FULLCONSOLE && gamestate != GS_STARTUP
-            && gamestate != GS_CONNECTING && gamestate != GS_DOWNLOAD)
-	{
-		if (ConBottom == I_GetSurfaceHeight())
-			ConsoleState = c_risefull;
-		else
-			ConsoleState = c_rising;
-		C_FlushDisplay();
-		I_DisableKeyRepeat();
-	}
-}
-
-void C_HideConsole()
-{
-    // [Russell] - Prevent console from going up when downloading files or
-    // connecting
-    if (gamestate != GS_CONNECTING && gamestate != GS_DOWNLOAD)
-	{
-		ConsoleState = c_up;
-		ConBottom = 0;
-		if (!menuactive)
-			I_DisableKeyRepeat();
-	}
-}
-
-
-
-// SoM
-// Setup the server disconnect effect.
-void C_ServerDisconnectEffect()
-{
-   screen->Dim(0, 0, I_GetSurfaceWidth(), I_GetSurfaceHeight());
 }
 
 
@@ -1465,28 +1502,13 @@ static bool C_HandleKey(const event_t* ev)
 
 			TabbedLast = false;
 		}
-		else if (ev->data1 == KEY_ESCAPE || (cmd && strcmp(cmd, "toggleconsole") == 0))
+		else if (ev->data1 == KEY_ESCAPE || (cmd && stricmp(cmd, "toggleconsole") == 0))
 		{
-			// Close console, clear command line, but if we're in the
-			// fullscreen console mode, there's nothing to fall back on
-			// if it's closed.
-			if (gamestate == GS_FULLCONSOLE || gamestate == GS_CONNECTING
-                || gamestate == GS_DOWNLOAD || gamestate == GS_CONNECTED)
-			{
-				C_HideConsole();
-
-                // [Russell] Don't enable toggling of console when downloading
-                // or connecting, it creates screen artifacts
-                if (gamestate != GS_CONNECTING && gamestate != GS_DOWNLOAD)
-                    gamestate = GS_DEMOSCREEN;
-
-				if (cmd && !strcmp(cmd, "toggleconsole"))
-					return true;
+			// don't eat the Esc key if we're in full console
+			// let it be processed elsewhere (to bring up the menu)
+			if (C_UseFullConsole())
 				return false;
-			}
-			
-			History.resetPosition();
-			CmdLine.clear();
+
 			C_ToggleConsole();
 		}
 		else if (ev->data3 < 32 || ev->data3 > 126)
@@ -1643,18 +1665,24 @@ void C_DrawMid()
 {
 	if (MidMsg)
 	{
-		int i, line, x, y, xscale, yscale;
+		int surface_width = I_GetSurfaceWidth(), surface_height = I_GetSurfaceHeight();
 
-		xscale = V_TextScaleXAmount();
-		yscale = V_TextScaleYAmount();
+		int xscale = V_TextScaleXAmount();
+		int yscale = V_TextScaleYAmount();
 
-		y = 8 * yscale;
-		x = I_GetSurfaceWidth() / 2;
-		for (i = 0, line = (ST_Y * 3) / 8 - MidLines * 4 * yscale; i < MidLines; i++, line += y)
+		const int line_height = 8 * yscale;
+
+		int bottom = R_StatusBarVisible()
+			? ST_StatusBarY(surface_width, surface_height) : surface_height;
+
+		int x = surface_width / 2;
+		int y = (bottom - line_height * MidLines) / 2;
+
+		for (int i = 0; i < MidLines; i++, y += line_height)
 		{
 			screen->DrawTextStretched(PrintColors[PRINTLEVELS],
-					x - (MidMsg[i].width >> 1) * xscale,
-					line, (byte *)MidMsg[i].string, xscale, yscale);
+					x - xscale * (MidMsg[i].width / 2),
+					y, (byte *)MidMsg[i].string, xscale, yscale);
 		}
 
 		if (gametic >= MidTicker)
@@ -1720,18 +1748,24 @@ void C_DrawGMid()
 {
 	if (GameMsg)
 	{
-		int i, line, x, y, xscale, yscale;
+		int surface_width = I_GetSurfaceWidth(), surface_height = I_GetSurfaceHeight();
 
-		xscale = V_TextScaleXAmount();
-		yscale = V_TextScaleYAmount();
+		int xscale = V_TextScaleXAmount();
+		int yscale = V_TextScaleYAmount();
 
-		y = 8 * yscale;
-		x = I_GetSurfaceWidth() / 2;
-		for (i = 0, line = (ST_Y * 2) / 8 - GameLines * 4 * yscale;i < GameLines; i++, line += y)
+		const int line_height = 8 * yscale;
+
+		int bottom = R_StatusBarVisible()
+			? ST_StatusBarY(surface_width, surface_height) : surface_height;
+
+		int x = surface_width / 2;
+		int y = (bottom / 2 - line_height * GameLines) / 2;
+
+		for (int i = 0; i < GameLines; i++, y += line_height)
 		{
 			screen->DrawTextStretched(GameColor,
-			                          x - (GameMsg[i].width >> 1) * xscale,
-			                          line, (byte *)GameMsg[i].string, xscale, yscale);
+					x - xscale * (GameMsg[i].width / 2),
+					y, (byte*)GameMsg[i].string, xscale, yscale);
 		}
 
 		if (gametic >= GameTicker)

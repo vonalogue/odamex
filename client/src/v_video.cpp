@@ -59,12 +59,32 @@
 #include "c_dispatch.h"
 #include "cmdlib.h"
 
+#include "f_wipe.h"
+
 IMPLEMENT_CLASS (DCanvas, DObject)
 
 argb_t Col2RGB8[65][256];
 palindex_t RGB32k[32][32][32];
 
 void I_FlushInput();
+
+
+// [RH] Set true when vid_setmode command has been executed
+static bool setmodeneeded = false;
+// [RH] Resolution to change to when setmodeneeded is true
+int		NewWidth, NewHeight, NewBits;
+
+//
+//	V_ForceVideoModeAdjustment
+//
+// Tells the video subsystem to change the video mode and recalculate any
+// lookup tables dependent on the video mode prior to drawing the next frame.
+//
+void V_ForceVideoModeAdjustment()
+{
+	setmodeneeded = true;
+}
+
 
 // [RH] The framebuffer is no longer a mere byte array.
 // There's also only one, not four.
@@ -105,14 +125,9 @@ CVAR_FUNC_IMPL (vid_maxfps)
 EXTERN_CVAR (ui_dimamount)
 EXTERN_CVAR (ui_dimcolor)
 
-// [RH] Set true when vid_setmode command has been executed
-bool	setmodeneeded = false;
-// [RH] Resolution to change to when setmodeneeded is true
-int		NewWidth, NewHeight, NewBits;
-
 CVAR_FUNC_IMPL (vid_fullscreen)
 {
-	setmodeneeded = true;
+	V_ForceVideoModeAdjustment();
 	NewWidth = I_GetVideoWidth();
 	NewHeight = I_GetVideoHeight();
 	NewBits = I_GetVideoBitDepth();
@@ -120,7 +135,7 @@ CVAR_FUNC_IMPL (vid_fullscreen)
 
 CVAR_FUNC_IMPL (vid_32bpp)
 {
-	setmodeneeded = true;
+	V_ForceVideoModeAdjustment();
 	NewBits = (int)vid_32bpp ? 32 : 8;
 }
 
@@ -201,25 +216,32 @@ void DCanvas::FlatFill(int left, int top, int right, int bottom, const byte* src
 // aspect ratio. Pillarboxing is used in widescreen resolutions.
 void DCanvas::DrawPatchFullScreen(const patch_t* patch) const
 {
-	int width = mSurface->getWidth(), height = mSurface->getHeight();
-	Clear(0, 0, width, height, argb_t(0, 0, 0));
+	mSurface->clear();
 
-	if (width == 320 && height == 200)
+	int surface_width = mSurface->getWidth(), surface_height = mSurface->getHeight();
+
+	int destw, desth;
+
+	if (I_IsProtectedResolution(I_GetVideoWidth(), I_GetVideoHeight()))
 	{
-		DrawPatch(patch, 0, 0);
+		destw = surface_width; 
+		desth = surface_height; 
 	}
-	else if (width * 3 > height * 4)
+	else if (surface_width * 3 >= surface_height * 4)
 	{
-		// widescreen resolution - draw pic in 4:3 ratio in center of screen
-		int picwidth = 4 * height / 3;
-		int picheight = height;
-		DrawPatchStretched(patch, (width - picwidth) / 2, 0, picwidth, picheight);
+		destw = surface_height * 4 / 3;
+		desth = surface_height;
 	}
 	else
 	{
-		// 4:3 resolution - draw pic to the entire screen
-		DrawPatchStretched(patch, 0, 0, width, height);
+		destw = surface_width;
+		desth = surface_width * 3 / 4;
 	}
+
+	int x = (surface_width - destw) / 2;
+	int y = (surface_height - desth) / 2;
+
+	DrawPatchStretched(patch, x, y, destw, desth);
 }
 
 
@@ -273,10 +295,12 @@ void DCanvas::Dim(int x1, int y1, int w, int h, const char* color_str, float fam
 		int bg;
 		int x, y;
 
-		fixed_t amount = (fixed_t)(famount * 64.0f);
+		int amount = (int)(famount * 64.0f);
 		argb_t *fg2rgb = Col2RGB8[amount];
 		argb_t *bg2rgb = Col2RGB8[64-amount];
-		unsigned int fg = fg2rgb[V_GetColorFromString(V_GetDefaultPalette()->basecolors, color_str)];
+
+		argb_t color = V_GetColorFromString(color_str);
+		unsigned int fg = fg2rgb[V_BestColor(V_GetDefaultPalette()->basecolors, color)];
 
 		palindex_t* dest = (palindex_t*)mSurface->getBuffer() + y1 * surface_pitch_pixels + x1;
 		int advance = surface_pitch_pixels - w;
@@ -317,8 +341,7 @@ void DCanvas::Dim(int x1, int y1, int w, int h, const char* color_str, float fam
 	}
 	else
 	{
-		argb_t color = (argb_t)V_GetColorFromString(NULL, color_str);
-		color = V_GammaCorrect(color);
+		argb_t color = V_GammaCorrect(V_GetColorFromString(color_str));
 
 		r_dimpatchD(mSurface, color, (int)(famount * 256.0f), x1, y1, w, h);
 	}
@@ -337,49 +360,6 @@ void DCanvas::Dim(int x1, int y1, int w, int h) const
 	Dim(x1, y1, w, h, ui_dimcolor.cstring(), ui_dimamount);
 }
 
-std::string V_GetColorStringByName (const char *name)
-{
-	/* Note: The X11R6RGB lump used by this function *MUST* end
-	 * with a NULL byte. This is so that COM_Parse is able to
-	 * detect the end of the lump.
-	 */
-	char *rgbNames, *data, descr[5*3];
-	int c[3], step;
-
-	if (!(rgbNames = (char *)W_CacheLumpName ("X11R6RGB", PU_CACHE))) {
-		Printf (PRINT_HIGH, "X11R6RGB lump not found\n");
-		return NULL;
-	}
-
-	// skip past the header line
-	data = strchr (rgbNames, '\n');
-	step = 0;
-
-	while ( (data = COM_Parse (data)) ) {
-		if (step < 3) {
-			c[step++] = atoi (com_token);
-		} else {
-			step = 0;
-			if (*data >= ' ') {		// In case this name contains a space...
-				char *newchar = com_token + strlen(com_token);
-
-				while (*data >= ' ') {
-					*newchar++ = *data++;
-				}
-				*newchar = 0;
-			}
-
-			if (!stricmp (com_token, name)) {
-				sprintf (descr, "%04x %04x %04x",
-						 (c[0] << 8) | c[0],
-						 (c[1] << 8) | c[1],
-						 (c[2] << 8) | c[2]);
-				return descr;
-			}
-		}
-	}
-	return "";
-}
 
 BEGIN_COMMAND (setcolor)
 {
@@ -418,30 +398,19 @@ static void BuildTransTable(const argb_t* palette_colors)
 
 	for (int x = 0; x < 65; x++)
 		for (int y = 0; y < 256; y++)
-			Col2RGB8[x][y] = (((palette_colors[y].r * x) >> 4) << 20)  |
-							  ((palette_colors[y].g * x )>> 4) |
-							 (((palette_colors[y].b * x) >> 4) << 10);
+			Col2RGB8[x][y] = (((palette_colors[y].getr() * x) >> 4) << 20)  |
+							  ((palette_colors[y].getg() * x )>> 4) |
+							 (((palette_colors[y].getb() * x) >> 4) << 10);
 }
 
 CVAR_FUNC_IMPL (vid_widescreen)
 {
-	bool enabled = (var != 0.0f);
-	static bool last_value = !enabled;	// force setmodeneeded when loading cvar
-	if (last_value != enabled)
-		setmodeneeded = true;
-	last_value = enabled;
+	V_ForceVideoModeAdjustment();
 }
 
 CVAR_FUNC_IMPL (sv_allowwidescreen)
 {
-	// change setmodeneeded when the value of sv_allowwidescreen
-	// changes our ability to use wide-fov
-	bool wide_fov = V_UseWidescreen() || V_UseLetterBox();
-	static bool last_value = !wide_fov;
-
-	if (last_value != wide_fov)
-		setmodeneeded = true;
-	last_value = wide_fov;
+	V_ForceVideoModeAdjustment();
 }
 
 //
@@ -563,7 +532,7 @@ BEGIN_COMMAND(vid_setmode)
 	// near the beginning of D_Display().
 	if (gamestate != GS_STARTUP)
 	{
-		setmodeneeded = true;
+		V_ForceVideoModeAdjustment();
 		NewWidth = width;
 		NewHeight = height;
 		NewBits = bpp;
@@ -619,6 +588,36 @@ void V_Init()
 	C_NewModeAdjust();
 
 	BuildTransTable(V_GetDefaultPalette()->basecolors);
+}
+
+
+//
+// V_AdjustVideoMode
+//
+// Checks if the video mode needs to be changed and calls several video mode
+// dependent initialization routines if it does. This should be called at the
+// start of drawing a video frame.
+//
+void V_AdjustVideoMode()
+{
+	if (setmodeneeded)
+	{
+		// [SL] surface buffer address will be changing
+		// so just end the screen-wipe
+		Wipe_Stop();
+
+		// Change screen mode.
+		if (!V_SetResolution(NewWidth, NewHeight, NewBits))
+			I_FatalError("Could not change screen mode");
+
+		// Refresh the console.
+		C_NewModeAdjust();
+
+		// Recalculate various view parameters.
+		R_ForceViewWindowResize();
+
+		setmodeneeded = false;
+	}
 }
 
 

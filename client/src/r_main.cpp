@@ -43,6 +43,7 @@
 #include "i_video.h"
 #include "m_vectors.h"
 #include "f_wipe.h"
+#include "am_map.h"
 
 void R_BeginInterpolation(fixed_t amount);
 void R_EndInterpolation();
@@ -67,7 +68,6 @@ EXTERN_CVAR (sv_allowwidescreen)
 EXTERN_CVAR (vid_320x200)
 EXTERN_CVAR (vid_640x400)
 
-static float	LastFOV = 0.0f;
 fixed_t			FocalLengthX;
 fixed_t			FocalLengthY;
 float			xfoc;		// FIXEDFLOAT(FocalLengthX)
@@ -128,12 +128,16 @@ int 			extralight;
 // [RH] ignore extralight and fullbright
 BOOL			foggy;
 
-bool			setsizeneeded;
+static bool		setsizeneeded = true;
 int				setblocks;
 
 fixed_t			freelookviewheight;
 
-unsigned int	R_OldBlend = ~0;
+// [RH] Base blending values (for e.g. underwater)
+static argb_t sector_blend_color(0, 255, 255, 255);
+
+// [SL] Current color blending values (including palette effects)
+fargb_t blend_color(0.0f, 255.0f, 255.0f, 255.0f);
 
 void (*colfunc) (void);
 void (*spanfunc) (void);
@@ -149,8 +153,22 @@ int CorrectFieldOfView = 2048;
 
 fixed_t			render_lerp_amount;
 
-byte*			ylookup[MAXHEIGHT];
-int				columnofs[MAXWIDTH];
+byte**			ylookup;
+
+static void R_InitViewWindow();
+
+
+//
+// R_ForceViewWindowResize
+//
+// Tells the renderer to recalculate all of the viewing window dimensions
+// and any lookup tables dependent on those dimensions prior to rendering
+// the next frame.
+//
+void R_ForceViewWindowResize()
+{
+	setsizeneeded = true;
+}
 
 
 //
@@ -483,7 +501,7 @@ bool R_CheckProjectionY(int &y1, int &y2)
 //
 static inline void R_DrawPixel(int x, int y, byte color)
 {
-	*(ylookup[y] + columnofs[x]) = color;
+	*(ylookup[y] + x + viewwindowx) = color;
 }
 
 
@@ -577,50 +595,6 @@ void R_DrawLine(const v3fixed_t* inpt1, const v3fixed_t* inpt2, byte color)
 
 
 //
-// R_SetFOV
-//
-// Changes the field of view based on widescreen mode availibility.
-//
-void R_SetFOV(float fov, bool force = false)
-{
-	fov = clamp(fov, 1.0f, 179.0f);
-
-	if (fov == LastFOV && force == false)
-		return;
- 
-	LastFOV = fov;
-	FieldOfView = int(fov * FINEANGLES / 360.0f);
-
-	if (V_UseWidescreen() || V_UseLetterBox())
-	{
-		float am = float(I_GetSurfaceWidth()) / float(I_GetSurfaceHeight()) / (4.0f / 3.0f);
-		float radfov = fov * PI / 180.0f;
-		float widefov = (2 * atan(am * tan(radfov / 2))) * 180.0f / PI;
-		CorrectFieldOfView = int(widefov * FINEANGLES / 360.0f);
-	}
-	else
- 	{
-		CorrectFieldOfView = FieldOfView;
- 	}
-
-	setsizeneeded = true;
-}
-
-//
-//
-// R_GetFOV
-//
-// Returns the current field of view in degrees
-//
-//
-
-float R_GetFOV (void)
-{
-	return LastFOV;
-}
-
-
-//
 //
 // R_SetViewSize
 //
@@ -628,10 +602,9 @@ float R_GetFOV (void)
 // of a refresh. The change will take effect next refresh.
 //
 //
-
 void R_SetViewSize(int blocks)
 {
-	setsizeneeded = true;
+	R_ForceViewWindowResize();
 	setblocks = blocks;
 }
 
@@ -673,6 +646,9 @@ void R_Init()
 void STACK_ARGS R_Shutdown()
 {
     R_FreeTranslationTables();
+
+	delete [] ylookup;
+	ylookup = NULL;
 }
 
 
@@ -760,6 +736,42 @@ static void R_ViewShear(angle_t pitch)
 
 
 //
+// R_SetSectorBlend
+//
+// Sets the blend color for the camera's current sector to the given color.
+//
+void R_SetSectorBlend(const argb_t color)
+{
+	sector_blend_color = color;
+}
+
+
+//
+// R_ClearSectorBlend
+//
+// Sets the blend color for the camera's current sector to white with 0% opacity.
+//
+void R_ClearSectorBlend()
+{
+	sector_blend_color.seta(0);
+	sector_blend_color.setr(255);
+	sector_blend_color.setg(255);
+	sector_blend_color.setb(255);
+}
+
+
+//
+// R_GetSectorBlend
+//
+// Returns the blend color for the camera's current sector.
+//
+argb_t R_GetSectorBlend()
+{
+	return sector_blend_color;
+}
+
+
+//
 //
 // R_SetupFrame
 //
@@ -798,10 +810,8 @@ void R_SetupFrame (player_t *player)
 	if (camera->player && camera->player->xviewshift && !paused)
 	{
 		int intensity = camera->player->xviewshift;
-		viewx += ((M_Random() % (intensity<<2))
-					-(intensity<<1))<<FRACBITS;
-		viewy += ((M_Random()%(intensity<<2))
-					-(intensity<<1))<<FRACBITS;
+		viewx += ((M_Random() % (intensity << 2)) - (intensity << 1)) << FRACBITS;
+		viewy += ((M_Random() % (intensity << 2)) - (intensity << 1)) << FRACBITS;
 	}
 
 	extralight = camera == player->mo ? player->extralight : 0;
@@ -809,46 +819,34 @@ void R_SetupFrame (player_t *player)
 	viewsin = finesine[viewangle>>ANGLETOFINESHIFT];
 	viewcos = finecosine[viewangle>>ANGLETOFINESHIFT];
 
-	// killough 3/20/98, 4/4/98: select colormap based on player status
-	// [RH] Can also select a blend
-	argb_t newblend;
-
+	// [SL] Change to a different sector blend color (or colormap in 8bpp mode)
+	// if entering a heightsec (via TransferHeight line special)
 	if (camera->subsector->sector->heightsec &&
 		!(camera->subsector->sector->heightsec->MoreFlags & SECF_IGNOREHEIGHTSEC))
 	{
-		const sector_t *s = camera->subsector->sector->heightsec;
-		newblend = viewz < P_FloorHeight(viewx, viewy, s) ? s->bottommap : 
-					viewz > P_CeilingHeight(viewx, viewy, s) ? s->topmap : s->midmap;
+		const sector_t* sec = camera->subsector->sector->heightsec;
 
-		if (I_GetPrimarySurface()->getBitsPerPixel() != 8)
-			newblend = R_BlendForColormap (newblend);
-		else if (newblend.a == 0 && newblend >= numfakecmaps)
-			newblend = 0;
-	}
-	else
-	{
-		newblend = 0;
-	}
-
-	// [RH] Don't override testblend unless entering a sector with a
-	//		blend different from the previous sector's. Same goes with
-	//		NormalLight's maps pointer.
-	if (R_OldBlend != newblend)
-	{
-		R_OldBlend = newblend;
-		if (newblend.a != 0)
-		{
-			BaseBlendR = newblend.r;
-			BaseBlendG = newblend.g;
-			BaseBlendB = newblend.b;
-			BaseBlendA = float(newblend.a) / 255.0f;
-			NormalLight.maps = shaderef_t(&realcolormaps, 0);
-		}
+		argb_t new_sector_blend_color;
+		if (viewz < P_FloorHeight(viewx, viewy, sec))
+			new_sector_blend_color = sec->bottommap;
+		else if (viewz > P_CeilingHeight(viewx, viewy, sec))
+			new_sector_blend_color = sec->topmap;
 		else
+			new_sector_blend_color = sec->midmap;
+
+		// [RH] Don't override testblend unless entering a sector with a
+		//		blend different from the previous sector's. Same goes with
+		//		NormalLight's maps pointer.
+		if (new_sector_blend_color != R_GetSectorBlend())
 		{
-			NormalLight.maps = shaderef_t(&realcolormaps, (NUMCOLORMAPS+1)*newblend);
-			BaseBlendR = BaseBlendG = BaseBlendB = 0;
-			BaseBlendA = 0.0f;
+			R_SetSectorBlend(new_sector_blend_color);
+
+			// use colormap lumps in 8bpp mode instead of blends
+			int colormap_num = 0;
+			if (I_GetPrimarySurface()->getBitsPerPixel() == 8)
+				colormap_num = R_ColormapForBlend(new_sector_blend_color);
+
+			NormalLight.maps = shaderef_t(&realcolormaps, (NUMCOLORMAPS+1) * colormap_num);
 		}
 	}
 
@@ -1024,9 +1022,18 @@ void R_SetTranslatedLucentDrawFuncs()
 //
 // R_RenderPlayerView
 //
-void R_RenderPlayerView(player_t *player)
+void R_RenderPlayerView(player_t* player)
 {
-	IWindowSurface* surface = R_GetRenderingSurface();
+	// Recalculate the viewing window dimensions, if needed.
+	if (setsizeneeded)
+	{
+		R_InitViewWindow();
+		ST_ForceRefresh();
+		setsizeneeded = false;
+	}
+
+	if (!viewactive)
+		return;
 
 	R_SetupFrame(player);
 
@@ -1038,6 +1045,8 @@ void R_RenderPlayerView(player_t *player)
 	R_ClearSprites();
 
 	R_ResetDrawFuncs();
+
+	IWindowSurface* surface = R_GetRenderingSurface();
 
 	// [SL] fill the screen with a blinking solid color to make HOM more visible
 	if (r_flashhom)
@@ -1071,13 +1080,11 @@ void R_RenderPlayerView(player_t *player)
 	R_DrawMasked();
 
 	// NOTE(jsd): Full-screen status color blending:
-	extern int BlendA, BlendR, BlendG, BlendB;
-	if (surface->getBitsPerPixel() == 32 && BlendA != 0)
+	int blend_alpha = int(blend_color.geta() * 255.0f);
+	if (surface->getBitsPerPixel() == 32 && blend_alpha > 0)
 	{
-		argb_t blend_color = argb_t(BlendR, BlendG, BlendB);
-		blend_color = V_GammaCorrect(blend_color);
-
-		r_dimpatchD(surface, blend_color, BlendA, viewwindowx, viewwindowy, viewwidth, viewheight);
+		r_dimpatchD(surface, V_GammaCorrect(blend_color), blend_alpha,
+						viewwindowx, viewwindowy, viewwidth, viewheight);
 	}
 
 	R_EndInterpolation();
@@ -1121,6 +1128,53 @@ static void R_InitLightTables(int surface_width, int surface_height)
 
 
 //
+// R_ViewWidth
+//
+int R_ViewWidth(int width, int height)
+{
+	if (setblocks == 10 || setblocks == 11 || setblocks == 12)
+		return width;
+	else
+		return (setblocks * width / 10) & ~15;
+}
+
+
+//
+// R_ViewHeight
+//
+int R_ViewHeight(int width, int height)
+{
+	if (setblocks == 11 || setblocks == 12)
+		return height;
+	else if (setblocks == 10)
+		return ST_StatusBarY(width, height);
+	else
+		return (setblocks * ST_StatusBarY(width, height) / 10) & ~7;
+}
+
+
+//
+// R_ViewWindowX
+//
+int R_ViewWindowX(int width, int height)
+{
+	return (width - R_ViewWidth(width, height)) / 2;
+}
+
+
+//
+// R_ViewWindowY
+//
+int R_ViewWindowY(int width, int height)
+{
+	if (setblocks == 10 || setblocks == 11 || setblocks == 12)
+		return 0;
+	else
+		return (ST_StatusBarY(width, height) - R_ViewHeight(width, height)) / 2;
+}
+
+
+//
 // R_InitViewWindow
 //
 // Initializes the renderer variables and tables that are dependent upon
@@ -1128,7 +1182,7 @@ static void R_InitLightTables(int surface_width, int surface_height)
 //
 // This replaces R_ExecuteSetViewSize and R_MultiresInit.
 //
-void R_InitViewWindow()
+static void R_InitViewWindow()
 {
 	IWindowSurface* surface = R_GetRenderingSurface();
 	int surface_width = surface->getWidth(), surface_height = surface->getHeight();
@@ -1140,30 +1194,15 @@ void R_InitViewWindow()
 	surface->lock();
 
 	// Calculate viewwidth & viewheight based on the amount of window border 
-	if (setblocks == 11 || setblocks == 12)
-	{
-		viewwidth = surface_width; 
-		viewheight = surface_height;
+	viewwidth = R_ViewWidth(surface_width, surface_height);
+	viewheight = R_ViewHeight(surface_width, surface_height);
+	viewwindowx = R_ViewWindowX(surface_width, surface_height);
+	viewwindowy = R_ViewWindowY(surface_width, surface_height);
+
+	if (setblocks == 10 || setblocks == 11 || setblocks == 12)
 		freelookviewheight = surface_height; 
-		viewwindowx = (surface_width - viewwidth) / 2;
-		viewwindowy = 0;
-	}
-	else if (setblocks == 10)
-	{
-		viewwidth = surface_width;
-		viewheight = ST_StatusBarY(surface_width, surface_height);
-		freelookviewheight = surface_height;
-		viewwindowx = (surface_width - viewwidth) / 2;
-		viewwindowy = 0;
-	}
 	else
-	{
-		viewwidth = (setblocks * surface_width / 10) & ~15;
-		viewheight = (setblocks * ST_StatusBarY(surface_width, surface_height) / 10) & ~7;
 		freelookviewheight = ((setblocks * surface_height) / 10) & ~7;
-		viewwindowx = (surface_width - viewwidth) / 2;
-		viewwindowy = (ST_StatusBarY(surface_width, surface_height) - viewheight) / 2;
-	}
 
 	centerx = viewwidth / 2;
 	centery = viewheight / 2;
@@ -1177,7 +1216,26 @@ void R_InitViewWindow()
 	else
 		yaspectmul = 320 * 3 * FRACUNIT / (200 * 4);
 
-	// Calculate focal length so FieldOfView angles covers viewwidth.
+	// Calculate FieldOfView and CorrectFieldOfView
+	float desired_fov = 90.0f;
+	if (consoleplayer().camera && consoleplayer().camera->player)
+		desired_fov = clamp(consoleplayer().camera->player->fov, 45.0f, 135.0f);
+
+	FieldOfView = int(desired_fov * FINEANGLES / 360.0f);
+
+	if (V_UseWidescreen() || V_UseLetterBox())
+	{
+		float am = (3.0f * I_GetSurfaceWidth()) / (4.0f * I_GetSurfaceHeight());
+		float radfov = desired_fov * PI / 180.0f;
+		float widefov = (2 * atan(am * tan(radfov / 2))) * 180.0f / PI;
+		CorrectFieldOfView = int(widefov * FINEANGLES / 360.0f);
+	}
+	else
+ 	{
+		CorrectFieldOfView = FieldOfView;
+ 	}
+
+	// Calculate focal length so CorrectFieldOfView angles covers viewwidth.
 	fovtan = finetangent[FINEANGLES/4 + CorrectFieldOfView/2];
 	FocalLengthX = FixedDiv(centerxfrac, fovtan);
 	FocalLengthY = FixedDiv(FixedMul(centerxfrac, yaspectmul), fovtan);
@@ -1206,13 +1264,11 @@ void R_InitViewWindow()
 	pspriteyscale = FixedMul(pspritexscale, yaspectmul);
 	pspritexiscale = FixedDiv(FRACUNIT, pspritexscale);
 
-	// Column offset. For windows
-	for (int i = 0; i < viewwidth; i++)
-		columnofs[i] = (viewwindowx + i) * surface->getBytesPerPixel();
-
 	// Precalculate all row offsets.
+	delete [] ylookup;
+	ylookup = new byte*[surface_height];
 	for (int i = 0; i < viewheight; i++)
-		ylookup[i] = surface->getBuffer() + (viewwindowy + i) * surface->getPitch();
+		ylookup[i] = surface->getBuffer(0, i + viewwindowy);
 
 	for (int i = 0; i < surface_width; i++)
 	{
@@ -1225,10 +1281,7 @@ void R_InitViewWindow()
 	R_PlaneInitData(surface);
 	R_InitSkyMap();
 
-	R_InitFuzzTable();
-
 	dcol.pitch = surface->getPitch();
-	dspan.colsize = 1;
 
 	surface->unlock();
 
@@ -1236,11 +1289,10 @@ void R_InitViewWindow()
 	sprintf(temp_str, "%d x %d", viewwidth, viewheight);
 	r_viewsize.ForceSet(temp_str);
 
-	R_OldBlend = ~0;
+	// [SL] clear many renderer variables
+	R_ExitLevel();
 }
 
-
-bool AM_ClassicAutomapVisible();
 
 //
 // R_BorderVisible
@@ -1264,6 +1316,23 @@ bool R_StatusBarVisible()
 }
 
 
+
+//
+// R_ExitLevel
+//
+// Resets internal renderer variables at the end of a level (or the start of
+// a new level). This includes clearing any sector blends.
+//
+void R_ExitLevel()
+{
+	R_ClearSectorBlend();
+	NormalLight.maps = shaderef_t(&realcolormaps, 0);
+
+	blend_color = fargb_t(0.0f, 255.0f, 255.0f, 255.0f);
+	V_ForceBlend(blend_color);
+
+	r_underwater = false;
+}
 
 VERSION_CONTROL (r_main_cpp, "$Id$")
 

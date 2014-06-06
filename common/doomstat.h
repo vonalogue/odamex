@@ -108,7 +108,6 @@ EXTERN_CVAR (sv_gametype)
 //	status bar explicitely.
 extern	BOOL			statusbaractive;
 
-extern	BOOL			automapactive;	// In AutoMap mode?
 extern	BOOL			menuactive; 	// Menu overlayed?
 extern	BOOL			paused; 		// Game Pause?
 
@@ -210,10 +209,6 @@ extern	BOOL	 		precache;
 // wipegamestate can be set to -1
 //	to force a wipe on the next draw
 extern gamestate_t wipegamestate;
-
-// denis - is this from hexen?
-extern bool setsizeneeded;
-extern bool setmodeneeded;
 
 EXTERN_CVAR (mouse_sensitivity) // removeme // ?
 

@@ -35,6 +35,7 @@
 #include "m_argv.h"
 #include "m_misc.h"
 #include "i_sdlvideo.h"
+#include "i_input.h"
 #include "m_fileio.h"
 
 #include "w_wad.h"
@@ -46,6 +47,9 @@
     #include "SDL_syswm.h"
     #include "resource.h"
 #endif	// _WIN32
+
+// Declared in doomtype.h as part of argb_t
+uint8_t argb_t::a_num, argb_t::r_num, argb_t::g_num, argb_t::b_num;
 
 // Global IWindow instance for the application window
 static IWindow* window = NULL;
@@ -65,6 +69,7 @@ static IWindowSurface* emulated_surface = NULL;
 extern int NewWidth, NewHeight, NewBits, DisplayBits;
 
 static int loading_icon_expire = -1;
+static IWindowSurface* loading_icon_background_surface = NULL;
 
 EXTERN_CVAR(vid_fullscreen)
 EXTERN_CVAR(vid_vsync)
@@ -77,24 +82,23 @@ EXTERN_CVAR(vid_defheight)
 
 CVAR_FUNC_IMPL(vid_overscan)
 {
-	setmodeneeded = true;
+	V_ForceVideoModeAdjustment();
 }
 
 CVAR_FUNC_IMPL(vid_320x200)
 {
-	setmodeneeded = true;
+	V_ForceVideoModeAdjustment();
 }
 
 CVAR_FUNC_IMPL(vid_640x400)
 {
-	setmodeneeded = true;
+	V_ForceVideoModeAdjustment();
 }
 
 CVAR_FUNC_IMPL(vid_vsync)
 {
-	setmodeneeded = true;
+	V_ForceVideoModeAdjustment();
 }
-
 
 //
 // vid_listmodes
@@ -124,9 +128,28 @@ END_COMMAND(vid_listmodes)
 //
 BEGIN_COMMAND(vid_currentmode)
 {
-	Printf(PRINT_HIGH, "%dx%dx%d\n",
+	const PixelFormat* format = I_GetWindow()->getPrimarySurface()->getPixelFormat();
+
+	if (format->getBitsPerPixel() == 8)
+	{
+		Printf(PRINT_HIGH, "%dx%d %dbpp indexed\n",
 			I_GetWindow()->getWidth(), I_GetWindow()->getHeight(),
-			I_GetWindow()->getBitsPerPixel());
+			format->getBitsPerPixel());
+	}
+	else
+	{
+		char str[9] = { 0 };
+		argb_t* d1 = (argb_t*)str;
+		argb_t* d2 = (argb_t*)str + 1;
+
+		d1->seta('A'); d1->setr('R'); d1->setg('G'); d1->setb('B');
+		d2->seta('0' + format->getABits()); d2->setr('0' + format->getRBits());
+		d2->setg('0' + format->getGBits()); d2->setb('0' + format->getBBits());
+
+		Printf(PRINT_HIGH, "%dx%d %dbpp %s\n",
+			I_GetWindow()->getWidth(), I_GetWindow()->getHeight(),
+			format->getBitsPerPixel(), str);
+	}
 }
 END_COMMAND(vid_currentmode)
 
@@ -146,11 +169,79 @@ END_COMMAND(vid_currentmode)
 //
 // IWindowSurface::IWindowSurface
 //
-// Assigns the pointer to the window that owns this surface.
+// Initializes a new IWindowSurface given a width, height, and PixelFormat.
+// If a buffer is not given, one will be allocated and marked for deallocation
+// from the destructor. If the pitch is not given, the width will be used as
+// the basis for the pitch.
 //
-IWindowSurface::IWindowSurface(IWindow* window) :
-	mWindow(window), mCanvas(NULL)
-{ }
+IWindowSurface::IWindowSurface(uint16_t width, uint16_t height, const PixelFormat* format,
+								void* buffer, uint16_t pitch) :
+	mCanvas(NULL),
+	mSurfaceBuffer((uint8_t*)buffer), mOwnsSurfaceBuffer(buffer == NULL),
+	mPixelFormat(*format),
+	mWidth(width), mHeight(height), mPitch(pitch), mLocks(0)
+{
+	const uintptr_t alignment = 16;
+
+	// Not given a pitch? Just base pitch on the given width
+	if (pitch == 0)
+	{
+		// make the pitch a multiple of the alignment value
+		mPitch = (mWidth * mPixelFormat.getBytesPerPixel() + alignment - 1) & ~(alignment - 1);
+		// add a little to the pitch to prevent cache thrashing if it's 512 or 1024
+		if ((mPitch & 511) == 0)
+			mPitch += alignment;
+	}
+
+	mPitchInPixels = mPitch / mPixelFormat.getBytesPerPixel();
+
+	if (mOwnsSurfaceBuffer)
+	{
+		uint8_t* buffer = new uint8_t[mPitch * mHeight + alignment];
+
+		// calculate the offset from buffer to the next aligned memory address
+		uintptr_t offset = ((uintptr_t)(buffer + alignment) & ~(alignment - 1)) - (uintptr_t)buffer;
+
+		mSurfaceBuffer = buffer + offset;
+
+		// verify we'll have enough room to store offset immediately
+		// before mSurfaceBuffer's address and that offset's value is sane.
+		assert(offset > 0 && offset <= alignment);
+
+		// store mSurfaceBuffer's offset from buffer so that mSurfaceBuffer
+		// can be properly freed later.
+		buffer[offset - 1] = offset;
+	}
+
+	memset(mPalette, 255, 256 * sizeof(*mPalette));
+}
+
+
+//
+// IWindowSurface::IWindowSurface
+//
+// Initializes the IWindowSurface from an existing IWindowSurface, but
+// with possibly different values for width and height. If width or height
+// are less than that of the existing surface, the new surface will be centered
+// inside the existing surface.
+//
+IWindowSurface::IWindowSurface(IWindowSurface* base_surface, uint16_t width, uint16_t height) :
+	mCanvas(NULL), mOwnsSurfaceBuffer(false), 
+	mPixelFormat(*base_surface->getPixelFormat()),
+	mPitch(base_surface->getPitch()), mPitchInPixels(base_surface->getPitchInPixels()),
+	mLocks(0)
+{
+	mWidth = std::min(base_surface->getWidth(), width);
+	mHeight = std::min(base_surface->getHeight(), height);
+	
+	// adjust mSurfaceBuffer so that the new surface is centered in base_surface
+	uint16_t x = (base_surface->getWidth() - mWidth) / 2;
+	uint16_t y = (base_surface->getHeight() - mHeight) / 2;
+
+	mSurfaceBuffer = (uint8_t*)base_surface->getBuffer(x, y);
+
+	memcpy(mPalette, base_surface->mPalette, 256 * sizeof(*mPalette));
+}
 
 
 //
@@ -163,6 +254,13 @@ IWindowSurface::~IWindowSurface()
 	// free all DCanvas objects allocated by this surface
 	for (DCanvasCollection::iterator it = mCanvasStore.begin(); it != mCanvasStore.end(); ++it)
 		delete *it;
+
+	// calculate the buffer's original address when freeing mSurfaceBuffer
+	if (mOwnsSurfaceBuffer)
+	{
+		ptrdiff_t offset = mSurfaceBuffer[-1];
+		delete [] (mSurfaceBuffer - offset);
+	}
 }
 
 
@@ -409,67 +507,6 @@ void IWindowSurface::releaseCanvas(DCanvas* canvas)
 
 // ============================================================================
 //
-// IGenericWindowSurface class implementation
-//
-// Simple implementation of IWindowSurface for headless clients. 
-//
-// ============================================================================
-
-//
-// IGenericWindowSurface::IGenericWindowSurface
-//
-// Allocates a fixed-size buffer.
-//
-IGenericWindowSurface::IGenericWindowSurface(IWindow* window, int width, int height, int bpp) :
-	IWindowSurface(window), mPalette(NULL), mWidth(width), mHeight(height), mBitsPerPixel(bpp)
-{
-	// TODO: make mSurfaceBuffer aligned to 16-byte boundary
-	mPitch = mWidth * getBytesPerPixel();
-
-	mSurfaceBuffer = new byte[mPitch * mHeight];
-	mAllocatedSurfaceBuffer = true;
-}
-
-
-//
-// IGenericWindowSurface::IGenericWindowSurface
-//
-// Initializes the IGenericWindowSurface from an existing IWindowSurface, but
-// with possibly different values for width and height. If width or height
-// are less than that of the existing surface, the new surface will be centered
-// inside the existing surface.
-//
-IGenericWindowSurface::IGenericWindowSurface(IWindowSurface* base_surface, int width, int height) :
-	IWindowSurface(base_surface->getWindow()), mPalette(base_surface->getPalette()),
-	mBitsPerPixel(base_surface->getBitsPerPixel()), mPitch(base_surface->getPitch())
-{
-	mWidth = std::min(base_surface->getWidth(), width);
-	mHeight = std::min(base_surface->getHeight(), height);
-	
-	// adjust mSurfaceBuffer so that the new surface is centered in base_surface
-	int x = (base_surface->getWidth() - mWidth) / 2;
-	int y = (base_surface->getHeight() - mHeight) / 2;
-
-	mSurfaceBuffer = base_surface->getBuffer() +
-			base_surface->getPitch() * y +
-			base_surface->getBytesPerPixel() * x;
-
-	mAllocatedSurfaceBuffer = false;
-}
-
-
-//
-// IGenericWindowSurface::~IGenericWindowSurface
-//
-IGenericWindowSurface::~IGenericWindowSurface()
-{
-	if (mAllocatedSurfaceBuffer)
-		delete [] mSurfaceBuffer;
-}
-
-
-// ============================================================================
-//
 // IWindow class implementation
 //
 // ============================================================================
@@ -526,16 +563,8 @@ IVideoMode IWindow::getClosestMode(int width, int height)
 //
 static IVideoMode I_ClampVideoMode(int width, int height)
 {
-	if (I_IsProtectedResolution(I_GetVideoWidth(), I_GetVideoHeight()))
-	{
-		if (width < 320 || width < 200)
-			width = 320, height = 200;
-	}
-	else
-	{
-		if (width < 320 || height < 240)
-			width = 320, height = 240;
-	}
+	if (width < 320 || height < 200)
+		width = 320, height = 200;
 
 	if (width > MAXWIDTH || height > MAXHEIGHT)
 	{
@@ -580,11 +609,6 @@ static void I_DoSetVideoMode(int width, int height, int bpp, bool fullscreen, bo
 //		fullscreen = false;
 //	else if (I_DisplayType() == DISPLAY_FullscreenOnly)
 //		fullscreen = true;
-
-	if (fullscreen)
-		I_ResumeMouse();
-	else
-		I_PauseMouse();
 
 	IVideoMode mode = I_ClampVideoMode(width, height);
 
@@ -633,31 +657,35 @@ static void I_DoSetVideoMode(int width, int height, int bpp, bool fullscreen, bo
 	IVideoMode surface_mode = I_ClampVideoMode(surface_width, surface_height);
 	surface_width = surface_mode.getWidth(), surface_height = surface_mode.getHeight();
 
+	if ((surface_width < 320 || surface_height < 240) && 
+		!I_IsProtectedResolution(I_GetVideoWidth(), I_GetVideoHeight()))
+		surface_width = 320, surface_height = 240;
+
 	// Is matting being used? Create matted_surface based on the primary_surface.
 	if (surface_width != primary_surface->getWidth() ||
 		surface_height != primary_surface->getHeight())
 	{
-		matted_surface = new IGenericWindowSurface(primary_surface, surface_width, surface_height);
+		matted_surface = new IWindowSurface(primary_surface, surface_width, surface_height);
 		primary_surface = matted_surface;
 	}
 
 	// Create emulated_surface for emulating low resolution modes.
 	if (vid_320x200)
 	{
-		int bpp = primary_surface->getBitsPerPixel();
-		emulated_surface = new IGenericWindowSurface(I_GetWindow(), 320, 200, bpp);
+		emulated_surface = new IWindowSurface(320, 200, primary_surface->getPixelFormat());
 		emulated_surface->clear();
 	}
 	else if (vid_640x400)
 	{
-		int bpp = primary_surface->getBitsPerPixel();
-		emulated_surface = new IGenericWindowSurface(I_GetWindow(), 640, 400, bpp);
+		emulated_surface = new IWindowSurface(640, 400, primary_surface->getPixelFormat());
 		emulated_surface->clear();
 	}
 
 	screen = primary_surface->getDefaultCanvas();
 
 	window->getPrimarySurface()->unlock();
+
+	I_ForceUpdateGrab();
 }
 
 
@@ -728,6 +756,10 @@ void STACK_ARGS I_ShutdownHardware()
 {
 	delete window;
 	window = NULL;
+
+	if (loading_icon_background_surface)
+		I_FreeSurface(loading_icon_background_surface);
+	loading_icon_background_surface = NULL;
 }
 
 
@@ -855,7 +887,13 @@ void I_BlitEmulatedSurface()
 //
 IWindowSurface* I_AllocateSurface(int width, int height, int bpp)
 {
-	return new IGenericWindowSurface(I_GetWindow(), width, height, bpp);
+	if (I_GetPrimarySurface() && bpp == I_GetPrimarySurface()->getBitsPerPixel())
+		return new IWindowSurface(width, height, I_GetPrimarySurface()->getPixelFormat());
+ 	
+	if (bpp == 8)	
+		return new IWindowSurface(width, height, I_Get8bppPixelFormat());
+	else
+		return new IWindowSurface(width, height, I_Get32bppPixelFormat());
 }
 
 
@@ -907,6 +945,88 @@ bool I_IsProtectedResolution(const IWindowSurface* surface)
 }
 
 
+//
+// I_DrawLoadingIcon
+//
+// Sets a flag to indicate that I_FinishUpdate should draw the loading (disk)
+// icon in the lower right corner of the screen.
+//
+void I_DrawLoadingIcon()
+{
+	loading_icon_expire = gametic;
+}
+
+
+//
+// I_BlitLoadingIcon
+//
+// Takes care of the actual drawing of the loading icon.
+//
+static void I_BlitLoadingIcon()
+{
+	const patch_t* diskpatch = W_CachePatch("STDISK");
+	IWindowSurface* surface = I_GetPrimarySurface();
+
+	surface->lock();
+
+	int bpp = surface->getBitsPerPixel();
+	int scale = std::min(CleanXfac, CleanYfac);
+	int w = diskpatch->width() * scale;
+	int h = diskpatch->height() * scale;
+	int x = surface->getWidth() - w;
+	int y = surface->getHeight() - h;
+
+	// offset x and y for the lower right corner of the screen
+	int ofsx = x + (scale * diskpatch->leftoffset());
+	int ofsy = y + (scale * diskpatch->topoffset());
+
+	// save the area where the icon will be drawn to an off-screen surface
+	// so that it can be restored after the frame is blitted
+	if (!loading_icon_background_surface ||
+		loading_icon_background_surface->getWidth() != w ||
+		loading_icon_background_surface->getHeight() != h ||
+		loading_icon_background_surface->getBitsPerPixel() != bpp)
+	{
+		if (loading_icon_background_surface)
+			I_FreeSurface(loading_icon_background_surface);
+
+		loading_icon_background_surface = I_AllocateSurface(w, h, bpp);
+	}
+
+	loading_icon_background_surface->lock();
+
+	loading_icon_background_surface->blit(surface, x, y, w, h, 0, 0, w, h);
+	surface->getDefaultCanvas()->DrawPatchStretched(diskpatch, ofsx, ofsy, w, h);
+
+	loading_icon_background_surface->unlock();
+	surface->unlock();
+}
+
+
+//
+// I_RestoreLoadingIcon
+//
+// Restores the background area that was saved prior to blitting the
+// loading icon.
+//
+static void I_RestoreLoadingIcon()
+{
+	IWindowSurface* surface = I_GetPrimarySurface();
+
+	surface->lock();
+	loading_icon_background_surface->lock();
+
+	int w = loading_icon_background_surface->getWidth();
+	int h = loading_icon_background_surface->getHeight();
+	int x = surface->getWidth() - w;
+	int y = surface->getHeight() - h;
+
+	surface->blit(loading_icon_background_surface, 0, 0, w, h, x, y, w, h);
+
+	loading_icon_background_surface->unlock();
+	surface->unlock();
+}
+
 
 //
 // I_BeginUpdate
@@ -918,7 +1038,7 @@ void I_BeginUpdate()
 {
 	if (I_VideoInitialized())
 	{
-		window->getPrimarySurface()->lock();
+		window->lockSurface();
 
 		if (matted_surface)
 			matted_surface->lock();
@@ -948,33 +1068,25 @@ void I_FinishUpdate()
 
 		// draws a disk loading icon in the lower right corner
 		if (gametic <= loading_icon_expire)
-		{
-			const patch_t* diskpatch = W_CachePatch("STDISK");
-			IWindowSurface* surface = I_GetPrimarySurface();
-
-			int scale = std::min(CleanXfac, CleanYfac);
-			int w = diskpatch->width() * scale;
-			int h = diskpatch->height() * scale;
-
-			int x = surface->getWidth();
-			int y = surface->getHeight();
-
-			// offset x and y for the lower right corner of the screen
-			int ofsx = x - w + (scale * diskpatch->leftoffset());
-			int ofsy = y - h + (scale * diskpatch->topoffset());
-
-			surface->getDefaultCanvas()->DrawPatchStretched(diskpatch, ofsx, ofsy, w, h);
-		}
+			I_BlitLoadingIcon();
 
 		if (emulated_surface)
 			emulated_surface->unlock();
 		if (matted_surface)
 			matted_surface->unlock();
 
-		window->getPrimarySurface()->unlock();
+		window->unlockSurface();
 
 		if (noblit == false)
 			window->refresh();
+
+		// restores the background underneath the disk loading icon in the lower right corner
+		if (gametic <= loading_icon_expire)
+		{
+			window->lockSurface();
+			I_RestoreLoadingIcon();
+			window->unlockSurface();
+		}
 	}
 }
 
@@ -1066,14 +1178,37 @@ std::string I_GetVideoDriverName()
 
 
 //
-// I_DrawLoadingIcon
+// I_Get8bppPixelFormat
 //
-void I_DrawLoadingIcon()
+// Returns the platform's PixelFormat for 8bpp video modes.
+//
+const PixelFormat* I_Get8bppPixelFormat()
 {
-	loading_icon_expire = gametic;
+	static PixelFormat format(8, 0, 0, 0, 0, 0, 0, 0, 0);
+	return &format;
 }
 
 
+//
+// I_Get32bppPixelFormat
+//
+// Returns the platform's PixelFormat for 32bpp video modes.
+// This changes on certain platforms depending on the current video mode
+// in use (or fullscreen vs windowed).
+//
+const PixelFormat* I_Get32bppPixelFormat()
+{
+	if (I_GetPrimarySurface() && I_GetPrimarySurface()->getBitsPerPixel() == 32)
+		return I_GetPrimarySurface()->getPixelFormat();
+
+	#ifdef __BIG_ENDIAN__
+	static PixelFormat format(32, 0, 0, 0, 0, 0, 8, 16, 24);
+	#else
+	static PixelFormat format(32, 0, 0, 0, 0, 24, 16, 8, 0);
+	#endif
+
+	return &format;
+}
 
 VERSION_CONTROL (i_video_cpp, "$Id$")
 

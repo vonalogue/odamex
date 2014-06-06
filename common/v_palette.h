@@ -43,6 +43,8 @@ struct dyncolormap_s {
 };
 typedef struct dyncolormap_s dyncolormap_t;
 
+extern fargb_t baseblend;
+
 extern byte gammatable[256];
 float V_GetMinimumGammaLevel();
 float V_GetMaximumGammaLevel();
@@ -51,7 +53,7 @@ void V_IncrementGammaLevel();
 static inline argb_t V_GammaCorrect(const argb_t value)
 {
 	extern byte gammatable[256];
-	return argb_t(value.a, gammatable[value.r], gammatable[value.g], gammatable[value.b]);
+	return argb_t(value.geta(), gammatable[value.getr()], gammatable[value.getg()], gammatable[value.getb()]);
 }
 
 
@@ -94,22 +96,22 @@ void BuildDefaultShademap (palette_t *pal, shademap_t &maps);
 //		   blendb: blue component of blend
 //		   blenda: alpha component of blend
 //
-void V_SetBlend (int blendr, int blendg, int blendb, int blenda);
+void V_SetBlend(const argb_t color);
 
 // V_ForceBlend()
 //
 // Normally, V_SetBlend() does nothing if the new blend is the
 // same as the old. This function will performing the blending
 // even if the blend hasn't changed.
-void V_ForceBlend (int blendr, int blendg, int blendb, int blenda);
+void V_ForceBlend(const argb_t color);
 
 void V_DoPaletteEffects();
 
 void V_ResetPalette();
 
 // Colorspace conversion RGB <-> HSV
-void RGBtoHSV (float r, float g, float b, float *h, float *s, float *v);
-void HSVtoRGB (float *r, float *g, float *b, float h, float s, float v);
+fahsv_t V_RGBtoHSV(const fargb_t color);
+fargb_t V_HSVtoRGB(const fahsv_t color);
 
 dyncolormap_t *GetSpecialLights (int lr, int lg, int lb, int fr, int fg, int fb);
 

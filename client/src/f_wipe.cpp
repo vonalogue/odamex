@@ -31,6 +31,7 @@
 #include "c_cvars.h"
 #include "i_music.h"
 #include "r_draw.h"
+#include "st_stuff.h"
 
 //
 //		SCREEN WIPE PACKAGE
@@ -46,6 +47,9 @@ typedef enum
 } wipe_type_t;
 
 static bool in_progress = false;
+
+int NoWipe;			// [RH] Don't wipe when travelling in hubs
+					// [RH] Allow wipe? (Needs to be set each time)
 
 static wipe_type_t current_wipe_type;
 EXTERN_CVAR (r_wipetype)
@@ -416,6 +420,8 @@ void Wipe_Stop()
 		delete [] wipe_screen;
 		wipe_screen = NULL;
 	}
+
+	NoWipe = 0;
 }
 
 //
@@ -504,6 +510,8 @@ void Wipe_Drawer()
 		if (wipe_draw_func)
 			wipe_draw_func();	
 		V_MarkRect(0, 0, I_GetSurfaceWidth(), I_GetSurfaceHeight());
+
+		ST_ForceRefresh();		// wipe draws over the status bar so it needs to be redrawn
 	}
 }
 

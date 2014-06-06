@@ -163,7 +163,7 @@ void D_SetupUserInfo(void)
 
 	coninfo->netname			= netname;
 	coninfo->team				= D_TeamByName (cl_team.cstring()); // [Toke - Teams]
-	coninfo->color				= V_GetColorFromString (NULL, cl_color.cstring());
+	coninfo->color				= V_GetColorFromString(cl_color);
 	coninfo->gender				= D_GenderByName (cl_gender.cstring());
 	coninfo->aimdist			= (fixed_t)(cl_autoaim * 16384.0);
 	coninfo->unlag				= (cl_unlag != 0);
@@ -194,13 +194,16 @@ void D_UserInfoChanged (cvar_t *cvar)
 
 FArchive &operator<< (FArchive &arc, UserInfo &info)
 {
-	arc.Write(info.netname.c_str(), MAXPLAYERNAME);
-	arc << byte(0);		// ensure the string is properly terminated
+	char netname[MAXPLAYERNAME + 1];
+	memset(netname, 0, MAXPLAYERNAME + 1);
+	strncpy(netname, info.netname.c_str(), MAXPLAYERNAME);
+	arc.Write(netname, MAXPLAYERNAME + 1);
 
 	arc.Write(&info.team, sizeof(info.team));  // [Toke - Teams]
 	arc.Write(&info.gender, sizeof(info.gender));
 
-	arc << info.aimdist << info.color;
+	arc << info.aimdist;
+	arc << info.color;
 
 	// [SL] place holder for deprecated skins
 	unsigned int skin = 0;
@@ -210,28 +213,24 @@ FArchive &operator<< (FArchive &arc, UserInfo &info)
 
 	arc.Write(&info.switchweapon, sizeof(info.switchweapon));
 	arc.Write(info.weapon_prefs, sizeof(info.weapon_prefs));
- 	arc << 0;
+
+	int terminator = 0;
+ 	arc << terminator;
 
 	return arc;
 }
 
 FArchive &operator>> (FArchive &arc, UserInfo &info)
 {
-	int dummy;
-
-	char netname[MAXPLAYERNAME+1];
-	arc.Read(netname, sizeof(netname));
+	char netname[MAXPLAYERNAME + 1];
+	arc.Read(netname, MAXPLAYERNAME + 1);
 	info.netname = netname;
 
 	arc.Read(&info.team, sizeof(info.team));  // [Toke - Teams]
 	arc.Read(&info.gender, sizeof(info.gender));
 
 	arc >> info.aimdist;
-
-	// [SL] can't read argb_t directly so read unsigned and convert
-	unsigned int colortemp;
-	arc >> colortemp;
-	info.color = colortemp;
+	arc >> info.color;
 
 	// [SL] place holder for deprecated skins
 	unsigned int skin;
@@ -241,7 +240,9 @@ FArchive &operator>> (FArchive &arc, UserInfo &info)
 
 	arc.Read(&info.switchweapon, sizeof(info.switchweapon));
 	arc.Read(info.weapon_prefs, sizeof(info.weapon_prefs));
-	arc >> dummy;
+
+	int terminator;
+	arc >> terminator;	// 0
 
 	return arc;
 }

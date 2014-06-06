@@ -1193,6 +1193,8 @@ void M_DrawSlider (int x, int y, float min, float max, float cur);
 static const char *genders[3] = { "male", "female", "cyborg" };
 static state_t *PlayerState;
 static int PlayerTics;
+argb_t CL_GetPlayerColor(player_t*);
+
 
 EXTERN_CVAR (cl_name)
 EXTERN_CVAR (cl_team)
@@ -1200,9 +1202,8 @@ EXTERN_CVAR (cl_color)
 EXTERN_CVAR (cl_gender)
 EXTERN_CVAR (cl_autoaim)
 
-void M_PlayerSetup (int choice)
+void M_PlayerSetup(int choice)
 {
-	choice = 0;
 	strcpy(savegamestrings[0], cl_name.cstring());
 	M_SetupNextMenu (&PSetupDef);
 	PlayerState = &states[mobjinfo[MT_PLAYER].seestate];
@@ -1212,10 +1213,8 @@ void M_PlayerSetup (int choice)
 		fire_surface = I_AllocateSurface(fire_surface_width, fire_surface_height, 8);
 
 	// [Nes] Intialize the player preview color.
-	R_BuildPlayerTranslation(0, V_GetColorFromString(NULL, cl_color.cstring()));
-
-	if (consoleplayer().ingame())
-		R_CopyTranslationRGB (0, consoleplayer_id);
+	argb_t player_color = CL_GetPlayerColor(&consoleplayer());
+	R_BuildPlayerTranslation(0, player_color);
 }
 
 static void M_PlayerSetupTicker (void)
@@ -1224,11 +1223,10 @@ static void M_PlayerSetupTicker (void)
 	if (--PlayerTics > 0)
 		return;
 
-	if (PlayerState->tics == -1 || PlayerState->nextstate == S_NULL) {
+	if (PlayerState->tics == -1 || PlayerState->nextstate == S_NULL)
 		PlayerState = &states[mobjinfo[MT_PLAYER].seestate];
-	} else {
+	else
 		PlayerState = &states[PlayerState->nextstate];
-	}
 	PlayerTics = PlayerState->tics;
 }
 
@@ -1253,6 +1251,8 @@ static forceinline void R_RenderFire(int x, int y)
 	IWindowSurface* surface = I_GetPrimarySurface();
 	int surface_pitch = surface->getPitchInPixels();
 
+	fire_surface->lock();
+
 	for (int b = 0; b < fire_surface_height; b++)
 	{
 		PIXEL_T* to = (PIXEL_T*)surface->getBuffer() + y * surface_pitch + x;
@@ -1268,6 +1268,8 @@ static forceinline void R_RenderFire(int x, int y)
 			}
 		}
 	}
+
+	fire_surface->unlock();
 }
 
 static void M_PlayerSetupDrawer (void)
@@ -1409,8 +1411,9 @@ static void M_PlayerSetupDrawer (void)
 
 		// [Nes] Color of player preview uses the unused translation table (player 0), instead
 		// of the table of the current player color. (Which is different in single, demo, and team)
+		argb_t player_color = CL_GetPlayerColor(&consoleplayer());
+		R_BuildPlayerTranslation(0, player_color);
 		V_ColorMap = translationref_t(translationtables, 0);
-		//V_ColorMap = translationtables + consoleplayer().id * 256;
 
 		screen->DrawTranslatedPatchClean (W_CachePatch (sprframe->lump[0]),
 			320 - 52 - 32, PSetupDef.y + LINEHEIGHT*3 + 46);
@@ -1429,11 +1432,11 @@ static void M_PlayerSetupDrawer (void)
 
 	{
 		int x = V_StringWidth("Green") + 8 + PSetupDef.x;
-		argb_t playercolor = (argb_t)V_GetColorFromString(NULL, cl_color.cstring());
+		argb_t playercolor = V_GetColorFromString(cl_color);
 
-		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*2, 0.0f, 255.0f, playercolor.r);
-		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*3, 0.0f, 255.0f, playercolor.g);
-		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*4, 0.0f, 255.0f, playercolor.b);
+		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*2, 0.0f, 255.0f, playercolor.getr());
+		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*3, 0.0f, 255.0f, playercolor.getg());
+		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*4, 0.0f, 255.0f, playercolor.getb());
 	}
 
 	// Draw team setting
@@ -1569,57 +1572,62 @@ static void M_PlayerTeamChanged (int choice)
 }
 */
 
-static void SendNewColor (int red, int green, int blue)
+static void SendNewColor(int red, int green, int blue)
 {
 	char command[24];
 
-	sprintf (command, "cl_color \"%02x %02x %02x\"", red, green, blue);
-	AddCommandString (command);
+	sprintf(command, "cl_color \"%02x %02x %02x\"", red, green, blue);
+	AddCommandString(command);
 
-	// [Nes] Change the player preview color.
-	R_BuildPlayerTranslation (0, V_GetColorFromString (NULL, cl_color.cstring()));
+	// [SL] not connected to a server so we don't have to wait for the server
+	// to verify the color choice
+	if (!connected)
+	{
+		// [Nes] Change the player preview color.
+		R_BuildPlayerTranslation(0, V_GetColorFromString(cl_color));
 
-	if (consoleplayer().ingame())
-		R_CopyTranslationRGB(0, consoleplayer_id);
+		if (consoleplayer().ingame())
+			R_CopyTranslationRGB(0, consoleplayer_id);
+	}
 }
 
 static void M_SlidePlayerRed(int choice)
 {
-	argb_t color = (argb_t)V_GetColorFromString(NULL, cl_color.cstring());
+	argb_t color = V_GetColorFromString(cl_color);
 	int accel = repeatCount < 10 ? 0 : 5;
 
 	if (choice == 0)
-		color.r = std::max(0, int(color.r) - 1 - accel);
+		color.setr(std::max(0, int(color.getr()) - 1 - accel));
 	else
-		color.r = std::min(255, int(color.r) + 1 + accel);
+		color.setr(std::min(255, int(color.getr()) + 1 + accel));
 
-	SendNewColor(color.r, color.g, color.b);
+	SendNewColor(color.getr(), color.getg(), color.getb());
 }
 
 static void M_SlidePlayerGreen (int choice)
 {
-	argb_t color = (argb_t)V_GetColorFromString(NULL, cl_color.cstring());
+	argb_t color = V_GetColorFromString(cl_color);
 	int accel = repeatCount < 10 ? 0 : 5;
 
 	if (choice == 0)
-		color.g = std::max(0, int(color.g) - 1 - accel);
+		color.setg(std::max(0, int(color.getg()) - 1 - accel));
 	else
-		color.g = std::min(255, int(color.g) + 1 + accel);
+		color.setg(std::min(255, int(color.getg()) + 1 + accel));
 
-	SendNewColor(color.r, color.g, color.b);
+	SendNewColor(color.getr(), color.getg(), color.getb());
 }
 
 static void M_SlidePlayerBlue (int choice)
 {
-	argb_t color = (argb_t)V_GetColorFromString(NULL, cl_color.cstring());
+	argb_t color = V_GetColorFromString(cl_color);
 	int accel = repeatCount < 10 ? 0 : 5;
 
 	if (choice == 0)
-		color.b = std::max(0, int(color.b) - 1 - accel);
+		color.setb(std::max(0, int(color.getb()) - 1 - accel));
 	else
-		color.b = std::min(255, int(color.b) + 1 + accel);
+		color.setb(std::min(255, int(color.getb()) + 1 + accel));
 
-	SendNewColor(color.r, color.g, color.b);
+	SendNewColor(color.getr(), color.getg(), color.getb());
 }
 
 
@@ -1988,26 +1996,18 @@ void M_StartControlPanel (void)
 //
 void M_Drawer()
 {
-	int i, x, y, max;
-
-	// [SL] force the status bar to be redrawn in case the menu
-	// draws over a portion of the status bar background
-	ST_ForceRefresh();
-
-	//screen->Dim (); // denis - removed, see bug 388
-
-	// Horiz. & Vertically center string and print it.
 	if (messageToPrint)
 	{
+		// Horiz. & Vertically center string and print it.
 		brokenlines_t *lines = V_BreakLines (320, messageString);
-		y = 100;
+		int y = 100;
 
-		for (i = 0; lines[i].width != -1; i++)
+		for (int i = 0; lines[i].width != -1; i++)
 			y -= hu_font[0]->height() / 2;
 
-		for (i = 0; lines[i].width != -1; i++)
+		for (int i = 0; lines[i].width != -1; i++)
 		{
-			screen->DrawTextCleanMove (CR_RED, 160 - lines[i].width/2, y, lines[i].string);
+			screen->DrawTextCleanMove(CR_RED, 160 - lines[i].width/2, y, lines[i].string);
 			y += hu_font[0]->height();
 		}
 
@@ -2017,7 +2017,7 @@ void M_Drawer()
 	{
 		if (OptionsActive)
 		{
-			M_OptDrawer ();
+			M_OptDrawer();
 		}
 		else
 		{
@@ -2025,11 +2025,11 @@ void M_Drawer()
 				currentMenu->routine(); 		// call Draw routine
 
 			// DRAW MENU
-			x = currentMenu->x;
-			y = currentMenu->y;
-			max = currentMenu->numitems;
+			int x = currentMenu->x;
+			int y = currentMenu->y;
+			int max = currentMenu->numitems;
 
-			for (i = 0; i < max; i++)
+			for (int i = 0; i < max; i++)
 			{
 				if (currentMenu->menuitems[i].name[0])
 					screen->DrawPatchClean (W_CachePatch(currentMenu->menuitems[i].name), x, y);
@@ -2040,11 +2040,16 @@ void M_Drawer()
 			// DRAW SKULL
 			if (drawSkull)
 			{
-				screen->DrawPatchClean (W_CachePatch(skullName[whichSkull]),
+				screen->DrawPatchClean(W_CachePatch(skullName[whichSkull]),
 					x + SKULLXOFF, currentMenu->y - 5 + itemOn*LINEHEIGHT);
 			}
 		}
 	}
+
+	// [SL] force the status bar to be redrawn in case the menu
+	// draws over a portion of the status bar background
+	if (R_StatusBarVisible() && (menuactive || messageToPrint))
+		ST_ForceRefresh();
 }
 
 

@@ -55,6 +55,7 @@
 #include "w_wad.h"
 #include "p_local.h"
 #include "s_sound.h"
+#include "s_sndseq.h"
 #include "gstrings.h"
 #include "r_data.h"
 #include "r_sky.h"
@@ -187,11 +188,9 @@ int				iffdemover;
 byte*			demobuffer;
 byte			*demo_p, *demo_e;
 size_t			maxdemosize;
-byte*			zdemformend;			// end of FORM ZDEM chunk
-byte*			zdembodyend;			// end of ZDEM BODY chunk
 BOOL 			singledemo; 			// quit after playing a demo from cmdline
-int			demostartgametic;
-FILE *recorddemo_fp;
+int				demostartgametic;
+FILE*			recorddemo_fp;
 
 BOOL 			precache = true;		// if true, load all graphics at start
 
@@ -586,18 +585,10 @@ void G_ConvertMouseSettings(int old_type, int new_type)
 	if (old_type == new_type)
 		return;
 
-	if (new_type == MOUSE_ODAMEX)
-		new_type = MOUSE_DOOM;
-
 	// first convert to ZDoom settings
 	if (old_type == MOUSE_DOOM)
 	{
 		mouse_sensitivity.Set((mouse_sensitivity + 5.0f) / 40.0f);
-		m_pitch.Set(m_pitch * 4.0f);
-	}
-	else if (old_type == MOUSE_ODAMEX)
-	{
-		mouse_sensitivity.Set(mouse_sensitivity / 40.0f);
 		m_pitch.Set(m_pitch * 4.0f);
 	}
 
@@ -605,11 +596,6 @@ void G_ConvertMouseSettings(int old_type, int new_type)
 	if (new_type == MOUSE_DOOM)
 	{
 		mouse_sensitivity.Set((mouse_sensitivity * 40.0f) - 5.0f);
-		m_pitch.Set(m_pitch * 0.25f);
-	}
-	else if (new_type == MOUSE_ODAMEX)
-	{
-		mouse_sensitivity.Set(mouse_sensitivity * 40.0f);
 		m_pitch.Set(m_pitch * 0.25f);
 	}
 }
@@ -885,7 +871,24 @@ void G_Ticker (void)
 			gameaction = ga_nothing;
 			break;
 		case ga_fullconsole:
-			C_FullConsole ();
+			if (demoplayback)
+				G_CheckDemoStatus();
+
+			extern BOOL advancedemo;
+			advancedemo = false;
+
+			if (gamestate != GS_STARTUP)
+			{
+				level.music[0] = '\0';
+				S_Start();
+				SN_StopAllSequences();
+				R_ExitLevel();
+				I_EnableKeyRepeat();
+			}
+
+			gamestate = GS_FULLCONSOLE;
+			C_FullConsole();
+
 			gameaction = ga_nothing;
 			break;
 		case ga_nothing:
@@ -1184,7 +1187,8 @@ bool G_CheckSpot (player_t &player, mapthing2_t *mthing)
 		return false;
 
 	// spawn a teleport fog
-	if (!player.spectator && !player.deadspectator)	// ONLY IF THEY ARE NOT A SPECTATOR
+//	if (!player.spectator && !player.deadspectator)	// ONLY IF THEY ARE NOT A SPECTATOR
+	if (!player.spectator)	// ONLY IF THEY ARE NOT A SPECTATOR
 	{
 		// emulate out-of-bounds access to finecosine / finesine tables
 		// which cause west-facing player spawns to have the spawn-fog
@@ -2112,6 +2116,22 @@ void G_TimeDemo(const char* name)
 	gameaction = ga_playdemo;
 }
 
+
+//
+// G_TestDemo
+//
+void G_TestDemo(const char* name)
+{
+	nodrawers = noblit = true;
+	timingdemo = true;			// don't call I_Sleep in between frames
+	extern bool demotest;
+	demotest = true;
+
+	defdemoname = name;
+	gameaction = ga_playdemo;
+}
+
+
 //
 // G_CleanupDemo
 //
@@ -2174,6 +2194,12 @@ BOOL G_CheckDemoStatus (void)
 				Printf(PRINT_HIGH, "demotest:%x %x %x %x\n", mo->angle, mo->x, mo->y, mo->z);
 			else
 				Printf(PRINT_HIGH, "demotest:no player\n");
+
+			demotest = false;
+
+			// exit the application
+			CL_QuitCommand();
+			return false;
 		}
 
 		if (singledemo || timingdemo)

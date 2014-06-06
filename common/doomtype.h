@@ -255,93 +255,154 @@ typedef uint8_t				palindex_t;
 // Allows ARGB8888 values to be accessed as a packed 32-bit integer or accessed
 // by its individual 8-bit color and alpha channels.
 //
-// NOTE: [SL] This fails on platforms whose channel byte-order is dependent
-// on settings that can only be determined at runtime (eg, OSX).
-//
-// see SDL_QuartzVideo.m:
-//
-//                amask = 0x00000000;
-//                if ( (!isLion) && (flags & SDL_FULLSCREEN) ) {
-//                    rmask = 0x00FF0000;
-//                    gmask = 0x0000FF00;
-//                    bmask = 0x000000FF;
-//                } else {
-//#if SDL_BYTEORDER == SDL_LIL_ENDIAN
-//                    rmask = 0x0000FF00;
-//                    gmask = 0x00FF0000;
-//                    bmask = 0xFF000000;
-//#else
-//                    rmask = 0x00FF0000;
-//                    gmask = 0x0000FF00;
-//                    bmask = 0x000000FF;
-//#endif
-
-
-struct argb_t
+class argb_t
 {
-	union
-	{
-		struct
-		{
-		#ifdef __BIG_ENDIAN__
-			uint8_t a, r, g, b;
-		#else
-			uint8_t	b, g, r, a;
-		#endif
-		};
-
-		uint32_t value;
-	};
-
+public:
 	argb_t() { }
 	argb_t(uint32_t _value) : value(_value) { }
 
-	#ifdef __BIG_ENDIAN__
-	argb_t(uint8_t _r, uint8_t _g, uint8_t _b)				: a(0), r(_r), g(_g), b(_b) { }
-	argb_t(uint8_t _a, uint8_t _r, uint8_t _g, uint8_t _b)	: a(_a), r(_r), g(_g), b(_b) { }
-	#else
-	argb_t(uint8_t _r, uint8_t _g, uint8_t _b)				: b(_b), g(_g), r(_r), a(0) { }
-	argb_t(uint8_t _a, uint8_t _r, uint8_t _g, uint8_t _b)	: b(_b), g(_g), r(_r), a(_a) { }
-	#endif
+	argb_t(uint8_t _r, uint8_t _g, uint8_t _b)
+	{	seta(255); setr(_r); setg(_g); setb(_b);	}
+
+	argb_t(uint8_t _a, uint8_t _r, uint8_t _g, uint8_t _b)
+	{	seta(_a); setr(_r); setg(_g); setb(_b);	}
 
 	inline operator uint32_t () const { return value; }
+
+	inline uint8_t geta() const
+	{	return channels[a_num];	}
+
+	inline uint8_t getr() const
+	{	return channels[r_num];	}
+
+	inline uint8_t getg() const
+	{	return channels[g_num];	}
+
+	inline uint8_t getb() const
+	{	return channels[b_num];	}
+
+	inline void seta(uint8_t n)
+	{	channels[a_num] = n;	}
+
+	inline void setr(uint8_t n)
+	{	channels[r_num] = n;	}
+
+	inline void setg(uint8_t n)
+	{	channels[g_num] = n;	}
+
+	inline void setb(uint8_t n)
+	{	channels[b_num] = n;	}
+
+	static void setChannels(uint8_t _a, uint8_t _r, uint8_t _g, uint8_t _b)
+	{	a_num = _a; r_num = _r; g_num = _g; b_num = _b;	}
+
+private:
+	static uint8_t a_num, r_num, g_num, b_num;
+
+	union
+	{
+		uint32_t value;
+		uint8_t channels[4];
+	};
 };
 
 
 //
-// ahsv_t class
+// fargb_t class
 //
-// Allows AHSV8888 values to be accessed as a packed 32-bit integer or accessed
-// by its individual 8-bit components.
+// Stores ARGB color channels as four floats. This is ideal for color
+// manipulation where precision is important.
 //
-struct ahsv_t
+class fargb_t
 {
-	union
+public:
+	fargb_t() { }
+	fargb_t(const argb_t color)
 	{
-		struct
-		{
-		#ifdef __BIG_ENDIAN__		
-			uint8_t a, h, s, v;
-		#else
-			uint8_t	v, s, h, a;
-		#endif
-		};
+		seta(color.geta() / 255.0f); setr(color.getr() / 255.0f);
+		setg(color.getg() / 255.0f); setb(color.getb() / 255.0f);
+	}
 
-		uint32_t value;
-	};
+	fargb_t(float _r, float _g, float _b)
+	{	seta(1.0f); setr(_r); setg(_g); setb(_b);	}
 
-	ahsv_t() { }
-	ahsv_t(uint32_t _value) : value(_value) { }
+	fargb_t(float _a, float _r, float _g, float _b)
+	{	seta(_a); setr(_r); setg(_g); setb(_b);	}
 
-	#ifdef __BIG_ENDIAN__
-	ahsv_t(uint8_t _h, uint8_t _s, uint8_t _v)				: a(0), h(_h), s(_s), v(_v) { }
-	ahsv_t(uint8_t _a, uint8_t _h, uint8_t _s, uint8_t _v)	: a(_a), h(_h), s(_s), v(_v) { }
-	#else
-	ahsv_t(uint8_t _h, uint8_t _s, uint8_t _v)				: v(_v), s(_s), h(_h), a(0) { }
-	ahsv_t(uint8_t _a, uint8_t _h, uint8_t _s, uint8_t _v)	: v(_v), s(_s), h(_h), a(_a) { }
-	#endif
+	inline operator argb_t () const
+	{	return argb_t(a * 255.0f, r * 255.0f, g * 255.0f, b * 255.0f);	}
 
-	inline operator uint32_t () const { return value; }
+	inline float geta() const
+	{	return a;	}
+
+	inline float getr() const
+	{	return r;	}
+
+	inline float getg() const
+	{	return g;	}
+
+	inline float getb() const
+	{	return b;	}
+
+	inline void seta(float n)
+	{	a = n;	}
+
+	inline void setr(float n)
+	{	r = n;	}
+
+	inline void setg(float n)
+	{	g = n;	}
+
+	inline void setb(float n)
+	{	b = n;	}
+
+private:
+	float a, r, g, b;
+};
+
+
+//
+// fahsv_t class
+//
+// Stores AHSV color channels as four floats.
+//
+class fahsv_t
+{
+public:
+	fahsv_t() { }
+
+	fahsv_t(float _h, float _s, float _v)
+	{	seta(1.0f); seth(_h); sets(_s); setv(_v);	}
+
+	fahsv_t(float _a, float _h, float _s, float _v)
+	{	seta(_a); seth(_h); sets(_s); setv(_v);	}
+
+	inline float geta() const
+	{	return a;	}
+
+	inline float geth() const
+	{	return h;	}
+
+	inline float gets() const
+	{	return s;	}
+
+	inline float getv() const
+	{	return v;	}
+
+	inline void seta(float n)
+	{	a = n;	}
+
+	inline void seth(float n)
+	{	h = n;	}
+
+	inline void sets(float n)
+	{	s = n;	}
+
+	inline void setv(float n)
+	{	v = n;	}
+
+private:
+	float a, h, s, v;
 };
 
 

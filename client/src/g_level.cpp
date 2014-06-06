@@ -272,10 +272,11 @@ void G_InitNew (const char *mapname)
 			it->playerstate = PST_ENTER; // [BC]
 	}
 
+	AM_Stop();
+
 	usergame = true;				// will be set false if a demo
 	paused = false;
 	demoplayback = false;
-	automapactive = false;
 	viewactive = true;
 	shotclock = 0;
 
@@ -348,13 +349,13 @@ void G_DoCompleted (void)
 			G_PlayerFinishLevel(*it);
 
 	V_RestoreScreenPalette();
+	R_ExitLevel();
 
 	// [RH] Mark this level as having been visited
 	if (!(level.flags & LEVEL_CHANGEMAPCHEAT))
 		FindLevelInfo (level.mapname)->flags |= LEVEL_VISITED;
 
-	if (automapactive)
-		AM_Stop ();
+	AM_Stop();
 
 	// [ML] Chex mode: they didn't even show the intermission screen
 	// after the fifth level - I checked.
@@ -452,7 +453,6 @@ void G_DoCompleted (void)
 
 	gamestate = GS_INTERMISSION;
 	viewactive = false;
-	automapactive = false;
 
 	WI_Start (&wminfo);
 }
@@ -484,10 +484,14 @@ void G_DoLoadLevel (int position)
 	if (wipegamestate == GS_LEVEL)
 		wipegamestate = GS_FORCEWIPE;
 
-	if(gamestate != GS_DEMOSCREEN && ConsoleState == c_down)
-		C_HideConsole();
+	bool demoscreen = (gamestate == GS_DEMOSCREEN);
 
 	gamestate = GS_LEVEL;
+
+	// [SL] Hide the console unless this is just part of the demo loop
+	// It's annoying to have the console close every time a new demo starts...
+	if (!demoscreen)
+		C_HideConsole();
 
 	// [SL] clear the saved sector data from the last level
 	R_ResetInterpolation();
@@ -628,14 +632,19 @@ void G_WorldDone (void)
 
 	gameaction = ga_worlddone;
 
+	R_ExitLevel();
+
 	if (level.flags & LEVEL_CHANGEMAPCHEAT)
 		return;
 
 	thiscluster = FindClusterInfo (level.cluster);
-	if (!strncmp (level.nextmap, "EndGame", 7) || (gamemode == retail_chex && !strncmp (level.nextmap, "E1M6", 4))) {
-		automapactive = false;
+	if (!strncmp (level.nextmap, "EndGame", 7) || (gamemode == retail_chex && !strncmp (level.nextmap, "E1M6", 4)))
+	{
+		AM_Stop();
 		F_StartFinale (thiscluster->messagemusic, thiscluster->finaleflat, thiscluster->exittext);
-	} else {
+	}
+	else
+	{
 		if (!secretexit)
 			nextcluster = FindClusterInfo (FindLevelInfo (level.nextmap)->cluster);
 		else
@@ -644,11 +653,14 @@ void G_WorldDone (void)
 		if (nextcluster->cluster != level.cluster && sv_gametype == GM_COOP) {
 			// Only start the finale if the next level's cluster is different
 			// than the current one and we're not in deathmatch.
-			if (nextcluster->entertext) {
-				automapactive = false;
+			if (nextcluster->entertext)
+			{
+				AM_Stop();
 				F_StartFinale (nextcluster->messagemusic, nextcluster->finaleflat, nextcluster->entertext);
-			} else if (thiscluster->exittext) {
-				automapactive = false;
+			}
+			else if (thiscluster->exittext)
+			{
+				AM_Stop();
 				F_StartFinale (thiscluster->messagemusic, thiscluster->finaleflat, thiscluster->exittext);
 			}
 		}

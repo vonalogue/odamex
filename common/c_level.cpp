@@ -378,15 +378,9 @@ static void ParseMapInfoLower (MapInfoHandler *handlers,
 				SC_MustGetString ();
 				std::string string = V_GetColorStringByName (sc_String);
 				if (string.length())
-				{
-					*((DWORD *)(info + handler->data1)) =
-						V_GetColorFromString (NULL, string.c_str());
-				}
+					*((DWORD *)(info + handler->data1)) = V_GetColorFromString(string);
 				else
-				{
-					*((DWORD *)(info + handler->data1)) =
-										V_GetColorFromString (NULL, sc_String);
-				}
+					*((DWORD *)(info + handler->data1)) = V_GetColorFromString(sc_String);
 			}
 			break;
 
@@ -876,14 +870,9 @@ void G_SerializeLevel(FArchive &arc, bool hubLoad, bool noStorePlayers)
 	else
 	{
 		unsigned int playernum;
-		arc >> level.flags;
-
-		// [SL] can't read argb_t directly so read as unsigned and then convert
-		unsigned int tempfade;
-		arc >> tempfade;
-		level.fadeto = tempfade;
-
-		arc >> level.found_secrets
+		arc >> level.flags
+			>> level.fadeto
+			>> level.found_secrets
 			>> level.found_items
 			>> level.killed_monsters
 			>> level.gravity
@@ -1074,18 +1063,16 @@ extern dyncolormap_t NormalLight;
 EXTERN_CVAR (sv_gravity)
 EXTERN_CVAR (sv_aircontrol)
 
-extern float BaseBlendA;
-
-void G_InitLevelLocals ()
+void G_InitLevelLocals()
 {
 	unsigned long oldfade = level.fadeto;
 	level_info_t *info;
 	int i;
 
-	BaseBlendA = 0.0f;		// Remove underwater blend effect, if any
+	R_ExitLevel();
+
 	NormalLight.maps = shaderef_t(&realcolormaps, 0);
 	//NormalLight.maps = shaderef_t(&DefaultPalette->maps, 0);
-	r_underwater = false;
 
 	level.gravity = sv_gravity;
 	level.aircontrol = (fixed_t)(sv_aircontrol * 65536.f);
@@ -1094,7 +1081,7 @@ void G_InitLevelLocals ()
 	// clear all ACS variables
 	memset(level.vars, 0, sizeof(level.vars));
 
-	if ((i = FindWadLevelInfo (level.mapname)) > -1)
+	if ((i = FindWadLevelInfo(level.mapname)) > -1)
 	{
 		level_pwad_info_t *pinfo = &wadlevelinfos[i];
 

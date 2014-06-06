@@ -95,7 +95,6 @@ int V_TextScaleYAmount();
 EXTERN_CVAR (hud_scale)
 EXTERN_CVAR (hud_timer)
 EXTERN_CVAR (hud_targetcount)
-EXTERN_CVAR (st_scale)
 EXTERN_CVAR (sv_fraglimit)
 
 void ST_unloadNew (void)
@@ -625,12 +624,15 @@ void OdamexHUD() {
 
 	// Draw warmup state or timer
 	str = hud::Warmup(color);
-	if (!str.empty()) {
+	if (!str.empty())
+	{
 		hud::DrawText(0, 4, hud_scale,
 		              hud::X_CENTER, hud::Y_BOTTOM,
 		              hud::X_CENTER, hud::Y_BOTTOM,
 		              str.c_str(), color);
-	} else if (hud_timer) {
+	}
+	else if (hud_timer)
+	{
 		str = hud::Timer(color);
 		hud::DrawText(0, 4, hud_scale,
 		              hud::X_CENTER, hud::Y_BOTTOM,
@@ -678,9 +680,6 @@ void OdamexHUD() {
 
 	// Draw CTF scoreboard
 	hud::drawCTF();
-
-	// Draw Netdemo info
-	hud::drawNetdemo();
 }
 
 // [AM] Spectator HUD.
@@ -726,9 +725,6 @@ void SpectatorHUD() {
 
 	// Draw CTF scoreboard
 	hud::drawCTF();
-
-	// Draw Netdemo info
-	hud::drawNetdemo();
 }
 
 // [AM] Original ZDoom HUD
@@ -839,33 +835,33 @@ void ZDoomHUD() {
 	               hud::X_CENTER, hud::Y_BOTTOM,
 	               hud::X_CENTER, hud::Y_BOTTOM,
 	               1, 0);
-
-	// Draw Netdemo info
-	hud::drawNetdemo();
 }
 
 // [AM] HUD drawn with the Doom Status Bar.
-void DoomHUD() {
-	int color;
-	std::string str;
+void DoomHUD()
+{
+	int surface_width = I_GetSurfaceWidth(), surface_height = I_GetSurfaceHeight();
 
 	// ST_Y is the number of pixels of viewable space, taking into account the
 	// status bar.  We need to convert this into scaled pixels as best we can.
-	int st_y;
-	if (hud_scale) {
-		st_y = (I_GetSurfaceHeight() - ST_Y) / CleanYfac;
-	} else {
-		st_y = I_GetSurfaceHeight() - ST_Y;
-	}
+	int st_y = surface_height - ST_StatusBarY(surface_width, surface_height);
+	if (hud_scale)
+		st_y /= CleanYfac;
+
+	int color;
+	std::string str;
 
 	// Draw warmup state or timer
 	str = hud::Warmup(color);
-	if (!str.empty()) {
+	if (!str.empty())
+	{
 		hud::DrawText(0, st_y + 4, hud_scale,
 		              hud::X_CENTER, hud::Y_BOTTOM,
 		              hud::X_CENTER, hud::Y_BOTTOM,
 		              str.c_str(), color);
-	} else if (hud_timer) {
+	}
+	else if (hud_timer)
+	{
 		str = hud::Timer(color);
 		hud::DrawText(0, st_y + 4, hud_scale,
 		              hud::X_CENTER, hud::Y_BOTTOM,
@@ -885,9 +881,6 @@ void DoomHUD() {
 	               hud::X_CENTER, hud::Y_BOTTOM,
 	               hud::X_CENTER, hud::Y_BOTTOM,
 	               1, hud_targetcount);
-
-	// Draw Netdemo info
-	hud::drawNetdemo();
 }
 
 }

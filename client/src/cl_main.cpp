@@ -66,6 +66,7 @@
 #include "g_warmup.h"
 #include "c_level.h"
 #include "v_text.h"
+#include "hu_stuff.h"
 
 #include <string>
 #include <vector>
@@ -160,7 +161,7 @@ EXTERN_CVAR (r_forceenemycolor)
 EXTERN_CVAR (r_forceteamcolor)
 static argb_t enemycolor = 0, teamcolor = 0;
 
-int CL_GetPlayerColor(player_t *player)
+argb_t CL_GetPlayerColor(player_t *player)
 {
 	if (!player)
 		return 0;
@@ -170,16 +171,14 @@ int CL_GetPlayerColor(player_t *player)
 	// Adjust the shade of color for team games
 	if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
 	{
-		int red = player->userinfo.color.r;
-		int green = player->userinfo.color.g;
-		int blue = player->userinfo.color.b;
-
-		int intensity = MAX(MAX(red, green), blue) / 3;
-
+		const float blue_hue = 240.0f, red_hue = 0.0f;
+		float intensity = 0.6f + 0.4f * V_RGBtoHSV(color).getv();
+		intensity = std::min(intensity, 1.0f);
+		
 		if (player->userinfo.team == TEAM_BLUE)
-			color = argb_t(0, 0,  0xAA + intensity);
+			color = V_HSVtoRGB(fahsv_t(blue_hue, 1.0f, intensity));
 		else if (player->userinfo.team == TEAM_RED)
-			color = argb_t(0xAA + intensity, 0, 0);
+			color = V_HSVtoRGB(fahsv_t(red_hue, 1.0f, intensity));
 	}
 
 	// apply r_teamcolor & r_enemycolor overrides
@@ -216,23 +215,20 @@ static void CL_RebuildAllPlayerTranslations()
 		return;
 
 	for (Players::iterator it = players.begin(); it != players.end(); ++it)
-	{
-		int color = CL_GetPlayerColor(&*it);
-		R_BuildPlayerTranslation(it->id, color);
-	}
+		R_BuildPlayerTranslation(it->id, CL_GetPlayerColor(&*it));
 }
 
 CVAR_FUNC_IMPL (r_enemycolor)
 {
 	// cache the color whenever the user changes it
-	enemycolor = V_GetColorFromString(NULL, var.cstring());
+	enemycolor = V_GetColorFromString(var);
 	CL_RebuildAllPlayerTranslations();
 }
 
 CVAR_FUNC_IMPL (r_teamcolor)
 {
 	// cache the color whenever the user changes it
-	teamcolor = V_GetColorFromString(NULL, var.cstring());
+	teamcolor = V_GetColorFromString(var);
 	CL_RebuildAllPlayerTranslations();
 }
 
@@ -254,12 +250,9 @@ CVAR_FUNC_IMPL (cl_team)
 EXTERN_CVAR (sv_maxplayers)
 EXTERN_CVAR (sv_maxclients)
 EXTERN_CVAR (sv_infiniteammo)
-EXTERN_CVAR (sv_fraglimit)
-EXTERN_CVAR (sv_timelimit)
 EXTERN_CVAR (sv_nomonsters)
 EXTERN_CVAR (sv_fastmonsters)
 EXTERN_CVAR (sv_allowexit)
-EXTERN_CVAR (sv_fragexitswitch)
 EXTERN_CVAR (sv_allowjump)
 EXTERN_CVAR (sv_allowredscreen)
 EXTERN_CVAR (sv_scorelimit)
@@ -275,7 +268,6 @@ EXTERN_CVAR (cl_disconnectalert)
 EXTERN_CVAR (waddirs)
 EXTERN_CVAR (cl_autorecord)
 EXTERN_CVAR (cl_splitnetdemos)
-EXTERN_CVAR (st_scale)
 
 void CL_PlayerTimes (void);
 void CL_GetServerSettings(void);
@@ -314,7 +306,6 @@ void CL_SetMobjSpeedAndAngle(void);
 void P_PlayerLookUpDown (player_t *p);
 team_t D_TeamByName (const char *team);
 gender_t D_GenderByName (const char *gender);
-int V_GetColorFromString (const DWORD *palette, const char *colorstring);
 void AM_Stop();
 
 
@@ -583,6 +574,12 @@ void CL_CheckDisplayPlayer()
 		MSG_WriteByte(&net_buffer, newid);
 		displayplayer_id = newid;
 
+		// Changing display player can sometimes affect status bar visibility
+		// since the status bar isn't visible when display player is a spectator.
+		// The status bar needs to be refreshed as well because the status bar face
+		// widget background color changes.
+		if (idplayer(newid).spectator != idplayer(previd).spectator)
+			R_ForceViewWindowResize();
 		ST_ForceRefresh();
 	}
 
@@ -704,8 +701,9 @@ void CL_StepTics(unsigned int count)
 		if (advancedemo)
 			D_DoAdvanceDemo();
 
-		C_Ticker ();
-		M_Ticker ();
+		C_Ticker();
+		M_Ticker();
+		HU_Ticker();
 
 		if (P_AtInterval(TICRATE))
 			CL_PlayerTimes();
@@ -848,7 +846,7 @@ BEGIN_COMMAND (playerinfo)
 	Printf (PRINT_HIGH, " userinfo.netname     - %s \n",	player->userinfo.netname.c_str());
 	Printf (PRINT_HIGH, " userinfo.team        - %d \n",	player->userinfo.team);
 	Printf (PRINT_HIGH, " userinfo.color       - #%02x%02x%02x\n",
-			player->userinfo.color.r, player->userinfo.color.g, player->userinfo.color.b);
+			player->userinfo.color.getr(), player->userinfo.color.getg(), player->userinfo.color.getb());
 	Printf (PRINT_HIGH, " userinfo.gender      - %d \n",	player->userinfo.gender);
 	Printf (PRINT_HIGH, " spectator            - %d \n",	player->spectator);
 	Printf (PRINT_HIGH, " time                 - %d \n",	player->GameTime);
@@ -1391,15 +1389,12 @@ void CL_SetupUserInfo(void)
 	if(p->userinfo.gender >= NUMGENDER)
 		p->userinfo.gender = GENDER_NEUTER;
 
+	R_BuildPlayerTranslation(p->id, CL_GetPlayerColor(p));
+
 	// [SL] 2012-04-30 - Were we looking through a teammate's POV who changed
 	// to the other team?
 	// [SL] 2012-05-24 - Were we spectating a teammate before we changed teams?
 	CL_CheckDisplayPlayer();
-
-	int color = CL_GetPlayerColor(p);
-	R_BuildPlayerTranslation (p->id, color);
-
-	ST_ForceRefresh();
 }
 
 
@@ -3019,7 +3014,7 @@ void CL_GetServerSettings(void)
 		std::string CvarName = MSG_ReadString();
 		std::string CvarValue = MSG_ReadString();
 
-		var = cvar_t::FindCVar (CvarName.c_str(), &prev);
+		var = cvar_t::FindCVar(CvarName.c_str(), &prev);
 
 		// GhostlyDeath <June 19, 2008> -- Read CVAR or dump it
 		if (var)
@@ -3041,11 +3036,7 @@ void CL_GetServerSettings(void)
 	}
 
 	// Nes - update the skies in case sv_freelook is changed.
-	R_InitSkyMap ();
-
-	// [AM] - Adhere to sv_allowwidescreen setting.
-	ST_ForceRefresh();
-	setsizeneeded = true;
+	R_InitSkyMap();
 }
 
 //
@@ -3396,8 +3387,6 @@ void CL_Clear()
 	MSG_ReadChunk(left);
 }
 
-EXTERN_CVAR (st_scale)
-
 void CL_Spectate()
 {
 	player_t &player = CL_FindPlayer(MSG_ReadByte());
@@ -3423,7 +3412,7 @@ void CL_Spectate()
 
 	if (&player == &consoleplayer())
 	{
-		ST_ForceRefresh();
+		R_ForceViewWindowResize();		// toggline spectator mode affects status bar visibility
 
 		if (player.spectator)
 		{

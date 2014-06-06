@@ -57,7 +57,7 @@ extern patch_t *hu_font[];
 
 #include "am_map.h"
 
-int CL_GetPlayerColor(player_t*);
+argb_t CL_GetPlayerColor(player_t*);
 
 // Group palette index and RGB value together:
 typedef struct am_color_s {
@@ -276,7 +276,7 @@ static int 	grid = 0;
 
 static int 	leveljuststarted = 1; 	// kluge until AM_LevelInit() is called
 
-BOOL		automapactive = false;
+static bool	automapactive = false;
 
 // location of window on screen
 static int	f_x;
@@ -552,7 +552,7 @@ void AM_initVariables(void)
 am_color_t AM_GetColorFromString(const argb_t* palette_colors, const char* colorstring)
 {
 	am_color_t c;
-	c.rgb = (argb_t)V_GetColorFromString(NULL, colorstring);
+	c.rgb = V_GetColorFromString(colorstring);
 	c.index = V_BestColor(palette_colors, c.rgb);
 	return c;
 }
@@ -605,14 +605,15 @@ void AM_initColors (BOOL overlayed)
 		TeleportColor = AM_GetColorFromString(palette_colors, am_teleportcolor.cstring());
 		{
 			argb_t ba = AM_GetColorFromString(palette_colors, am_backcolor.cstring()).rgb;
-			if (ba.r < 16)
-				ba.r += 32;
-			if (ba.g < 16)
-				ba.g += 32;
-			if (ba.b < 16)
-				ba.b += 32;
 
-			AlmostBackground.rgb = argb_t(ba.r - 16, ba.g - 16, ba.b - 16);
+			if (ba.getr() < 16)
+				ba.setr(ba.getr() + 32);
+			if (ba.getg() < 16)
+				ba.setg(ba.getg() + 32);
+			if (ba.getb() < 16)
+				ba.setb(ba.getb() + 32);
+
+			AlmostBackground.rgb = argb_t(ba.getr() - 16, ba.getg() - 16, ba.getb() - 16);
 			AlmostBackground.index = V_BestColor(palette_colors, AlmostBackground.rgb);
 		}
 	}
@@ -770,6 +771,9 @@ BEGIN_COMMAND (togglemap)
 
 	if (automapactive)
 		AM_initColors(viewactive);
+
+	// status bar is drawn in classic automap
+	ST_ForceRefresh();
 }
 END_COMMAND (togglemap)
 
@@ -1369,7 +1373,7 @@ void AM_drawWalls(void)
 				else if (lines[i].special == Door_LockedRaise)
 				{
 				    // NES - Locked doors glow from a predefined color to either blue, yellow, or red.
-                    r = LockedColor.rgb.r, g = LockedColor.rgb.g, b = LockedColor.rgb.b;
+                    r = LockedColor.rgb.getr(), g = LockedColor.rgb.getg(), b = LockedColor.rgb.getb();
 
                     if (am_usecustomcolors)
 					{
@@ -1564,8 +1568,7 @@ void AM_drawPlayers(void)
 		}
 		else
 		{
-			int playercolor = CL_GetPlayerColor(p);
-			color.rgb = (argb_t)playercolor;
+			color.rgb = CL_GetPlayerColor(p);
 			color.index = V_BestColor(V_GetDefaultPalette()->basecolors, color.rgb);
 		}
 
@@ -1651,9 +1654,13 @@ void AM_drawCrosshair (am_color_t color)
 		PUTDOTD(f_w/2, (f_h+1)/2, color.rgb);
 }
 
-void AM_Drawer (void)
+
+//
+// AM_Drawer
+//
+void AM_Drawer()
 {
-	if (!automapactive)
+	if (!AM_ClassicAutomapVisible() && !AM_OverlayAutomapVisible())
 		return;
 
 	IWindowSurface* surface = I_GetPrimarySurface();
@@ -1661,10 +1668,8 @@ void AM_Drawer (void)
 
 	fb = surface->getBuffer();
 
-	if (!viewactive)
+	if (AM_ClassicAutomapVisible())
 	{
-		// [RH] Set f_? here now to handle automap overlaying
-		// and view size adjustments.
 		f_x = f_y = 0;
 		f_w = surface_width;
 		f_h = ST_StatusBarY(surface_width, surface_height);
@@ -1674,12 +1679,13 @@ void AM_Drawer (void)
 	}
 	else
 	{
-		f_x = viewwindowx;
-		f_y = viewwindowy;
-		f_w = viewwidth;
-		f_h = viewheight;
+		f_x = R_ViewWindowX(surface_width, surface_height);
+		f_y = R_ViewWindowY(surface_width, surface_height);
+		f_w = R_ViewWidth(surface_width, surface_height);
+		f_h = R_ViewHeight(surface_width, surface_height);
 		f_p = surface->getPitch();
 	}
+
 	AM_activateNewScale();
 
 	if (grid)

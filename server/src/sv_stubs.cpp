@@ -28,21 +28,19 @@
 #include "v_palette.h"
 #include "v_video.h"
 
-float BaseBlendA;
-bool r_underwater;
-
+void R_ExitLevel() {}
 void D_SetupUserInfo (void) {}
 void D_UserInfoChanged (cvar_t *cvar) {} 
 void D_DoServerInfoChange (byte **stream) {} 
 void D_WriteUserInfoStrings (int i, byte **stream, bool compact) {} 
 void D_ReadUserInfoStrings (int i, byte **stream, bool update) {}
 
-std::string V_GetColorStringByName(const char *name) 
+std::string V_GetColorStringByName(const std::string& name)
 { 
     return ""; 
 }
 
-int V_GetColorFromString(const argb_t* palette_colors, const char *colorstring) 
+argb_t V_GetColorFromString(const std::string& str)
 {
     return 0;
 }
@@ -56,9 +54,7 @@ void RefreshPalettes (void) {}
 
 void V_RefreshColormaps() {}
 
-CVAR_FUNC_IMPL (sv_allowwidescreen)
-{
-}
+CVAR_FUNC_IMPL (sv_allowwidescreen) {}
 
 VERSION_CONTROL (sv_stubs_cpp, "$Id: sv_stubs.cpp $")
 

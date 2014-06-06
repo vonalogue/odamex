@@ -1006,7 +1006,6 @@ menu_t AutomapMenu = {
  *
  *=======================================*/
 
-extern bool setmodeneeded;
 extern int NewWidth, NewHeight, NewBits;
 
 QWORD testingmode;		// Holds time to revert to old mode
@@ -1188,7 +1187,7 @@ void M_RestoreMode (void)
 	NewWidth = OldWidth;
 	NewHeight = OldHeight;
 	NewBits = OldBits;
-	setmodeneeded = true;
+	V_ForceVideoModeAdjustment();
 	testingmode = 0;
 	SetModesMenu(OldWidth, OldHeight, OldBits);
 }
@@ -1221,23 +1220,23 @@ static void M_SendUINewColor (int red, int green, int blue)
 
 static void M_SlideUIRed(int val)
 {
-	argb_t color = (argb_t)V_GetColorFromString(NULL, ui_dimcolor.cstring());
-	color.r = val;
-	M_SendUINewColor(color.r, color.g, color.b);
+	argb_t color = V_GetColorFromString(ui_dimcolor);
+	color.setr(val);
+	M_SendUINewColor(color.getr(), color.getg(), color.getb());
 }
 
 static void M_SlideUIGreen (int val)
 {
-	argb_t color = (argb_t)V_GetColorFromString(NULL, ui_dimcolor.cstring());
-	color.g = val;
-	M_SendUINewColor(color.r, color.g, color.b);
+	argb_t color = V_GetColorFromString(ui_dimcolor);
+	color.setg(val);
+	M_SendUINewColor(color.getr(), color.getg(), color.getb());
 }
 
 static void M_SlideUIBlue (int val)
 {
-	argb_t color = (argb_t)V_GetColorFromString(NULL, ui_dimcolor.cstring());
-	color.b = val;
-	M_SendUINewColor(color.r, color.g, color.b);
+	argb_t color = V_GetColorFromString(ui_dimcolor);
+	color.setb(val);
+	M_SendUINewColor(color.getr(), color.getg(), color.getb());
 }
 
 
@@ -1478,10 +1477,9 @@ void M_OptDrawer (void)
 				}
 			}
 
-			if (i == CurrentItem && ((item->a.selmode != -1 && (skullAnimCounter < 6 || WaitingForKey)) || WaitingForAxis || testingmode))
-			{
+			if (i == CurrentItem && ((item->a.selmode != -1 && (skullAnimCounter < 6 || WaitingForKey))
+				|| WaitingForAxis || testingmode))
 				screen->DrawPatchClean (W_CachePatch ("LITLCURS"), item->a.selmode * 104 + 8, y);
-			}
 		}
 		else
 		{
@@ -1528,18 +1526,19 @@ void M_OptDrawer (void)
 				int v, vals;
 
 				vals = (int)item->b.leftval;
-				v = M_FindCurVal (item->a.cvar->value(), item->e.values, vals);
+				v = M_FindCurVal(item->a.cvar->value(), item->e.values, vals);
 
 				if (v == vals)
 				{
-					screen->DrawTextCleanMove (CR_GREY, CurrentMenu->indent + 14, y, "Unknown");
+					screen->DrawTextCleanMove(CR_GREY, CurrentMenu->indent + 14, y, "Unknown");
 				}
 				else
 				{
+					int color_num = CR_GREY;
 					if (item->type == cdiscrete)
-						screen->DrawTextCleanMove (v, CurrentMenu->indent + 14, y, item->e.values[v].name);
-					else
-						screen->DrawTextCleanMove (CR_GREY, CurrentMenu->indent + 14, y, item->e.values[v].name);
+						color_num = item->a.cvar->asInt();
+
+					screen->DrawTextCleanMove(color_num, CurrentMenu->indent + 14, y, item->e.values[v].name);
 				}
 
 			}
@@ -1556,20 +1555,20 @@ void M_OptDrawer (void)
 
 			case redslider:
 			{
-				argb_t color = (argb_t)V_GetColorFromString(NULL, item->a.cvar->cstring());
-				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, color.r, color);
+				argb_t color = V_GetColorFromString(*item->a.cvar);
+				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, color.getr(), color);
 			}
 			break;
 			case greenslider:
 			{
-				argb_t color = (argb_t)V_GetColorFromString(NULL, item->a.cvar->cstring());
-				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, color.g, color);
+				argb_t color = V_GetColorFromString(*item->a.cvar);
+				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, color.getg(), color);
 			}
 			break;
 			case blueslider:
 			{
-				argb_t color = (argb_t)V_GetColorFromString(NULL, item->a.cvar->cstring());
-				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, color.b, color);
+				argb_t color = V_GetColorFromString(*item->a.cvar);
+				M_DrawColoredSlider(CurrentMenu->indent + 8, y, 0, 255, color.getb(), color);
 			}
 			break;
 
@@ -1908,15 +1907,15 @@ void M_OptResponder (event_t *ev)
 						else
 							memcpy(newcolor, "00 00 00", 9);
 
-						argb_t color = (argb_t)V_GetColorFromString(NULL, oldcolor);
+						argb_t color = V_GetColorFromString(oldcolor);
 						int part = 0;
 
 						if (item->type == redslider)
-							part = color.r;
+							part = color.getr();
 						else if (item->type == greenslider)
-							part = color.g;
+							part = color.getg();
 						else if (item->type == blueslider)
-							part = color.b;
+							part = color.getb();
 
 						if (part > 0x00)
 							part -= 0x11;
@@ -2032,15 +2031,15 @@ void M_OptResponder (event_t *ev)
 						else
 							memcpy(newcolor, "00 00 00", 9);
 
-						argb_t color = (argb_t)V_GetColorFromString(NULL, oldcolor);
+						argb_t color = V_GetColorFromString(oldcolor);
 						int part = 0;
 
 						if (item->type == redslider)
-							part = color.r;
+							part = color.getr();
 						else if (item->type == greenslider)
-							part = color.g;
+							part = color.getg();
 						else if (item->type == blueslider)
-							part = color.b;
+							part = color.getb();
 
 						if (part < 0xff)
 							part += 0x11;
@@ -2149,7 +2148,7 @@ void M_OptResponder (event_t *ev)
 					NewHeight = I_GetVideoHeight();
 				}
 				NewBits = (int)vid_32bpp ? 32 : 8;
-				setmodeneeded = true;
+				V_ForceVideoModeAdjustment();
 				S_Sound (CHAN_INTERFACE, "weapons/pistol", 1, ATTN_NONE);
 				vid_defwidth.Set ((float)NewWidth);
 				vid_defheight.Set ((float)NewHeight);
@@ -2233,7 +2232,7 @@ void M_OptResponder (event_t *ev)
 					OldHeight = I_GetVideoHeight();
 					OldBits = I_GetVideoBitDepth();
 					NewBits = (int)vid_32bpp ? 32 : 8;
-					setmodeneeded = true;
+					V_ForceVideoModeAdjustment();
 					testingmode = I_MSTime() * TICRATE / 1000 + 5 * TICRATE;
 					S_Sound (CHAN_INTERFACE, "weapons/pistol", 1, ATTN_NONE);
 					SetModesMenu(NewWidth, NewHeight, NewBits);

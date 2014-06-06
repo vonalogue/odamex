@@ -263,7 +263,7 @@ void P_CalcHeight (player_t *player)
 	}
 
 	// [SL] Scale view-bobbing based on user's preference (if the server allows)
-	if (sv_allowmovebob)
+	if (sv_allowmovebob || (clientside && serverside))
 		bob *= cl_movebob;
 
 	player->viewz = player->mo->z + player->viewheight + bob;
@@ -794,6 +794,7 @@ void player_s::Serialize (FArchive &arc)
 		arc << id
 			<< playerstate
 			<< spectator
+//			<< deadspectator
 			<< cmd
 			<< userinfo
 			<< viewz
@@ -844,6 +845,7 @@ void player_s::Serialize (FArchive &arc)
 		arc >> id
 			>> playerstate
 			>> spectator
+//			>> deadspectator
 			>> cmd
 			>> userinfo // Q: Would it be better to restore the userinfo from the archive?
 			>> viewz
@@ -954,6 +956,7 @@ player_s::player_s()
 	tic = 0;
 	spying = id;
 	spectator = false;
+//	deadspectator = false;
 
 	joinafterspectatortime = level.time - TICRATE*5;
 	timeout_callvote = 0;
@@ -967,10 +970,7 @@ player_s::player_s()
 	LastMessage.Time = 0;
 	LastMessage.Message = "";
 
-	BlendR = 0;
-	BlendG = 0;
-	BlendB = 0;
-	BlendA = 0;
+	blend_color = argb_t(0, 0, 0, 0);
 
 	memset(netcmds, 0, sizeof(ticcmd_t) * BACKUPTICS);
 }
@@ -1059,6 +1059,7 @@ player_s &player_s::operator =(const player_s &other)
 	tic = other.tic;
 	spying = other.spying;
 	spectator = other.spectator;
+//	deadspectator = other.deadspectator;
 	joinafterspectatortime = other.joinafterspectatortime;
 	timeout_callvote = other.timeout_callvote;
 	timeout_vote = other.timeout_vote;
@@ -1074,10 +1075,7 @@ player_s &player_s::operator =(const player_s &other)
     LastMessage.Time = other.LastMessage.Time;
 	LastMessage.Message = other.LastMessage.Message;
 
-	BlendR = other.BlendR;
-	BlendG = other.BlendG;
-	BlendB = other.BlendB;
-	BlendA = other.BlendA;
+	blend_color = other.blend_color;
 
 	client = other.client;
 

@@ -234,7 +234,7 @@ public:
 
 	byte spying;				// [SL] id of player being spynext'd by this player
 	bool spectator;             // [GhostlyDeath] spectating?
-	bool deadspectator;			// [tm512] spectating as a dead player?
+//	bool deadspectator;			// [tm512] spectating as a dead player?
 	int joinafterspectatortime; // Nes - Join after spectator time.
 	int timeout_callvote;       // [AM] Tic when a vote last finished.
 	int timeout_vote;           // [AM] Tic when a player last voted.
@@ -243,10 +243,8 @@ public:
 	int timeout_ready;          // [AM] Tic when a player last toggled his ready state.
 
     int			prefcolor;			// Nes - Preferred color. Server only.
-	float		BlendR;		        // [RH] Final blending values
-	float		BlendG;
-	float		BlendB;
-	float		BlendA;
+
+	argb_t		blend_color;		// blend color for the sector the player is in
 
     // For flood protection
     struct LastMessage_s

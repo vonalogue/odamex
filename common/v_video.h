@@ -445,6 +445,9 @@ extern palindex_t RGB32k[32][32][32];
 void V_Init();
 void STACK_ARGS V_Close();
 
+void V_ForceVideoModeAdjustment();
+void V_AdjustVideoMode();
+
 // The color to fill with for #4 and #5 above
 extern int V_ColorFill;
 
@@ -458,10 +461,11 @@ void V_MarkRect (int x, int y, int width, int height);
 
 // Returns the closest color to the one desired. String
 // should be of the form "rr gg bb".
-int V_GetColorFromString (const argb_t *palette, const char *colorstring);
+argb_t V_GetColorFromString(const std::string& str);
+
 // Scans through the X11R6RGB lump for a matching color
 // and returns a color string suitable for V_GetColorFromString.
-std::string V_GetColorStringByName (const char *name);
+std::string V_GetColorStringByName(const std::string& name);
 
 
 bool V_SetResolution (int width, int height, int bpp);
@@ -491,13 +495,13 @@ bool V_UseWidescreen();
 // 0 <=   toa <= 255
 forceinline argb_t alphablend1a(const argb_t from, const argb_t to, const int toa)
 {
-	const int fr = from.r;
-	const int fg = from.g;
-	const int fb = from.b;
+	const int fr = from.getr();
+	const int fg = from.getg();
+	const int fb = from.getb();
 
-	const int dr = to.r - fr;
-	const int dg = to.g - fg;
-	const int db = to.b - fb;
+	const int dr = to.getr() - fr;
+	const int dg = to.getg() - fg;
+	const int db = to.getb() - fb;
 
 	return argb_t(
 		fr + ((dr * toa) >> 8),
@@ -511,9 +515,9 @@ forceinline argb_t alphablend1a(const argb_t from, const argb_t to, const int to
 forceinline argb_t alphablend2a(const argb_t from, const int froma, const argb_t to, const int toa)
 {
 	return argb_t(
-		(from.r * froma + to.r * toa) >> 8,
-		(from.g * froma + to.g * toa) >> 8,
-		(from.b * froma + to.b * toa) >> 8);
+		(from.getr() * froma + to.getr() * toa) >> 8,
+		(from.getg() * froma + to.getg() * toa) >> 8,
+		(from.getb() * froma + to.getb() * toa) >> 8);
 }
 
 void V_DrawFPSWidget();

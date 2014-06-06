@@ -39,7 +39,7 @@
 #include "v_video.h"
 
 size_t P_NumPlayersInGame(void);
-int CL_GetPlayerColor(player_t*);
+argb_t CL_GetPlayerColor(player_t*);
 
 extern NetDemo netdemo;
 extern bool HasBehavior;
@@ -232,18 +232,17 @@ std::string Warmup(int& color)
 // Return a string that contains the amount of time left in the map,
 // or a blank string if there is no timer needed.  Can also display
 // warmup information if it exists.
-std::string Timer(int& color) {
+std::string Timer(int& color)
+{
 	color = CR_GREY;
 
-	if (!multiplayer || !(sv_timelimit > 0.0f)) {
+	if (!multiplayer || !(sv_timelimit > 0.0f))
 		return "";
-	}
 
 	int timeleft = level.timeleft;
 
-	if (timeleft < 0) {
+	if (timeleft < 0)
 		timeleft = 0;
-	}
 
 	int hours = timeleft / (TICRATE * 3600);
 
@@ -253,30 +252,27 @@ std::string Timer(int& color) {
 	timeleft -= minutes * TICRATE * 60;
 	int seconds = timeleft / TICRATE;
 
-	if (minutes <= 0) {
+	if (minutes <= 0)
 		color = CR_BRICK;
-	}
 
 	char str[9];
-	if (hours) {
+	if (hours)
 		sprintf(str, "%02d:%02d:%02d", hours, minutes, seconds);
-	} else {
+	else
 		sprintf(str, "%02d:%02d", minutes, seconds);
-	}
 
 	return str;
 }
 
-std::string IntermissionTimer() {
-	if (gamestate != GS_INTERMISSION) {
+std::string IntermissionTimer()
+{
+	if (gamestate != GS_INTERMISSION)
 		return "";
-	}
 
 	int timeleft = level.inttimeleft * TICRATE;
 
-	if (timeleft < 0) {
+	if (timeleft < 0)
 		timeleft = 0;
-	}
 
 	int hours = timeleft / (TICRATE * 3600);
 
@@ -287,11 +283,10 @@ std::string IntermissionTimer() {
 	int seconds = timeleft / TICRATE;
 
 	char str[9];
-	if (hours) {
+	if (hours)
 		sprintf(str, "%02d:%02d:%02d", hours, minutes, seconds);
-	} else {
+	else
 		sprintf(str, "%02d:%02d", minutes, seconds);
-	}
 
 	return str;
 }
@@ -654,7 +649,7 @@ void EAPlayerColors(int x, int y,
 		player_t* player = sortedPlayers()[i];
 		if (ingamePlayer(player))
 		{
-			argb_t playercolor = (argb_t)CL_GetPlayerColor(player);
+			argb_t playercolor = CL_GetPlayerColor(player);
 			hud::Clear(x, y, w, h, scale, x_align, y_align, x_origin, y_origin, playercolor);
 
 			y += h + padding;
@@ -682,7 +677,7 @@ void EATeamPlayerColors(int x, int y,
 		player_t* player = sortedPlayers()[i];
 		if (inTeamPlayer(player, team))
 		{
-			argb_t playercolor = (argb_t)CL_GetPlayerColor(player);
+			argb_t playercolor = CL_GetPlayerColor(player);
 			hud::Clear(x, y, w, h, scale, x_align, y_align, x_origin, y_origin, playercolor);
 
 			y += h + padding;

@@ -112,38 +112,53 @@ void (*r_dimpatchD)(IWindowSurface* surface, argb_t color, int alpha, int x1, in
 // Fuzz Table
 //
 // Framebuffer postprocessing.
-// Creates a fuzzy image by copying pixels
-// from adjacent ones to left and right.
-// Used with an all black colormap, this
-// could create the SHADOW effect,
+// Creates a fuzzy image by copying pixels from adjacent ones to left and right.
+// Used with an all black colormap, this could create the SHADOW effect,
 // i.e. spectres and invisible players.
 //
 // ============================================================================
 
-#define FUZZTABLE	64		// [RH] FUZZTABLE changed from 50 to 64
+class FuzzTable
+{
+public:
+	FuzzTable() : pos(0) { }
 
-static int fuzzoffset[FUZZTABLE];
-static int fuzzpos = 0;
+	forceinline void incrementRow()
+	{
+		pos = (pos + 1) % FuzzTable::size;
+	}
 
-static const signed char fuzzinit[FUZZTABLE] = {
-	1,-1, 1,-1, 1, 1,-1, 1,
-	1,-1, 1, 1, 1,-1, 1, 1,
-	1,-1,-1,-1,-1, 1,-1,-1,
-	1, 1, 1, 1,-1, 1,-1, 1,
-	1,-1,-1, 1, 1,-1,-1,-1,
-   -1, 1, 1, 1, 1,-1, 1, 1,
-   -1, 1, 1, 1,-1, 1, 1, 1,
-   -1, 1, 1,-1, 1, 1,-1, 1
+	forceinline void incrementColumn()
+	{
+		pos = (pos + 3) % FuzzTable::size;
+	}
+
+	forceinline int getValue() const
+	{
+		// [SL] quickly convert the table value (-1 or 1) into (-pitch or pitch).
+		int pitch = R_GetRenderingSurface()->getPitchInPixels();
+		int value = table[pos];
+		return (pitch ^ value) + value;
+	}
+
+private:
+	static const size_t size = 64;
+	static const int table[FuzzTable::size];
+	int pos;
 };
 
-void R_InitFuzzTable (void)
-{
-	IWindowSurface* surface = I_GetPrimarySurface();
-	int fuzzoff = surface->getPitch();
+const int FuzzTable::table[FuzzTable::size] = {
+		1,-1, 1,-1, 1, 1,-1, 1,
+		1,-1, 1, 1, 1,-1, 1, 1,
+		1,-1,-1,-1,-1, 1,-1,-1,
+		1, 1, 1, 1,-1, 1,-1, 1,
+		1,-1,-1, 1, 1,-1,-1,-1,
+	   -1, 1, 1, 1, 1,-1, 1, 1,
+	   -1, 1, 1, 1,-1, 1, 1, 1,
+	   -1, 1, 1,-1, 1, 1,-1, 1 };
 
-	for (int i = 0; i < FUZZTABLE; i++)
-		fuzzoffset[i] = fuzzinit[i] * fuzzoff;
-}
+
+static FuzzTable fuzztable;
 
 
 // ============================================================================
@@ -224,17 +239,17 @@ static void R_BuildFontTranslation(int color_num, argb_t start_color, argb_t end
 	for (int index = end_index + 1; index < 256; index++)
 		dest[index] = index;	
 
-	int r_diff = end_color.r - start_color.r;
-	int g_diff = end_color.g - start_color.g;
-	int b_diff = end_color.b - start_color.b;
+	int r_diff = end_color.getr() - start_color.getr();
+	int g_diff = end_color.getg() - start_color.getg();
+	int b_diff = end_color.getb() - start_color.getb();
 
 	for (palindex_t index = start_index; index <= end_index; index++)
 	{
 		int i = index - start_index;
 
-		int r = start_color.r + i * r_diff / index_range;
-		int g = start_color.g + i * g_diff / index_range;
-		int b = start_color.b + i * b_diff / index_range;
+		int r = start_color.getr() + i * r_diff / index_range;
+		int g = start_color.getg() + i * g_diff / index_range;
+		int b = start_color.getb() + i * b_diff / index_range;
 
 		dest[index] = V_BestColor(V_GetDefaultPalette()->basecolors, r, g, b);
 	}
@@ -358,32 +373,27 @@ void R_CopyTranslationRGB (int fromplayer, int toplayer)
 //		a given mid-range color.
 void R_BuildPlayerTranslation(int player, argb_t dest_color)
 {
-	const palette_t *pal = V_GetDefaultPalette();
-	byte *table = &translationtables[player * 256];
-	float r = float(dest_color.r) / 255.0f;
-	float g = float(dest_color.g) / 255.0f;
-	float b = float(dest_color.b) / 255.0f;
-	float h, s, v;
-	float sdelta, vdelta;
+	const palette_t* pal = V_GetDefaultPalette();
+	byte* table = &translationtables[player * 256];
 
-	RGBtoHSV (r, g, b, &h, &s, &v);
+	fahsv_t hsv_temp = V_RGBtoHSV(dest_color);
+	float h = hsv_temp.geth(), s = hsv_temp.gets(), v = hsv_temp.getv();
 
 	s -= 0.23f;
 	if (s < 0.0f)
 		s = 0.0f;
-	sdelta = 0.014375f;
+	float sdelta = 0.014375f;
 
 	v += 0.1f;
 	if (v > 1.0f)
 		v = 1.0f;
-	vdelta = -0.05882f;
+	float vdelta = -0.05882f;
 
 	for (int i = 0x70; i < 0x80; i++)
 	{
-		HSVtoRGB (&r, &g, &b, h, s, v);
+		argb_t color(V_HSVtoRGB(fahsv_t(h, s, v)));
 
 		// Set up RGB values for 32bpp translation:
-		argb_t color(r * 255.0f, g * 255.0f, b * 255.0f);
 		translationRGB[player][i - 0x70] = color;
 		table[i] = V_BestColor(pal->basecolors, color);
 
@@ -615,7 +625,6 @@ static forceinline void R_FillSpanGeneric(PIXEL_T* dest, const drawspan_t& draws
 #endif
 
 	int color = drawspan.color;
-	int colsize = drawspan.colsize;
 	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
@@ -624,7 +633,7 @@ static forceinline void R_FillSpanGeneric(PIXEL_T* dest, const drawspan_t& draws
 
 	do {
 		colorfunc(color, dest);
-		dest += colsize;
+		dest++;
 	} while (--count);
 }
 
@@ -649,7 +658,6 @@ static forceinline void R_DrawLevelSpanGeneric(PIXEL_T* dest, const drawspan_t& 
 #endif
 
 	palindex_t* source = drawspan.source;
-	int colsize = drawspan.colsize;
 	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
@@ -669,7 +677,7 @@ static forceinline void R_DrawLevelSpanGeneric(PIXEL_T* dest, const drawspan_t& 
 		//  re-index using light/colormap.
 
 		colorfunc(source[spot], dest);
-		dest += colsize;
+		dest++;
 
 		// Next step in u,v.
 		xfrac += xstep;
@@ -703,7 +711,6 @@ static forceinline void R_DrawSlopedSpanGeneric(PIXEL_T* dest, const drawspan_t&
 #endif
 
 	palindex_t* source = drawspan.source;
-	int colsize = drawspan.colsize;
 	int count = drawspan.x2 - drawspan.x1 + 1;
 	if (count <= 0)
 		return;
@@ -745,7 +752,7 @@ static forceinline void R_DrawSlopedSpanGeneric(PIXEL_T* dest, const drawspan_t&
 
 			const int spot = ((vfrac >> 10) & 0xFC0) | ((ufrac >> 16) & 63);
 			colorfunc(source[spot], dest);
-			dest += colsize;
+			dest++;
 			ufrac += ustep;
 			vfrac += vstep;
 		}
@@ -781,7 +788,7 @@ static forceinline void R_DrawSlopedSpanGeneric(PIXEL_T* dest, const drawspan_t&
 
 			const int spot = ((vfrac >> 10) & 0xFC0) | ((ufrac >> 16) & 63);
 			colorfunc(source[spot], dest);
-			dest += colsize;
+			dest++;
 			ufrac += ustep;
 			vfrac += vstep;
 		}
@@ -804,7 +811,7 @@ static forceinline void R_DrawSlopedSpanGeneric(PIXEL_T* dest, const drawspan_t&
 // buffer.
 //
 // The functors are instantiated with a shaderef_t* parameter (typically
-// dcol.colormap or ds_colormap) that will be used to shade the pixel.
+// dcol.colormap or dspan.colormap) that will be used to shade the pixel.
 //
 // ----------------------------------------------------------------------------
 
@@ -845,8 +852,8 @@ public:
 
 	forceinline void operator()(byte c, palindex_t* dest) const
 	{
-		*dest = colormap.index(dest[fuzzoffset[fuzzpos]]);
-		fuzzpos = (fuzzpos + 1) & (FUZZTABLE - 1);
+		*dest = colormap.index(dest[fuzztable.getValue()]);
+		fuzztable.incrementRow();
 	}
 
 private:
@@ -942,7 +949,7 @@ private:
 //
 // ----------------------------------------------------------------------------
 
-#define FB_COLDEST_P ((palindex_t*)(ylookup[dcol.yl] + columnofs[dcol.x]))
+#define FB_COLDEST_P ((palindex_t*)ylookup[dcol.yl] + dcol.x + viewwindowx)
 
 //
 // R_FillColumnP
@@ -993,8 +1000,7 @@ void R_DrawFuzzColumnP()
 		dcol.yh = viewheight - 2;
 
 	R_FillColumnGeneric<palindex_t, PaletteFuzzyFunc>(FB_COLDEST_P, dcol);
-
-	fuzzpos = (fuzzpos + 3) & (FUZZTABLE - 1);
+	fuzztable.incrementColumn();
 }
 
 //
@@ -1099,13 +1105,13 @@ void R_DrawColumnHorizP()
 //
 // ----------------------------------------------------------------------------
 
-#define FB_SPANDEST_P ((palindex_t*)(ylookup[dspan.y] + columnofs[dspan.x1]))
+#define FB_SPANDEST_P ((palindex_t*)ylookup[dspan.y] + dspan.x1 + viewwindowx)
 
 //
 // R_FillSpanP
 //
 // Fills a span in the 8bpp palettized screen buffer with a solid color,
-// determined by ds_color. Performs no shading.
+// determined by dspan.color. Performs no shading.
 //
 void R_FillSpanP()
 {
@@ -1116,8 +1122,8 @@ void R_FillSpanP()
 // R_FillTranslucentSpanP
 //
 // Fills a span in the 8bpp palettized screen buffer with a solid color,
-// determined by ds_color using translucency. Shading is performed 
-// using ds_colormap.
+// determined by dspan.color using translucency. Shading is performed 
+// using dspan.colormap.
 //
 void R_FillTranslucentSpanP()
 {
@@ -1128,7 +1134,7 @@ void R_FillTranslucentSpanP()
 // R_DrawSpanP
 //
 // Renders a span for a level plane to the 8bpp palettized screen buffer from
-// the source buffer ds_source. Shading is performed using ds_colormap.
+// the source buffer dspan.source. Shading is performed using dspan.colormap.
 //
 void R_DrawSpanP()
 {
@@ -1139,7 +1145,7 @@ void R_DrawSpanP()
 // R_DrawSlopeSpanP
 //
 // Renders a span for a sloped plane to the 8bpp palettized screen buffer from
-// the source buffer ds_source. Shading is performed using ds_colormap.
+// the source buffer dspan.source. Shading is performed using dspan.colormap.
 //
 void R_DrawSlopeSpanP()
 {
@@ -1162,7 +1168,7 @@ void R_DrawSlopeSpanP()
 // buffer.
 //
 // The functors are instantiated with a shaderef_t* parameter (typically
-// dcol.colormap or ds_colormap) that will be used to shade the pixel.
+// dcol.colormap or dspan.colormap) that will be used to shade the pixel.
 //
 // ----------------------------------------------------------------------------
 
@@ -1202,9 +1208,9 @@ public:
 
 	forceinline void operator()(byte c, argb_t* dest) const
 	{
-		argb_t work = dest[fuzzoffset[fuzzpos] >> 2];
+		argb_t work = dest[fuzztable.getValue()];
 		*dest = work - ((work >> 2) & 0x3f3f3f);
-		fuzzpos = (fuzzpos + 1) & (FUZZTABLE - 1);
+		fuzztable.incrementRow();
 	}
 };
 
@@ -1296,7 +1302,7 @@ private:
 //
 // ----------------------------------------------------------------------------
 
-#define FB_COLDEST_D ((argb_t*)(ylookup[dcol.yl] + columnofs[dcol.x]))
+#define FB_COLDEST_D ((argb_t*)ylookup[dcol.yl] + dcol.x + viewwindowx)
 
 //
 // R_FillColumnD
@@ -1336,8 +1342,7 @@ void R_DrawFuzzColumnD()
 		dcol.yh = viewheight - 2;
 
 	R_FillColumnGeneric<argb_t, DirectFuzzyFunc>(FB_COLDEST_D, dcol);
-
-	fuzzpos = (fuzzpos + 3) & (FUZZTABLE - 1);
+	fuzztable.incrementColumn();
 }
 
 //
@@ -1386,13 +1391,13 @@ void R_DrawTlatedLucentColumnD()
 //
 // ----------------------------------------------------------------------------
 
-#define FB_SPANDEST_D ((argb_t*)(ylookup[dspan.y] + columnofs[dspan.x1]))
+#define FB_SPANDEST_D ((argb_t*)ylookup[dspan.y] + dspan.x1 + viewwindowx)
 
 //
 // R_FillSpanD
 //
 // Fills a span in the 32bpp ARGB8888 screen buffer with a solid color,
-// determined by ds_color. Performs no shading.
+// determined by dspan.color. Performs no shading.
 //
 void R_FillSpanD()
 {
@@ -1403,8 +1408,8 @@ void R_FillSpanD()
 // R_FillTranslucentSpanD
 //
 // Fills a span in the 32bpp ARGB8888 screen buffer with a solid color,
-// determined by ds_color using translucency. Shading is performed 
-// using ds_colormap.
+// determined by dspan.color using translucency. Shading is performed 
+// using dspan.colormap.
 //
 void R_FillTranslucentSpanD()
 {
@@ -1415,7 +1420,7 @@ void R_FillTranslucentSpanD()
 // R_DrawSpanD
 //
 // Renders a span for a level plane to the 32bpp ARGB8888 screen buffer from
-// the source buffer ds_source. Shading is performed using ds_colormap.
+// the source buffer dspan.source. Shading is performed using dspan.colormap.
 //
 void R_DrawSpanD_c()
 {
@@ -1426,7 +1431,7 @@ void R_DrawSpanD_c()
 // R_DrawSlopeSpanD
 //
 // Renders a span for a sloped plane to the 32bpp ARGB8888 screen buffer from
-// the source buffer ds_source. Shading is performed using ds_colormap.
+// the source buffer dspan.source. Shading is performed using dspan.colormap.
 //
 void R_DrawSlopeSpanD_c()
 {

@@ -68,10 +68,16 @@ extern int				validcount;
 extern int				linecount;
 extern int				loopcount;
 
-extern byte*			ylookup[MAXHEIGHT];
-extern int				columnofs[MAXWIDTH];
+extern byte**			ylookup;
 
 extern fixed_t			render_lerp_amount;
+
+// [SL] Current color blending values (including palette effects)
+extern fargb_t blend_color;
+
+void R_SetSectorBlend(const argb_t color);
+void R_ClearSectorBlend();
+argb_t R_GetSectorBlend();
 
 //
 // Lighting LUT.
@@ -192,6 +198,8 @@ void R_Init();
 // Called by exit code.
 void STACK_ARGS R_Shutdown();
 
+void R_ExitLevel();
+
 // Called by M_Responder.
 void R_SetViewSize(int blocks);
 
@@ -201,8 +209,13 @@ IWindowSurface* R_GetRenderingSurface();
 bool R_BorderVisible();
 bool R_StatusBarVisible();
 
-// Initialize multires stuff for renderer
-void R_InitViewWindow();
+int R_ViewWidth(int width, int height);
+int R_ViewHeight(int width, int height);
+int R_ViewWindowX(int width, int height);
+int R_ViewWindowY(int width, int height);
+
+
+void R_ForceViewWindowResize();
 
 void R_ResetDrawFuncs();
 void R_SetFuzzDrawFuncs();
@@ -254,12 +267,12 @@ inline argb_t shaderef_t::tlate(const translationref_t &translation, const byte 
 	// Find the shading for the custom player colors:
 	argb_t trancolor = translationRGB[pid][c - range_start];
 
-	unsigned int r = (trancolor.r * lightcolor.r * (NUMCOLORMAPS - m_mapnum) / 255
-					+ fadecolor.r * m_mapnum + NUMCOLORMAPS / 2) / NUMCOLORMAPS;
-	unsigned int g = (trancolor.g * lightcolor.g * (NUMCOLORMAPS - m_mapnum) / 255
-					+ fadecolor.g * m_mapnum + NUMCOLORMAPS / 2) / NUMCOLORMAPS;
-	unsigned int b = (trancolor.b * lightcolor.b * (NUMCOLORMAPS - m_mapnum) / 255
-					+ fadecolor.b * m_mapnum + NUMCOLORMAPS / 2) / NUMCOLORMAPS;
+	unsigned int r = (trancolor.getr() * lightcolor.getr() * (NUMCOLORMAPS - m_mapnum) / 255
+					+ fadecolor.getr() * m_mapnum + NUMCOLORMAPS / 2) / NUMCOLORMAPS;
+	unsigned int g = (trancolor.getg() * lightcolor.getg() * (NUMCOLORMAPS - m_mapnum) / 255
+					+ fadecolor.getg() * m_mapnum + NUMCOLORMAPS / 2) / NUMCOLORMAPS;
+	unsigned int b = (trancolor.getb() * lightcolor.getb() * (NUMCOLORMAPS - m_mapnum) / 255
+					+ fadecolor.getb() * m_mapnum + NUMCOLORMAPS / 2) / NUMCOLORMAPS;
 
 	return argb_t(gammatable[r], gammatable[g], gammatable[b]);
 }

@@ -927,15 +927,8 @@ bool SV_SetupUserInfo(player_t &player)
 	if (gender < 0 || gender >= NUMGENDER)
 		gender = GENDER_NEUTER;
 
-	if (aimdist < 0)
-		aimdist = 0;
-	if (aimdist > (fixed_t)(5000 * 16384))
-		aimdist = (fixed_t)(5000 * 16384);
-
-	if (update_rate < 1)
-		update_rate = 1;
-	else if (update_rate > 3)
-		update_rate = 3;
+	aimdist = clamp(aimdist, 0, 5000 * 16384);
+	update_rate = clamp((int)update_rate, 1, 3);
 
 	if (switchweapon >= WPSW_NUMTYPES || switchweapon < 0)
 		switchweapon = WPSW_ALWAYS;
@@ -947,14 +940,6 @@ bool SV_SetupUserInfo(player_t &player)
 	player.userinfo.aimdist			= aimdist;
 	player.userinfo.switchweapon	= switchweapon;
 	memcpy(player.userinfo.weapon_prefs, weapon_prefs, sizeof(weapon_prefs));
-
-	// [SL] 2011-12-02 - Prevent players from spamming certain userinfo updates
-	if (player.userinfo.next_change_time > gametic)
-	{
-		// Send the client's actual userinfo back to them so they can reset it
-		SV_SendUserInfo (player, &player.client);
-		return true;
-	}
 
 	player.userinfo.gender			= gender;
 	player.userinfo.team			= new_team;
@@ -1050,9 +1035,6 @@ bool SV_SetupUserInfo(player_t &player)
 				player.userinfo.netname.c_str(), team_names[new_team]);
 		}
 	}
-
-	// [SL] 2011-12-02 - Player can update all preferences again in 5 seconds
-	player.userinfo.next_change_time = gametic + 5 * TICRATE;
 
 	return true;
 }
@@ -3699,9 +3681,9 @@ void SV_SetPlayerSpec(player_t &player, bool setting, bool silent) {
 		// Instead we respawn the player, move him back, and immediately spectate him afterwards
 		if (player.playerstate == PST_DEAD)
 		{
-			player.deadspectator = true; // prevent teleport fog
+//			player.deadspectator = true; // prevent teleport fog
 			G_DoReborn (player);
-			player.deadspectator = false;
+//			player.deadspectator = false;
 		}
 
 		player.spectator = true;
@@ -4642,7 +4624,8 @@ BEGIN_COMMAND (playerinfo)
 	Printf(PRINT_HIGH, " userinfo.team    - %d \n",		player->userinfo.team);
 	Printf(PRINT_HIGH, " userinfo.aimdist - %d \n",		player->userinfo.aimdist);
 	Printf(PRINT_HIGH, " userinfo.unlag   - %d \n",		player->userinfo.unlag);
-	Printf(PRINT_HIGH, " userinfo.color   - %d \n",		player->userinfo.color);
+	Printf(PRINT_HIGH, " userinfo.color   - #%02x%02x%02x \n",
+			player->userinfo.color.getr(), player->userinfo.color.getg(), player->userinfo.color.getb());
 	Printf(PRINT_HIGH, " userinfo.gender  - %d \n",		player->userinfo.gender);
 	Printf(PRINT_HIGH, " time             - %d \n",		player->GameTime);
 	Printf(PRINT_HIGH, "--------------------------------------- \n");
@@ -4728,14 +4711,9 @@ void OnActivatedLine (line_t *line, AActor *mo, int side, int activationType)
 // [RH]
 // ClientObituary: Show a message when a player dies
 //
-void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker)
+void ClientObituary(AActor* self, AActor* inflictor, AActor* attacker)
 {
-	int	 mod;
-	const char *message;
-	int messagenum;
 	char gendermessage[1024];
-	BOOL friendly;
-	int  gender;
 
 	if (!self || !self->player)
 		return;
@@ -4744,7 +4722,7 @@ void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker)
 	if (shotclock || gamestate != GS_LEVEL)
 		return;
 
-	gender = self->player->userinfo.gender;
+	int gender = self->player->userinfo.gender;
 
 	// Treat voodoo dolls as unknown deaths
 	if (inflictor && inflictor->player == self->player)
@@ -4758,10 +4736,10 @@ void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker)
 		self->player->userinfo.team == attacker->player->userinfo.team)
 		MeansOfDeath |= MOD_FRIENDLY_FIRE;
 
-	friendly = MeansOfDeath & MOD_FRIENDLY_FIRE;
-	mod = MeansOfDeath & ~MOD_FRIENDLY_FIRE;
-	message = NULL;
-	messagenum = 0;
+	bool friendly = MeansOfDeath & MOD_FRIENDLY_FIRE;
+	int mod = MeansOfDeath & ~MOD_FRIENDLY_FIRE;
+	const char* message = NULL;
+	int messagenum = 0;
 
 	switch (mod)
 	{
@@ -4779,7 +4757,8 @@ void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker)
 	if (messagenum)
 		message = GStrings(messagenum);
 
-	if (attacker && message == NULL) {
+	if (attacker && message == NULL)
+	{
 		if (attacker == self)
 		{
 			switch (mod)
@@ -4790,9 +4769,12 @@ void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker)
 			}
 			message = GStrings(messagenum);
 		}
-		else if (!attacker->player) {
-			if (mod == MOD_HIT) {
-				switch (attacker->type) {
+		else if (!attacker->player)
+		{
+			if (mod == MOD_HIT)
+			{
+				switch (attacker->type)
+				{
 					case MT_UNDEAD:
 						messagenum = OB_UNDEADHIT;
 						break;
@@ -4817,8 +4799,11 @@ void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker)
 					default:
 						break;
 				}
-			} else {
-				switch (attacker->type) {
+			}
+			else
+			{
+				switch (attacker->type)
+				{
 					case MT_POSSESSED:	messagenum = OB_ZOMBIE;		break;
 					case MT_SHOTGUY:	messagenum = OB_SHOTGUY;	break;
 					case MT_VILE:		messagenum = OB_VILE;		break;
@@ -4840,25 +4825,26 @@ void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker)
 
 			if (messagenum)
 				message = GStrings(messagenum);
-			}
+		}
 	}
 
-	if (message) {
-		SexMessage (message, gendermessage, gender,
-			self->player->userinfo.netname.c_str(), self->player->userinfo.netname.c_str());
-		SV_BroadcastPrintf (PRINT_MEDIUM, "%s\n", gendermessage);
+	if (message)
+	{
+		SexMessage(message, gendermessage, gender,
+				self->player->userinfo.netname.c_str(), self->player->userinfo.netname.c_str());
+		SV_BroadcastPrintf(PRINT_MEDIUM, "%s\n", gendermessage);
 		return;
 	}
 
-	if (attacker && attacker->player) {
-		if (friendly) {
-			int rnum = P_Random ();
-
-			self = attacker;
-			gender = self->player->userinfo.gender;
-			messagenum = OB_FRIENDLY1 + (rnum & 3);
-
-		} else {
+	if (attacker && attacker->player)
+	{
+		if (friendly)
+		{
+			gender = attacker->player->userinfo.gender;
+			messagenum = OB_FRIENDLY1 + (P_Random() & 3);
+		}
+		else
+		{
 			switch (mod)
 			{
 				case MOD_FIST:			messagenum = OB_MPFIST;			break;
@@ -4882,15 +4868,15 @@ void ClientObituary (AActor *self, AActor *inflictor, AActor *attacker)
 
 	if (message && attacker && attacker->player)
 	{
-		SexMessage (message, gendermessage, gender,
-			self->player->userinfo.netname.c_str(), attacker->player->userinfo.netname.c_str());
-		SV_BroadcastPrintf (PRINT_MEDIUM, "%s\n", gendermessage);
+		SexMessage(message, gendermessage, gender,
+				self->player->userinfo.netname.c_str(), attacker->player->userinfo.netname.c_str());
+		SV_BroadcastPrintf(PRINT_MEDIUM, "%s\n", gendermessage);
 		return;
 	}
 
-	SexMessage (GStrings(OB_DEFAULT), gendermessage, gender,
-		self->player->userinfo.netname.c_str(), self->player->userinfo.netname.c_str());
-	SV_BroadcastPrintf (PRINT_MEDIUM, "%s\n", gendermessage);
+	SexMessage(GStrings(OB_DEFAULT), gendermessage, gender,
+			self->player->userinfo.netname.c_str(), self->player->userinfo.netname.c_str());
+	SV_BroadcastPrintf(PRINT_MEDIUM, "%s\n", gendermessage);
 }
 
 void SV_SendDamagePlayer(player_t *player, int damage)
