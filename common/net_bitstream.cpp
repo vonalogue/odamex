@@ -447,6 +447,36 @@ float BitStream::readFloat()
 		return val;
 }
 
+
+//
+// BitStream::writeColor
+//
+// Writes a color value in ARGB8888 format.
+//
+void BitStream::writeColor(const argb_t color)
+{
+	writeBits(color.getb(), 8);
+	writeBits(color.getg(), 8);
+	writeBits(color.getr(), 8);
+	writeBits(color.geta(), 8);
+}
+
+
+//
+// BitStream::readColor
+//
+// Reads a color value in ARGB8888 format.
+//
+argb_t BitStream::readColor()
+{
+	uint8_t b = readBits(8);
+	uint8_t g = readBits(8);
+	uint8_t r = readBits(8);
+	uint8_t a = readBits(8);
+	return argb_t(a, r, g, b);
+}
+
+
 //
 // BitStream::writeBlob
 //

@@ -58,6 +58,7 @@ public:
 	void writeU32(int val);
 	void writeFloat(float val);
 	void writeString(const OString& str);
+	void writeColor(const argb_t color);
 	
 	int readBits(uint16_t bitcount);
 	bool readBit();
@@ -69,6 +70,7 @@ public:
 	uint32_t readU32();
 	float readFloat();
 	OString readString();
+	argb_t readColor();
 
 	int peekBits(uint16_t bitcount) const;
 	bool peekBit() const;
