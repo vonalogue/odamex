@@ -17,11 +17,6 @@
 // GNU General Public License for more details.
 //
 // DESCRIPTION:
-//	Functions for drawing columns into a temporary buffer and then
-//	copying them to the screen. On machines with a decent cache, this
-//	is faster than drawing them directly to the screen. Will I be able
-//	to even understand any of this if I come back to it later? Let's
-//	hope so. :-)
 //
 //-----------------------------------------------------------------------------
 
@@ -50,86 +45,9 @@
 #include "r_defs.h"
 #include "r_draw.h"
 #include "r_main.h"
-#include "r_things.h"
 #include "i_video.h"
 
-// SSE2 alpha-blending functions.
-// NOTE(jsd): We can only blend two colors per 128-bit register because we need 16-bit resolution for multiplication.
-
-// Blend 4 colors against 1 color using SSE2:
-#define blend4vs1_sse2(input,blendMult,blendInvAlpha,upper8mask) \
-	(_mm_packus_epi16( \
-		_mm_srli_epi16( \
-			_mm_adds_epu16( \
-				_mm_mullo_epi16( \
-					_mm_and_si128(_mm_unpacklo_epi8(input, input), upper8mask), \
-					blendInvAlpha \
-				), \
-				blendMult \
-			), \
-			8 \
-		), \
-		_mm_srli_epi16( \
-			_mm_adds_epu16( \
-				_mm_mullo_epi16( \
-					_mm_and_si128(_mm_unpackhi_epi8(input, input), upper8mask), \
-					blendInvAlpha \
-				), \
-				blendMult \
-			), \
-			8 \
-		) \
-	))
-
 // Direct rendering (32-bit) functions for SSE2 optimization:
-
-template<>
-void rtv_lucent4cols_SSE2(byte *source, argb_t *dest, int bga, int fga)
-{
-	// SSE2 temporaries:
-	const __m128i upper8mask = _mm_set_epi16(0, 0xff, 0xff, 0xff, 0, 0xff, 0xff, 0xff);
-	const __m128i fgAlpha = _mm_set_epi16(0, fga, fga, fga, 0, fga, fga, fga);
-	const __m128i bgAlpha = _mm_set_epi16(0, bga, bga, bga, 0, bga, bga, bga);
-
-	const __m128i bgColors = _mm_loadu_si128((__m128i *)dest);
-	const __m128i fgColors = _mm_setr_epi32(
-		rt_mapcolor<argb_t>(dcol.colormap, source[0]),
-		rt_mapcolor<argb_t>(dcol.colormap, source[1]),
-		rt_mapcolor<argb_t>(dcol.colormap, source[2]),
-		rt_mapcolor<argb_t>(dcol.colormap, source[3])
-	);
-
-	const __m128i finalColors = _mm_packus_epi16(
-		_mm_srli_epi16(
-			_mm_adds_epu16(
-				_mm_mullo_epi16(_mm_and_si128(_mm_unpacklo_epi8(bgColors, bgColors), upper8mask), bgAlpha),
-				_mm_mullo_epi16(_mm_and_si128(_mm_unpacklo_epi8(fgColors, fgColors), upper8mask), fgAlpha)
-			),
-			8
-		),
-		_mm_srli_epi16(
-			_mm_adds_epu16(
-				_mm_mullo_epi16(_mm_and_si128(_mm_unpackhi_epi8(bgColors, bgColors), upper8mask), bgAlpha),
-				_mm_mullo_epi16(_mm_and_si128(_mm_unpackhi_epi8(fgColors, fgColors), upper8mask), fgAlpha)
-			),
-			8
-		)
-	);
-
-	_mm_storeu_si128((__m128i *)dest, finalColors);
-}
-
-template<>
-void rtv_lucent4cols_SSE2(byte *source, palindex_t *dest, int bga, int fga)
-{
-	for (int i = 0; i < 4; ++i)
-	{
-		const palindex_t fg = rt_mapcolor<palindex_t>(dcol.colormap, source[i]);
-		const palindex_t bg = dest[i];
-
-		dest[i] = rt_blend2<palindex_t>(bg, bga, fg, fga);
-	}
-}
 
 //
 // R_GetBytesUntilAligned
@@ -161,7 +79,7 @@ void R_DrawSpanD_SSE2 (void)
 	dsfixed_t vstep = dspan.xstep;
 
 	const byte* source = dspan.source;
-	argb_t* dest = (argb_t*)ylookup[dspan.y] + dspan.x1 + viewwindowx;
+	argb_t* dest = (argb_t*)dspan.destination + dspan.y * dspan.pitch_in_pixels + dspan.x1;
 
 	shaderef_t colormap = dspan.colormap;
 	
@@ -281,7 +199,7 @@ void R_DrawSlopeSpanD_SSE2 (void)
 	float id = dspan.id, ids = dspan.idstep;
 	
 	// framebuffer	
-	argb_t* dest = (argb_t*)ylookup[dspan.y] + dspan.x1 + viewwindowx;
+	argb_t* dest = (argb_t*)dspan.destination + dspan.y * dspan.pitch_in_pixels + dspan.x1;
 	
 	// texture data
 	byte *src = (byte *)dspan.source;
@@ -405,40 +323,15 @@ void R_DrawSlopeSpanD_SSE2 (void)
 }
 
 
-//
-// R_SetM128i
-//
-// Sets an __m128i SSE2 register with the given color channel values.
-// The surface is queried for the pixel format and the color channel values
-// are set in the appropriate order for the pixel format.
-//
-static inline __m128i R_SetM128i(const IWindowSurface* surface, int a, int r, int g, int b)
-{
-	// determine the layout of the color channels in memory
-	const PixelFormat* format = surface->getPixelFormat();
-	int apos = (24 - format->getAShift()) >> 3;
-	int rpos = (24 - format->getRShift()) >> 3;
-	int gpos = (24 - format->getGShift()) >> 3;
-	int bpos = (24 - format->getBShift()) >> 3;
-
-	uint16_t values[4];
-	values[apos] = a; values[rpos] = r; values[gpos] = g; values[bpos] = b;
-
-	return _mm_set_epi16(values[0], values[1], values[2], values[3],
-						values[0], values[1], values[2], values[3]);
-}
-
 void r_dimpatchD_SSE2(IWindowSurface* surface, argb_t color, int alpha, int x1, int y1, int w, int h)
 {
 	int surface_pitch_pixels = surface->getPitchInPixels();
 	int line_inc = surface_pitch_pixels - w;
 
 	// SSE2 temporaries:
-	const __m128i upper8mask	= R_SetM128i(surface, 0, 0xFF, 0xFF, 0xFF);
-	const __m128i blendAlpha	= R_SetM128i(surface, 0, alpha, alpha, alpha);
-	const __m128i blendInvAlpha	= R_SetM128i(surface, 0, 256 - alpha, 256 - alpha, 256 - alpha);
-	const __m128i blendColor	= R_SetM128i(surface, 0, color.getr(), color.getg(), color.getb()); 
-	const __m128i blendMult		= _mm_mullo_epi16(blendColor, blendAlpha);
+	const __m128i vec_color			= _mm_unpacklo_epi8(_mm_set1_epi32(color), _mm_setzero_si128());
+	const __m128i vec_alphacolor	= _mm_mullo_epi16(vec_color, _mm_set1_epi16(alpha));
+	const __m128i vec_invalpha		= _mm_set1_epi16(256 - alpha);
 
 	argb_t* dest = (argb_t*)surface->getBuffer() + y1 * surface_pitch_pixels + x1;
 
@@ -450,8 +343,8 @@ void r_dimpatchD_SSE2(IWindowSurface* surface, argb_t color, int alpha, int x1, 
 		if (align > w)
 			align = w;
 
-		int batches = (w - align) / 4;
-		int remainder = (w - align) & 3;
+		int batches = (w - align) / 8;
+		int remainder = (w - align) & (8 - 1);
 
 		// align the destination buffer to 16-byte boundary
 		while (align--)
@@ -460,26 +353,33 @@ void r_dimpatchD_SSE2(IWindowSurface* surface, argb_t color, int alpha, int x1, 
 			dest++;
 		}
 
-		// SSE2 optimize the bulk in batches of 4 colors:
+		// SSE2 optimize the bulk in batches of 8 pixels:
 		while (batches--)
 		{
-			const __m128i input = _mm_load_si128((__m128i*)dest);
-	
+			// Load 4 pixels into input0 and 4 pixels into input1
+			const __m128i vec_input0 = _mm_load_si128((__m128i*)(dest + 0));
+			const __m128i vec_input1 = _mm_load_si128((__m128i*)(dest + 4));
+
 			// Expand the width of each color channel from 8bits to 16 bits
 			// by splitting input into two 128bit variables, each
 			// containing 2 ARGB values. 16bit color channels are needed to
 			// accomodate multiplication.
-			__m128i lower = _mm_and_si128(_mm_unpacklo_epi8(input, input), upper8mask);
-			__m128i upper = _mm_and_si128(_mm_unpackhi_epi8(input, input), upper8mask);
+			__m128i vec_lower0 = _mm_unpacklo_epi8(vec_input0, _mm_setzero_si128());
+			__m128i vec_upper0 = _mm_unpackhi_epi8(vec_input0, _mm_setzero_si128());
+			__m128i vec_lower1 = _mm_unpacklo_epi8(vec_input1, _mm_setzero_si128());
+			__m128i vec_upper1 = _mm_unpackhi_epi8(vec_input1, _mm_setzero_si128());
 
 			// ((input * invAlpha) + (color * Alpha)) >> 8
-			lower = _mm_srli_epi16(_mm_adds_epu16(_mm_mullo_epi16(lower, blendInvAlpha), blendMult), 8);
-			upper = _mm_srli_epi16(_mm_adds_epu16(_mm_mullo_epi16(upper, blendInvAlpha), blendMult), 8);
+			vec_lower0 = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(vec_lower0, vec_invalpha), vec_alphacolor), 8); 
+			vec_upper0 = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(vec_upper0, vec_invalpha), vec_alphacolor), 8); 
+			vec_lower1 = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(vec_lower1, vec_invalpha), vec_alphacolor), 8); 
+			vec_upper1 = _mm_srli_epi16(_mm_add_epi16(_mm_mullo_epi16(vec_upper1, vec_invalpha), vec_alphacolor), 8); 
 
 			// Compress the width of each color channel to 8bits again and store in dest
-			_mm_store_si128((__m128i*)dest, _mm_packus_epi16(lower, upper));
+			_mm_store_si128((__m128i*)(dest + 0), _mm_packus_epi16(vec_lower0, vec_upper0));
+			_mm_store_si128((__m128i*)(dest + 4), _mm_packus_epi16(vec_lower1, vec_upper1));
 
-			dest += 4;
+			dest += 8;
 		}
 
 		// Pick up the remainder:

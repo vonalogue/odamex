@@ -68,8 +68,6 @@ extern int				validcount;
 extern int				linecount;
 extern int				loopcount;
 
-extern byte**			ylookup;
-
 extern fixed_t			render_lerp_amount;
 
 // [SL] Current color blending values (including palette effects)
@@ -121,11 +119,6 @@ extern int				lightscaleymul;
 extern void 			(*colfunc) (void);
 extern void 			(*spanfunc) (void);
 extern void				(*spanslopefunc) (void);
-
-// [RH] Function pointers for the horizontal column drawers.
-extern void (*hcolfunc_pre) (void);
-extern void (*hcolfunc_post1) (int hx, int sx, int yl, int yh);
-extern void (*hcolfunc_post4) (int sx, int yl, int yh);
 
 
 //
@@ -255,7 +248,7 @@ inline argb_t shaderef_t::tlate(const translationref_t &translation, const byte 
 
 	// Default to white light:
 	argb_t lightcolor = argb_t(255, 255, 255);
-	argb_t fadecolor = level.fadeto; 
+	argb_t fadecolor(level.fadeto_color[0], level.fadeto_color[1], level.fadeto_color[2], level.fadeto_color[3]);
 
 	// Use the dynamic lighting's light color if we have one:
 	if (m_dyncolormap != NULL)

@@ -108,7 +108,6 @@ void D_DoAdvanceDemo (void);
 void D_DoomLoop (void);
 
 extern QWORD testingmode;
-extern int NewWidth, NewHeight, NewBits;
 extern BOOL gameisdead;
 extern BOOL demorecording;
 extern bool M_DemoNoPlay;	// [RH] if true, then skip any demos in the loop
@@ -148,6 +147,7 @@ EXTERN_CVAR (vid_ticker)
 EXTERN_CVAR (vid_defwidth)
 EXTERN_CVAR (vid_defheight)
 EXTERN_CVAR (vid_32bpp)
+EXTERN_CVAR (vid_widescreen)
 EXTERN_CVAR (vid_fullscreen)
 EXTERN_CVAR (vid_vsync)
 
@@ -222,6 +222,7 @@ void D_Display()
 
 	BEGIN_STAT(D_Display);
 
+	// video mode must be changed before surfaces are locked in I_BeginUpdate
 	V_AdjustVideoMode();
 
 	I_BeginUpdate();
@@ -267,17 +268,17 @@ void D_Display()
 			if (AM_ClassicAutomapVisible() || AM_OverlayAutomapVisible())
 				AM_Drawer();
 
-			C_DrawMid();
-			C_DrawGMid();
 			CTF_DrawHud();
 			HU_Drawer();
+			C_DrawMid();
+			C_DrawGMid();
 			break;
 
 		case GS_INTERMISSION:
-			C_DrawMid();
 			CTF_DrawHud();
 			WI_Drawer();
 			HU_Drawer();
+			C_DrawMid();
 			break;
 
 		case GS_FINALE:
@@ -584,9 +585,9 @@ void D_Init()
 	// Load palette and set up colormaps
 	V_Init();
 
-	if (first_time)
-		Printf(PRINT_HIGH, "Res_InitTextureManager: Init image resource management.\n");
-	Res_InitTextureManager();
+//	if (first_time)
+//		Printf(PRINT_HIGH, "Res_InitTextureManager: Init image resource management.\n");
+//	Res_InitTextureManager();
 
 	// [RH] Initialize localizable strings.
 	GStrings.LoadStrings(W_GetNumForName("LANGUAGE"), STRING_TABLE_SIZE, false);
@@ -695,8 +696,7 @@ void STACK_ARGS D_Shutdown()
 
 	GStrings.FreeData();
 
-
-	Res_ShutdownTextureManager();
+//	Res_ShutdownTextureManager();
 
 //	R_ShutdownColormaps();
 
@@ -750,58 +750,17 @@ void D_DoomMain()
 
 	D_LoadResourceFiles(newwadfiles, newpatchfiles);
 
-	int video_width = M_GetParmValue("-width");
-	int video_height = M_GetParmValue("-height");
-	int video_bpp = M_GetParmValue("-bits");
-
-	// ensure the width & height cvars are sane
-	if (vid_defwidth.asInt() <= 0 || vid_defheight.asInt() <= 0)
-	{
-		vid_defwidth.RestoreDefault();
-		vid_defheight.RestoreDefault();
-	}
-	
-	if (video_width == 0 && video_height == 0)
-	{
-		video_width = vid_defwidth.asInt();
-		video_height = vid_defheight.asInt();
-	}
-	else if (video_width == 0)
-	{
-		video_width = video_height * 4 / 3;
-	}
-	else if (video_height == 0)
-	{
-		video_height = video_width * 3 / 4;
-	}
-
-	if (video_bpp == 0 || (video_bpp != 8 && video_bpp != 32))
-		video_bpp = vid_32bpp ? 32 : 8;
-
 	Printf(PRINT_HIGH, "I_Init: Init hardware.\n");
+	atterm(I_ShutdownHardware);
 	I_Init();
-	Printf(PRINT_HIGH, "I_SetVideoMode: %ix%ix%i %s\n", video_width, video_height, video_bpp,
-			vid_fullscreen != 0.0f ? "FULLSCREEN" : "WINDOWED");
-	I_SetVideoMode(video_width, video_height, video_bpp, vid_fullscreen, vid_vsync);
-
-	std::string video_driver = I_GetVideoDriverName();
-	if (!video_driver.empty())
-		Printf(PRINT_HIGH, "I_SetVideoMode: Using %s video driver.\n", video_driver.c_str());
-
-	// SDL needs video mode set up first before input code can be used
 	I_InitInput();
 
 	// [SL] Call init routines that need to be reinitialized every time WAD changes
-	D_Init();
 	atterm(D_Shutdown);
+	D_Init();
 
 	// Base systems have been inited; enable cvar callbacks
 	cvar_t::EnableCallbacks();
-
-	Printf(PRINT_HIGH, "S_Init: Setting up sound.\n");
-	Printf(PRINT_HIGH, "S_Init: default sfx volume is %g\n", (float)snd_sfxvolume);
-	Printf(PRINT_HIGH, "S_Init: default music volume is %g\n", (float)snd_musicvolume);
-	S_Init(snd_sfxvolume, snd_musicvolume);
 
 	// [RH] User-configurable startup strings. Because BOOM does.
 	if (GStrings(STARTUP1)[0])	Printf(PRINT_HIGH, "%s\n", GStrings(STARTUP1));

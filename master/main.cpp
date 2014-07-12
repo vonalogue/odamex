@@ -37,6 +37,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <stdint.h>
+
 #ifdef UNIX
 #include <netinet/in.h>
 #include <unistd.h>
@@ -365,7 +367,7 @@ void pingServer(SServer &s)
 	}
 
 #ifdef _WIN32
-	s.key_sent = rand() * (int)GetModuleHandle(0) * time(0);
+	s.key_sent = rand() * (intptr_t)GetModuleHandle(0) * time(0);
 #else
 	s.key_sent = rand() * getpid() * time(0);
 #endif

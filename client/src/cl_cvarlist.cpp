@@ -296,6 +296,11 @@ CVAR(				cl_predictweapons, "1", "Draw weapon effects immediately",
 CVAR(				cl_netgraph, "0", "Show a graph of network related statistics",
 					CVARTYPE_BOOL, CVAR_NULL)
 
+CVAR(				cl_forcedownload, "0", "Forces the client to download the last WAD file when connecting " \
+											"to a server, even if the client already has that file " \
+											"(requires developer 1).",
+					CVARTYPE_BOOL, CVAR_NULL)
+
 // Client Preferences
 // ------------------
 
@@ -587,9 +592,6 @@ CVAR(			r_flashhom, "0", "Draws flashing colors where there is HOM",
 CVAR(			r_drawflat, "0", "Disables all texturing of walls, floors and ceilings",
 				CVARTYPE_BOOL, CVAR_NULL)
 
-CVAR(			r_columnmethod, "1", "Deprecated",
-				CVARTYPE_BOOL, CVAR_CLIENTARCHIVE)
-
 #if 0
 CVAR(			r_drawhitboxes, "0", "Draws a box outlining every actor's hitboxes",
 				CVARTYPE_BOOL, CVAR_NULL)
@@ -639,10 +641,10 @@ CVAR_RANGE(		r_painintensity, "1", "Intensity of red pain effect",
 CVAR(			r_viewsize, "0", "Set to the current video resolution",
 				CVARTYPE_STRING, CVAR_NOSET | CVAR_NOENABLEDISABLE)
 
-CVAR(			vid_defwidth, "640", "",
+CVAR_FUNC_DECL(	vid_defwidth, "640", "",
 				CVARTYPE_WORD, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE)
 
-CVAR(			vid_defheight, "480", "",
+CVAR_FUNC_DECL(	vid_defheight, "480", "",
 				CVARTYPE_WORD, CVAR_CLIENTARCHIVE | CVAR_NOENABLEDISABLE)
 
 CVAR_FUNC_DECL(	vid_widescreen, "0", "Use wide field-of-view with widescreen video modes",

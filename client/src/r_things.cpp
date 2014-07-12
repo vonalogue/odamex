@@ -393,11 +393,6 @@ void SpriteColumnBlaster()
 	R_BlastSpriteColumn(colfunc);
 }
 
-void SpriteHColumnBlaster()
-{
-	R_BlastSpriteColumn(hcolfunc_pre);
-}
-
 //
 // R_DrawVisSprite
 //	mfloorclip and mceilingclip should also be set.
@@ -479,11 +474,9 @@ void R_DrawVisSprite (vissprite_t *vis, int x1, int x2)
 		colfrac += vis->xiscale;
 	}
 
-	bool rend_multiple_columns = r_columnmethod && !fuzz_effect;
-
 	// TODO: change from negonearray to actual top of sprite
 	R_RenderColumnRange(vis->x1, vis->x2, negonearray, viewheightarray,
-			spriteposts, SpriteColumnBlaster, SpriteHColumnBlaster, false, rend_multiple_columns);
+			spriteposts, SpriteColumnBlaster, false, 0);
 
 	R_ResetDrawFuncs();
 }
@@ -985,7 +978,8 @@ void R_DrawPlayerSprites (void)
 		&ceilinglight, false);
 
 	// [RH] set foggy flag
-	foggy = (level.fadeto || sec->colormap->fade);
+	foggy = level.fadeto_color[0] || level.fadeto_color[1] || level.fadeto_color[2] || level.fadeto_color[3]
+				|| sec->colormap->fade;
 
 	// [RH] set basecolormap
 	basecolormap = sec->colormap->maps;

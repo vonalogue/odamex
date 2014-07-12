@@ -1006,14 +1006,10 @@ menu_t AutomapMenu = {
  *
  *=======================================*/
 
-extern int NewWidth, NewHeight, NewBits;
-
 QWORD testingmode;		// Holds time to revert to old mode
-int OldWidth, OldHeight, OldBits;
+int OldWidth, OldHeight;
 
-static void BuildModesList(int hiwidth, int hiheight, int hi_id);
 static bool GetSelectedSize(int line, int *width, int *height);
-static void SetModesMenu(int w, int h, int bits);
 
 EXTERN_CVAR (vid_defwidth)
 EXTERN_CVAR (vid_defheight)
@@ -1086,12 +1082,24 @@ menu_t ModesMenu = {
 	NULL
 };
 
-static void BuildModesList(int hiwidth, int hiheight, int hi_bits)
+static void BuildModesList(int hiwidth, int hiheight)
 {
-    const char** str = NULL;
+	// gathers a list of unique resolutions availible for the current
+	// screen mode (windowed or fullscreen)
+	bool fullscreen = I_GetWindow()->getVideoMode()->isFullScreen();
 
-	const IVideoModeList* modes = I_GetWindow()->getSupportedVideoModes();
-	IVideoModeList::const_iterator mode_it = modes->begin();
+	typedef std::vector< std::pair<uint16_t, uint16_t> > MenuModeList;
+	MenuModeList menumodelist;
+
+	const IVideoModeList* videomodelist = I_GetVideoCapabilities()->getSupportedVideoModes();
+	for (IVideoModeList::const_iterator it = videomodelist->begin(); it != videomodelist->end(); ++it)
+		if (it->isFullScreen() == fullscreen)
+			menumodelist.push_back(std::make_pair(it->getWidth(), it->getHeight()));
+	menumodelist.erase(std::unique(menumodelist.begin(), menumodelist.end()), menumodelist.end());
+	
+	MenuModeList::const_iterator mode_it = menumodelist.begin();
+	
+    const char** str = NULL;
 
 	for (int i = VM_RESSTART; ModesItems[i].type == screenres; i++)
 	{
@@ -1105,10 +1113,10 @@ static void BuildModesList(int hiwidth, int hiheight, int hi_bits)
 			else if (col == 2)
 				str = &ModesItems[i].d.res3;
 
-			if (mode_it != modes->end())
+			if (mode_it != menumodelist.end())
 			{
-				int width = mode_it->getWidth();
-				int height = mode_it->getHeight();
+				int width = mode_it->first;
+				int height = mode_it->second;
 				++mode_it;
 
 				if (width == hiwidth && height == hiheight)
@@ -1128,7 +1136,7 @@ static void BuildModesList(int hiwidth, int hiheight, int hi_bits)
 
 void M_RefreshModesList()
 {
-	BuildModesList(I_GetVideoWidth(), I_GetVideoHeight(), I_GetVideoBitDepth());
+	BuildModesList(I_GetVideoWidth(), I_GetVideoHeight());
 }
 
 static bool GetSelectedSize(int line, int* width, int* height)
@@ -1138,19 +1146,34 @@ static bool GetSelectedSize(int line, int* width, int* height)
 
 	int mode_num = (line - VM_RESSTART) * 3 + ModesItems[line].a.selmode;
 
-	const IVideoModeList* modes = I_GetWindow()->getSupportedVideoModes();
-	IVideoModeList::const_iterator mode_it = modes->begin() + mode_num;
+	const char* resolution_str = NULL;
 
-	if (mode_it == modes->end())
+	if (mode_num % 3 == 0)
+		resolution_str = ModesItems[line].b.res1;
+	else if (mode_num % 3 == 1)
+		resolution_str = ModesItems[line].c.res2;
+	else if (mode_num % 3 == 2)
+		resolution_str = ModesItems[line].d.res3;
+
+	if (!resolution_str)
 		return false;
 
-	*width = mode_it->getWidth();
-	*height = mode_it->getHeight();
+	size_t xpos = 0;
+	for (const char* s = resolution_str; s; s++, xpos++)
+		if (*s == 'x' || *s == 'X')
+			break;
+
+	char width_str[5] = { 0 }, height_str[5] = { 0 };
+	strncpy(width_str, resolution_str, xpos);
+	strncpy(height_str, resolution_str + xpos + 1, 4);
+
+	*width = atoi(width_str);
+	*height = atoi(height_str);
 
 	return true;
 }
 
-static void SetModesMenu(int w, int h, int bits)
+static void SetModesMenu(int w, int h)
 {
 	if (!testingmode)
 	{
@@ -1160,13 +1183,13 @@ static void SetModesMenu(int w, int h, int bits)
 	else
 	{
 		static char enter_text[64];
-		sprintf(enter_text, "TESTING %dx%dx%d", w, h, bits);
+		sprintf(enter_text, "TESTING %dx%d", w, h);
 
 		ModesItems[VM_ENTERLINE].label = enter_text; 
 		ModesItems[VM_TESTLINE].label = VMTestWaitText;
 	}
 
-	BuildModesList(w, h, bits);
+	BuildModesList(w, h);
 }
 
 //
@@ -1184,17 +1207,16 @@ void M_ModeFlashTestText()
 
 void M_RestoreMode (void)
 {
-	NewWidth = OldWidth;
-	NewHeight = OldHeight;
-	NewBits = OldBits;
-	V_ForceVideoModeAdjustment();
+	V_SetResolution(OldWidth, OldHeight);
 	testingmode = 0;
-	SetModesMenu(OldWidth, OldHeight, OldBits);
+
+	SetModesMenu(OldWidth, OldHeight);
 }
 
 static void SetVidMode()
 {
-	SetModesMenu(I_GetVideoWidth(), I_GetVideoHeight(), I_GetVideoBitDepth());
+	SetModesMenu(I_GetVideoWidth(), I_GetVideoHeight());
+
 	if (ModesMenu.items[ModesMenu.lastOn].type == screenres)
 	{
 		if (ModesMenu.items[ModesMenu.lastOn].a.selmode == -1)
@@ -1246,18 +1268,13 @@ static void M_SlideUIBlue (int val)
 
 void M_OptInit (void)
 {
-	int currval = 0;
-
-	const IVideoModeList* modes = I_GetWindow()->getSupportedVideoModes();
-
-	for (IVideoModeList::const_iterator it = modes->begin(); it != modes->end(); ++it)
+	for (int i = 0; i < 22; i++)
 	{
-		Depths[currval].value = currval;
-		Depths[currval].name = NULL;
-		currval++;
+		Depths[i].value = i;
+		Depths[i].name = NULL;
 	}
 
-	switch (I_DisplayType ())
+	switch (I_GetVideoCapabilities()->getDisplayType())
 	{
 	case DISPLAY_FullscreenOnly:
 		ModesItems[2].type = nochoice;
@@ -1951,7 +1968,7 @@ void M_OptResponder (event_t *ev)
 
 						// Hack hack. Rebuild list of resolutions
 						if (item->e.values == Depths)
-							BuildModesList(I_GetVideoWidth(), I_GetVideoHeight(), I_GetVideoBitDepth());
+							BuildModesList(I_GetVideoWidth(), I_GetVideoHeight());
 					}
 					S_Sound (CHAN_INTERFACE, "plats/pt1_mid", 1, ATTN_NONE);
 					break;
@@ -2075,7 +2092,7 @@ void M_OptResponder (event_t *ev)
 
 						// Hack hack. Rebuild list of resolutions
 						if (item->e.values == Depths)
-							BuildModesList(I_GetVideoWidth(), I_GetVideoHeight(), I_GetVideoBitDepth());
+							BuildModesList(I_GetVideoWidth(), I_GetVideoHeight());
 					}
 					S_Sound (CHAN_INTERFACE, "plats/pt1_mid", 1, ATTN_NONE);
 					break;
@@ -2142,17 +2159,20 @@ void M_OptResponder (event_t *ev)
 		case KEY_ENTER:
 			if (CurrentMenu == &ModesMenu)
 			{
-				if (!(item->type == screenres && GetSelectedSize(CurrentItem, &NewWidth, &NewHeight)))
+				int width, height;
+
+				if (!(item->type == screenres && GetSelectedSize(CurrentItem, &width, &height)))
 				{
-					NewWidth = I_GetVideoWidth();
-					NewHeight = I_GetVideoHeight();
+					width = I_GetVideoWidth();
+					height = I_GetVideoHeight();
 				}
-				NewBits = (int)vid_32bpp ? 32 : 8;
-				V_ForceVideoModeAdjustment();
+
+				vid_defwidth.Set(width);
+				vid_defheight.Set(height);
+
+				V_SetResolution(width, height);
+				SetModesMenu(width, height);
 				S_Sound (CHAN_INTERFACE, "weapons/pistol", 1, ATTN_NONE);
-				vid_defwidth.Set ((float)NewWidth);
-				vid_defheight.Set ((float)NewHeight);
-				SetModesMenu (NewWidth, NewHeight, NewBits);
 			}
 			else if (item->type == more && item->e.mfunc)
 			{
@@ -2174,7 +2194,7 @@ void M_OptResponder (event_t *ev)
 
 				// Hack hack. Rebuild list of resolutions
 				if (item->e.values == Depths)
-					BuildModesList(I_GetVideoWidth(), I_GetVideoHeight(), I_GetVideoBitDepth());
+					BuildModesList(I_GetVideoWidth(), I_GetVideoHeight());
 
 				S_Sound (CHAN_INTERFACE, "plats/pt1_mid", 1, ATTN_NONE);
 			}
@@ -2222,20 +2242,23 @@ void M_OptResponder (event_t *ev)
 				// Test selected resolution
 				if (CurrentMenu == &ModesMenu)
 				{
-					if (!(item->type == screenres &&
-						GetSelectedSize(CurrentItem, &NewWidth, &NewHeight)))
+					int width, height;
+
+					if (!(item->type == screenres && GetSelectedSize(CurrentItem, &width, &height)))
 					{
-						NewWidth = I_GetVideoWidth();
-						NewHeight = I_GetVideoHeight();
+						width = I_GetVideoWidth();
+						height = I_GetVideoHeight();
 					}
+
 					OldWidth = I_GetVideoWidth();
 					OldHeight = I_GetVideoHeight();
-					OldBits = I_GetVideoBitDepth();
-					NewBits = (int)vid_32bpp ? 32 : 8;
-					V_ForceVideoModeAdjustment();
+
+					V_SetResolution(width, height);
+
 					testingmode = I_MSTime() * TICRATE / 1000 + 5 * TICRATE;
+					SetModesMenu(width, height);
+
 					S_Sound (CHAN_INTERFACE, "weapons/pistol", 1, ATTN_NONE);
-					SetModesMenu(NewWidth, NewHeight, NewBits);
 				}
 			}
 			break;

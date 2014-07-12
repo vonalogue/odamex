@@ -436,8 +436,6 @@ inline void DCanvas::DrawColoredLucentPatchCleanNoMove (const patch_t *patch, in
 // This is the screen updated by I_FinishUpdate.
 extern	DCanvas *screen;
 
-extern	DBoundingBox 	dirtybox;
-
 // Translucency tables
 extern argb_t Col2RGB8[65][256];
 extern palindex_t RGB32k[32][32][32];
@@ -460,15 +458,11 @@ extern shaderef_t V_Palette;
 void V_MarkRect (int x, int y, int width, int height);
 
 // Returns the closest color to the one desired. String
-// should be of the form "rr gg bb".
+// should be of the form "rr gg bb" or the name of a color
+// as defined in the X11R6RGB lump.
 argb_t V_GetColorFromString(const std::string& str);
 
-// Scans through the X11R6RGB lump for a matching color
-// and returns a color string suitable for V_GetColorFromString.
-std::string V_GetColorStringByName(const std::string& name);
-
-
-bool V_SetResolution (int width, int height, int bpp);
+void V_SetResolution(uint16_t width, uint16_t height);
 
 template<>
 forceinline palindex_t rt_blend2(const palindex_t bg, const int bga, const palindex_t fg, const int fga)

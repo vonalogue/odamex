@@ -96,15 +96,15 @@ shaderef_t::shaderef_t(const shaderef_t &other) :
 shaderef_t::shaderef_t(const shademap_t* const colors, const int mapnum) :
 	m_colors(colors), m_mapnum(mapnum)
 {
-#if DEBUG
+	#if ODAMEX_DEBUG
 	// NOTE(jsd): Arbitrary value picked here because we don't record the max number of colormaps for dynamic ones... or do we?
 	if (m_mapnum >= 8192)
 	{
 		char tmp[100];
-		sprintf_s(tmp, "32bpp: shaderef_t::shaderef_t() called with mapnum = %d, which looks too large", m_mapnum);
+		sprintf(tmp, "32bpp: shaderef_t::shaderef_t() called with mapnum = %d, which looks too large", m_mapnum);
 		throw CFatalError(tmp);
 	}
-#endif
+	#endif
 
 	if (m_colors != NULL)
 	{
@@ -454,60 +454,13 @@ void V_ClosestColors(const argb_t* palette_colors, palindex_t& color1, palindex_
 
 
 //
-// V_GetColorFromString
-//
-// Parses a string of up to 6 hexadecimal digits representing an RGB triplet
-// and converts it into an argb_t value.
-//
-argb_t V_GetColorFromString(const std::string& str)
-{
-	const char* cstr = str.c_str();
-
-	int c[3], i, p;
-	char val[5];
-	const char *s, *g;
-
-	val[4] = 0;
-	for (s = cstr, i = 0; i < 3; i++)
-	{
-		c[i] = 0;
-
-		while ((*s <= ' ') && (*s != 0))
-			s++;
-
-		if (*s)
-		{
-			p = 0;
-
-			while (*s > ' ')
-			{
-				if (p < 4)
-					val[p++] = *s;
-
-				s++;
-			}
-
-			g = val;
-
-			while (p < 4)
-				val[p++] = *g++;
-
-			c[i] = ParseHex(val);
-		}
-	}
-
-	return argb_t(c[0] >> 8, c[1] >> 8, c[2] >> 8);
-}
-
-
-//
 // V_GetColorStringByName
 //
-// Returns a string with up to 6 hexadecimal digits suitable for use with
+// Returns a string with 6 hexadecimal digits suitable for use with
 // V_GetColorFromString. A given colorname is looked up in the X11R6RGB lump
 // and its value is returned.
 //
-std::string V_GetColorStringByName(const std::string& name)
+static std::string V_GetColorStringByName(const std::string& name)
 {
 	/* Note: The X11R6RGB lump used by this function *MUST* end
 	 * with a NULL byte. This is so that COM_Parse is able to
@@ -555,6 +508,61 @@ std::string V_GetColorStringByName(const std::string& name)
 		}
 	}
 	return "";
+}
+
+
+//
+// V_GetColorFromString
+//
+// Parses a string of 6 hexadecimal digits representing an RGB triplet
+// and converts it into an argb_t value. It will also accept the name of a
+// color, as defined in the X11R6RGB lump, using V_GetColorStringByName
+// to look up the RGB triplet value.
+//
+argb_t V_GetColorFromString(const std::string& input_string)
+{
+	// first check if input_string is the name of a color
+	const std::string color_name_string = V_GetColorStringByName(input_string);
+
+	// if not a valid color name, try to parse the color channel values
+	const char* str = color_name_string.empty() == false ?
+					color_name_string.c_str() :
+					input_string.c_str();
+
+	int c[3], i, p;
+	char val[5];
+	const char *s, *g;
+
+	val[4] = 0;
+	for (s = str, i = 0; i < 3; i++)
+	{
+		c[i] = 0;
+
+		while ((*s <= ' ') && (*s != 0))
+			s++;
+
+		if (*s)
+		{
+			p = 0;
+
+			while (*s > ' ')
+			{
+				if (p < 4)
+					val[p++] = *s;
+
+				s++;
+			}
+
+			g = val;
+
+			while (p < 4)
+				val[p++] = *g++;
+
+			c[i] = ParseHex(val);
+		}
+	}
+
+	return argb_t(c[0] >> 8, c[1] >> 8, c[2] >> 8);
 }
 
 
@@ -709,7 +717,7 @@ void BuildDefaultColorAndShademap(palette_t *pal, shademap_t &maps)
 	// from Doom Utilities. Now accomodates fading to non-black colors.
 
 	const argb_t* palette = pal->basecolors;
-	argb_t fadecolor = level.fadeto;
+	argb_t fadecolor(level.fadeto_color[0], level.fadeto_color[1], level.fadeto_color[2], level.fadeto_color[3]);
 	
 	palindex_t* colormap = maps.colormap;
 	argb_t* shademap = maps.shademap;
@@ -753,7 +761,7 @@ void BuildDefaultShademap(palette_t *pal, shademap_t &maps)
 	// from Doom Utilities. Now accomodates fading to non-black colors.
 
 	const argb_t* palette = pal->basecolors;
-	argb_t fadecolor = level.fadeto;
+	argb_t fadecolor(level.fadeto_color[0], level.fadeto_color[1], level.fadeto_color[2], level.fadeto_color[3]);
 	
 	argb_t* shademap = maps.shademap;
 
@@ -797,7 +805,8 @@ void V_RefreshColormaps()
 
 	NormalLight.maps = shaderef_t(&palette->maps, 0);
 	NormalLight.color = argb_t(255, 255, 255, 255);
-	NormalLight.fade = level.fadeto;
+	NormalLight.fade = argb_t(level.fadeto_color[0], level.fadeto_color[1],
+							level.fadeto_color[2], level.fadeto_color[3]);
 
 	R_ReinitColormap();
 }
@@ -885,13 +894,7 @@ BEGIN_COMMAND (testblend)
 	}
 	else
 	{
-		std::string colorstring = V_GetColorStringByName(argv[1]);
-		argb_t color;
-
-		if (!colorstring.empty())
-			color = V_GetColorFromString(colorstring);
-		else
-			color = V_GetColorFromString(argv[1]);
+		argb_t color(V_GetColorFromString(argv[1]));
 
 		int alpha = 255.0 * clamp(atof(argv[2]), 0.0, 1.0);
 		R_SetSectorBlend(argb_t(alpha, color.getr(), color.getg(), color.getb()));
@@ -907,15 +910,13 @@ BEGIN_COMMAND (testfade)
 	}
 	else
 	{
-		std::string colorstring = V_GetColorStringByName(argv[1]);
-		argb_t color;
+		argb_t color(V_GetColorFromString(argv[1]));
 
-		if (!colorstring.empty())
-			color = V_GetColorFromString(colorstring);
-		else
-			color = V_GetColorFromString(argv[1]);
+		level.fadeto_color[0] = color.geta();
+		level.fadeto_color[1] = color.getr();
+		level.fadeto_color[2] = color.getg();
+		level.fadeto_color[3] = color.getb();
 
-		level.fadeto = color;
 		V_RefreshColormaps();
 		NormalLight.maps = shaderef_t(&V_GetDefaultPalette()->maps, 0);
 	}
@@ -1083,17 +1084,11 @@ BEGIN_COMMAND (testcolor)
 	}
 	else
 	{
-		std::string colorstring = V_GetColorStringByName(argv[1]);
-		argb_t color;
-
-		if (!colorstring.empty())
-			color = V_GetColorFromString(colorstring);
-		else
-			color = V_GetColorFromString(argv[1]);
+		argb_t color(V_GetColorFromString(argv[1]));
 
 		BuildColoredLights((shademap_t*)NormalLight.maps.map(),
 				color.getr(), color.getg(), color.getb(),
-				level.fadeto.getr(), level.fadeto.getg(), level.fadeto.getb());
+				level.fadeto_color[1], level.fadeto_color[2], level.fadeto_color[3]);
 	}
 }
 END_COMMAND (testcolor)

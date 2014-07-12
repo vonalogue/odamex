@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include <cstdlib>
 
 enum EDisplayType
 {
@@ -41,9 +42,11 @@ enum EDisplayType
 };
 
 // forward definitions
-class DCanvas;
+class IVideoMode;
+class IVideoCapabilities;
 class IWindow;
 class IWindowSurface;
+class DCanvas;
 
 void I_InitHardware();
 void STACK_ARGS I_ShutdownHardware();
@@ -52,6 +55,7 @@ bool I_VideoInitialized();
 void I_SetVideoMode(int width, int height, int bpp, bool fullscreen, bool vsync);
 void I_SetWindowSize(int width, int height);
 
+const IVideoCapabilities* I_GetVideoCapabilities();
 IWindow* I_GetWindow();
 IWindowSurface* I_GetPrimarySurface();
 DCanvas* I_GetPrimaryCanvas();
@@ -82,14 +86,209 @@ void I_WaitVBL(int count);
 void I_SetWindowCaption(const std::string& caption = "");
 void I_SetWindowIcon();
 
+std::string I_GetVideoModeString(const IVideoMode* mode);
 std::string I_GetVideoDriverName();
-
-EDisplayType I_DisplayType();
 
 const PixelFormat* I_Get8bppPixelFormat();
 const PixelFormat* I_Get32bppPixelFormat();
 
 void I_DrawLoadingIcon();
+
+
+// ****************************************************************************
+
+// ============================================================================
+//
+// IVideoMode class interface
+//
+// ============================================================================
+
+class IVideoMode
+{
+public:
+	IVideoMode(uint16_t width, uint16_t height, uint8_t bpp, bool fullscreen) :
+		mWidth(width), mHeight(height), mBitsPerPixel(bpp), mFullScreen(fullscreen)
+	{ }
+
+	uint16_t getWidth() const
+	{	return mWidth;	}
+
+	uint16_t getHeight() const
+	{	return mHeight;	}
+
+	uint8_t getBitsPerPixel() const
+	{	return mBitsPerPixel;	}
+
+	bool isFullScreen() const
+	{	return mFullScreen;	}
+
+	bool operator==(const IVideoMode& other) const
+	{
+		return mWidth == other.mWidth && mHeight == other.mHeight &&
+			mBitsPerPixel == other.mBitsPerPixel && mFullScreen == other.mFullScreen;
+	}
+
+	bool operator!=(const IVideoMode& other) const
+	{
+		return !(operator==(other));
+	}
+
+	bool operator<(const IVideoMode& other) const
+	{
+		if (mWidth != other.mWidth)
+			return mWidth < other.mWidth;
+		if (mHeight != other.mHeight)
+			return mHeight < other.mHeight;
+		if (mBitsPerPixel != other.mBitsPerPixel)
+			return mBitsPerPixel < other.mBitsPerPixel;
+		if (mFullScreen != other.mFullScreen)
+			return (int)mFullScreen < (int)other.mFullScreen;
+		return false;
+	}
+
+	bool operator>(const IVideoMode& other) const
+	{
+		if (mWidth != other.mWidth)
+			return mWidth > other.mWidth;
+		if (mHeight != other.mHeight)
+			return mHeight > other.mHeight;
+		if (mBitsPerPixel != other.mBitsPerPixel)
+			return mBitsPerPixel > other.mBitsPerPixel;
+		if (mFullScreen != other.mFullScreen)
+			return (int)mFullScreen > (int)other.mFullScreen;
+		return false;
+	}
+
+	bool operator<=(const IVideoMode& other) const
+	{
+		return operator<(other) || operator==(other);
+	}
+
+	bool operator>=(const IVideoMode& other) const
+	{
+		return operator>(other) || operator==(other);
+	}
+
+	bool isValid() const
+	{
+		return mWidth > 0 && mHeight > 0 && (mBitsPerPixel == 8 || mBitsPerPixel == 32);
+	}
+
+	bool isWideScreen() const
+	{
+		if ((mWidth == 320 && mHeight == 200) || (mWidth == 640 && mHeight == 400))
+			return false;
+
+		// consider the mode widescreen if it's width-to-height ratio is
+		// closer to 16:10 than it is to 4:3
+		return abs(15 * (int)mWidth - 20 * (int)mHeight) > abs(15 * (int)mWidth - 24 * (int)mHeight);
+	}
+
+	float getAspectRatio() const
+	{
+		return float(mWidth) / float(mHeight);
+	}
+
+	float getPixelAspectRatio() const
+	{
+		// assume that all widescreen modes have square pixels
+		if (isWideScreen())
+			return 1.0f;
+
+		return mWidth * 0.75f / mHeight;
+	}
+
+private:
+	uint16_t	mWidth;
+	uint16_t	mHeight;
+	uint8_t		mBitsPerPixel;
+	bool		mFullScreen;
+};
+
+typedef std::vector<IVideoMode> IVideoModeList;
+
+
+// ****************************************************************************
+
+// ============================================================================
+//
+// IVideoCapabilities abstract base class interface
+//
+// Defines an interface for querying video capabilities. This includes listing
+// availible video modes and supported operations.
+//
+// ============================================================================
+
+class IVideoCapabilities
+{
+public:
+	virtual ~IVideoCapabilities() { }
+
+	virtual const IVideoModeList* getSupportedVideoModes() const = 0;
+
+	virtual bool supportsFullScreen() const
+	{	return getDisplayType() == DISPLAY_FullscreenOnly || getDisplayType() == DISPLAY_Both;	}
+
+	virtual bool supportsWindowed() const
+	{	return getDisplayType() == DISPLAY_WindowOnly || getDisplayType() == DISPLAY_Both;	}
+
+	virtual const EDisplayType getDisplayType() const = 0;
+
+	virtual bool supports8bpp() const
+	{
+		const IVideoModeList* modelist = getSupportedVideoModes();
+		for (IVideoModeList::const_iterator it = modelist->begin(); it != modelist->end(); ++it)
+		{
+			if (it->getBitsPerPixel() == 8)
+				return true;
+		}
+		return false;
+	}
+
+	virtual bool supports32bpp() const
+	{
+		const IVideoModeList* modelist = getSupportedVideoModes();
+		for (IVideoModeList::const_iterator it = modelist->begin(); it != modelist->end(); ++it)
+		{
+			if (it->getBitsPerPixel() == 32)
+				return true;
+		}
+		return false;
+	}
+
+	virtual const IVideoMode* getNativeMode() const = 0;
+};
+
+
+// ============================================================================
+//
+// IDummyVideoCapabilities class interface
+//
+// For use with headless clients.
+//
+// ============================================================================
+
+class IDummyVideoCapabilities : public IVideoCapabilities
+{
+public:
+	IDummyVideoCapabilities() : IVideoCapabilities(), mVideoMode(320, 200, 8, false)
+	{	mModeList.push_back(mVideoMode);	}
+
+	virtual ~IDummyVideoCapabilities() { }
+
+	virtual const IVideoModeList* getSupportedVideoModes() const
+	{	return &mModeList;	}
+
+	virtual const EDisplayType getDisplayType() const
+	{	return DISPLAY_WindowOnly;	}
+
+	virtual const IVideoMode* getNativeMode() const
+	{	return &mVideoMode;	}
+
+private:
+	IVideoModeList		mModeList;
+	IVideoMode			mVideoMode;
+};
 
 
 // ****************************************************************************
@@ -119,37 +318,21 @@ public:
 
 	inline uint8_t* getBuffer()
 	{
-		#ifdef DEBUG
-		if (!mLocks)
-			return NULL;
-		#endif
 		return mSurfaceBuffer;
 	}
 
 	inline const uint8_t* getBuffer() const
 	{
-		#ifdef DEBUG
-		if (!mLocks)
-			return NULL;
-		#endif
 		return mSurfaceBuffer;
 	}
 
 	inline uint8_t* getBuffer(uint16_t x, uint16_t y)
 	{
-		#ifdef DEBUG
-		if (!mLocks)
-			return NULL;
-		#endif
 		return mSurfaceBuffer + int(y) * getPitch() + int(x) * getBytesPerPixel();
 	}
 
 	inline const uint8_t* getBuffer(uint16_t x, uint16_t y) const
 	{
-		#ifdef DEBUG
-		if (!mLocks)
-			return NULL;
-		#endif
 		return mSurfaceBuffer + int(y) * getPitch() + int(x) * getBytesPerPixel();
 	}
 
@@ -228,57 +411,7 @@ private:
 
 // ****************************************************************************
 
-// ============================================================================
-//
-// IVideoMode class interface
-//
-// ============================================================================
 
-class IVideoMode
-{
-public:
-	IVideoMode(int width, int height) :
-		mWidth(width), mHeight(height)
-	{ }
-
-	int getWidth() const
-	{	return mWidth;	}
-
-	int getHeight() const
-	{	return mHeight;	}
-
-	bool operator<(const IVideoMode& other) const
-	{
-		if (mWidth != other.mWidth)
-			return mWidth < other.mWidth;
-		if (mHeight != other.mHeight)
-			return mHeight < other.mHeight;
-		return false;
-	}
-
-	bool operator>(const IVideoMode& other) const
-	{
-		if (mWidth != other.mWidth)
-			return mWidth > other.mWidth;
-		if (mHeight != other.mHeight)
-			return mHeight > other.mHeight;
-		return false;
-	}
-
-	bool operator==(const IVideoMode& other) const
-	{
-		return mWidth == other.mWidth && mHeight == other.mHeight;
-	}
-	
-private:
-	int mWidth;
-	int mHeight;
-};
-
-typedef std::vector<IVideoMode> IVideoModeList;
-
-
-// ****************************************************************************
 
 // ============================================================================
 //
@@ -293,11 +426,6 @@ class IWindow
 public:
 	virtual ~IWindow()
 	{ }
-
-	virtual const IVideoModeList* getSupportedVideoModes() const = 0;
-	virtual const EDisplayType getDisplayType() const = 0;
-
-	virtual IVideoMode getClosestMode(int width, int height);
 
 	virtual IWindowSurface* getPrimarySurface() = 0;
 	virtual const IWindowSurface* getPrimarySurface() const = 0;
@@ -314,15 +442,18 @@ public:
 	virtual int getBytesPerPixel() const
 	{	return getPrimarySurface()->getBytesPerPixel();	}
 
-	virtual bool isFullScreen() const = 0;
+	virtual const IVideoMode* getVideoMode() const = 0;
+
+	virtual bool isFullScreen() const
+	{	return getVideoMode()->isFullScreen();	}
+
+	virtual bool usingVSync() const
+	{	return false;	}
 
 	virtual bool setMode(uint16_t width, uint16_t height, uint8_t bpp, bool fullscreen, bool vsync) = 0;
 
-	virtual void lockSurface()
-	{	getPrimarySurface()->lock();	}
-
-	virtual void unlockSurface()
-	{	getPrimarySurface()->unlock();	}
+	virtual void lockSurface() { }
+	virtual void unlockSurface() { }
 
 	virtual void refresh() { }
 
@@ -352,25 +483,25 @@ public:
 class IDummyWindow : public IWindow
 {
 public:
-	IDummyWindow() : IWindow()
+	IDummyWindow() : IWindow(), mVideoMode(320, 200, 8, true)
 	{
-		mPrimarySurface = I_AllocateSurface(320, 200, 8);
+		int width = getVideoMode()->getWidth();
+		int height = getVideoMode()->getHeight();
+		int bpp = getVideoMode()->getBitsPerPixel();
+		mPrimarySurface = I_AllocateSurface(width, height, bpp);
 	}
 
 	virtual ~IDummyWindow()
 	{	delete mPrimarySurface;	}
-
-	virtual const IVideoModeList* getSupportedVideoModes() const
-	{	return &mVideoModes;	}
-
-	virtual const EDisplayType getDisplayType() const
-	{	return DISPLAY_Both;	}
 
 	virtual IWindowSurface* getPrimarySurface()
 	{	return mPrimarySurface;	}
 
 	virtual const IWindowSurface* getPrimarySurface() const
 	{	return mPrimarySurface;	}
+
+	virtual const IVideoMode* getVideoMode() const
+	{	return &mVideoMode;	}
 
 	virtual bool setMode(uint16_t width, uint16_t height, uint8_t bpp, bool fullscreen, bool vsync)
 	{	return true;	}
@@ -385,7 +516,72 @@ private:
 
 	IVideoModeList		mVideoModes;
 	IWindowSurface*		mPrimarySurface;
+
+	IVideoMode			mVideoMode;
 };
 
+
+// ****************************************************************************
+
+// ============================================================================
+//
+// IVideoSubsystem abstract base class interface
+//
+// Provides intialization and shutdown mechanics for the video subsystem.
+// This is really an abstract factory pattern as it instantiates a family
+// of concrete types.
+//
+// ============================================================================
+
+class IVideoSubsystem
+{
+public:
+	virtual ~IVideoSubsystem() { }
+
+	virtual const IVideoCapabilities* getVideoCapabilities() const = 0;
+
+	virtual IWindow* getWindow() = 0;
+	virtual const IWindow* getWindow() const = 0;
+};
+
+
+// ============================================================================
+//
+// IDummyVideoSubsystem class interface
+//
+// Video subsystem for headless clients.
+//
+// ============================================================================
+
+class IDummyVideoSubsystem : public IVideoSubsystem
+{
+public:
+	IDummyVideoSubsystem() : IVideoSubsystem()
+	{
+		mVideoCapabilities = new IDummyVideoCapabilities();
+		mWindow = new IDummyWindow();
+	}
+
+	virtual ~IDummyVideoSubsystem()
+	{
+		delete mWindow;
+		delete mVideoCapabilities;
+	}
+
+	virtual const IVideoCapabilities* getVideoCapabilities() const
+	{	return mVideoCapabilities;	}
+
+	virtual IWindow* getWindow()
+	{	return mWindow;	}
+
+	virtual const IWindow* getWindow() const
+	{	return mWindow;	}
+	
+private:
+	const IVideoCapabilities*		mVideoCapabilities;
+
+	IWindow*						mWindow;
+};
+	
 
 #endif // __I_VIDEO_H__
