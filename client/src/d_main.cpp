@@ -90,6 +90,7 @@
 #include "net_log.h"
 
 #include "res_texture.h"
+#include "w_ident.h"
 
 #ifdef GEKKO
 #include "i_wii.h"
@@ -722,6 +723,8 @@ void D_DoomMain()
 	C_InitConsole();
 	atterm(C_ShutdownConsole);
 
+	W_SetupFileIdentifiers();
+
 	// [SL] network logging facility
 	Net_LogStartup();
 	atterm(Net_LogShutdown);
@@ -739,12 +742,16 @@ void D_DoomMain()
 	M_LoadDefaults();					// load before initing other systems
 	C_ExecCmdLineParams(true, false);	// [RH] do all +set commands on the command line
 
-	const char* iwad = Args.CheckValue("-iwad");
-	if (!iwad)
-		iwad = "";
-
 	std::vector<std::string> newwadfiles, newpatchfiles;
-	newwadfiles.push_back(iwad);
+
+	const char* iwad_filename_cstr = Args.CheckValue("-iwad");
+	if (iwad_filename_cstr)
+	{
+		std::string iwad_filename(iwad_filename_cstr);
+		M_AppendExtension(iwad_filename, ".WAD");
+		newwadfiles.push_back(iwad_filename);
+	}
+
 	D_AddWadCommandLineFiles(newwadfiles);
 	D_AddDehCommandLineFiles(newpatchfiles);
 
@@ -758,6 +765,8 @@ void D_DoomMain()
 	// [SL] Call init routines that need to be reinitialized every time WAD changes
 	atterm(D_Shutdown);
 	D_Init();
+
+	atterm(I_Endoom);
 
 	// Base systems have been inited; enable cvar callbacks
 	cvar_t::EnableCallbacks();
