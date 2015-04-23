@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -109,11 +109,11 @@ int __cdecl main(int argc, char *argv[])
     try
     {
         // Handle ctrl-c, close box, shutdown and logoff events
-        if (!SetConsoleCtrlHandler(ConsoleHandlerRoutine, TRUE))
-            throw CDoomError("Could not set console control handler!\n");
-
         if (!(hEvent = CreateEvent(NULL, FALSE, FALSE, NULL)))
             throw CDoomError("Could not create console control event!\n");
+
+        if (!SetConsoleCtrlHandler(ConsoleHandlerRoutine, TRUE))
+            throw CDoomError("Could not set console control handler!\n");
 
         #ifdef _WIN32
         // Fixes icon not showing in titlebar and alt-tab menu under windows 7
@@ -236,10 +236,6 @@ int main (int argc, char **argv)
 			I_FatalError("root user detected, quitting odamex immediately");
 
 	    seteuid (getuid ());
-
-		// ensure OString's string table is properly initialized and shutdown
-		OString::startup();
-		atterm(OString::shutdown);
 
 		Args.SetArgs (argc, argv);
 

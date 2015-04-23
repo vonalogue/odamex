@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -1320,8 +1320,7 @@ void AM_drawWalls(void)
 	int i, r, g, b;
 	static mline_t l;
 	float rdif, gdif, bdif;
-	palette_t *pal = V_GetDefaultPalette();
-
+	const palette_t* pal = V_GetDefaultPalette();
 
 	for (i=0;i<numlines;i++) {
 		l.a.x = lines[i].v1->x;
@@ -1516,8 +1515,7 @@ void AM_drawPlayers(void)
 {
 	angle_t angle;
 	player_t &conplayer = displayplayer();
-	argb_t *palette;
-	palette = V_GetDefaultPalette()->colors;
+	const argb_t* palette = V_GetDefaultPalette()->colors;
 
 	if (!multiplayer)
 	{
@@ -1724,7 +1722,7 @@ void AM_Drawer()
 					x = surface_width - text_width, y = OV_Y - (text_height * 4) + 1;
 				else
 					x = 0, y = OV_Y - (text_height * 2) + 1;
-	 
+
 				FB->DrawTextClean(CR_GREY, x, y, line);
 			}
 
@@ -1752,6 +1750,8 @@ void AM_Drawer()
 			switch (gamemission)
 			{
 				case doom2:
+				case commercial_freedoom:
+				case commercial_hacx:
 					firstmap = HUSTR_1;
 					break;
 				case pack_plut:

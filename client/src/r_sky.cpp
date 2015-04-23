@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -56,6 +56,7 @@ int 		sky1texture,	sky2texture;
 fixed_t		skytexturemid;
 fixed_t		skyscale;
 int			skystretch;
+fixed_t		skyheight;
 fixed_t		skyiscale;
 
 int			sky1shift,		sky2shift;
@@ -128,8 +129,12 @@ static void R_InitXToViewAngle()
 // [ML] 5/11/06 - Remove sky2 stuffs
 // [ML] 3/16/10 - Bring it back!
 
+void R_GenerateLookup(int texnum, int *const errors); // from r_data.cpp
+
 void R_InitSkyMap()
 {
+	fixed_t fskyheight;
+
 	if (textureheight == NULL)
 		return;
 
@@ -142,36 +147,21 @@ void R_InitSkyMap()
 		Printf (PRINT_HIGH,"\x1f+Both sky textures must be the same height.\x1f-\n");
 		sky2texture = sky1texture;
 	}
-
-	int t_height = textures[sky1texture]->height;
-	int p_height = 0;
-
-	int count = textures[sky1texture]->patchcount;
-	const texpatch_t* texpatch = &(textures[sky1texture]->patches[0]);
 	
-	// Find the tallest patch in the texture
-	for (int i = 0; i < count; i++, texpatch++)
-	{
-		const patch_t* wpatch = W_CachePatch(texpatch->patch);
-		if (wpatch->height() > p_height)
-			p_height = wpatch->height();
-	}
+	fskyheight = textureheight[sky1texture];
 
-	textures[sky1texture]->height = MAX(t_height,p_height);
-	textureheight[sky1texture] = textures[sky1texture]->height << FRACBITS;
-	
-	skystretch = 0;
-
-	if (textureheight[sky1texture] <= (128 << FRACBITS))
+	if (fskyheight <= (128 << FRACBITS))
 	{
 		skytexturemid = 200/2*FRACUNIT;
 		skystretch = (r_stretchsky == 1) || (r_stretchsky == 2 && sv_freelook && cl_mouselook);
 	}
 	else
 	{
-		skytexturemid = 199 * FRACUNIT;
+		skytexturemid = 199<<FRACBITS;//textureheight[sky1texture]-1;
+		skystretch = 0;
 	}
-	
+	skyheight = fskyheight << skystretch;
+
 	if (viewwidth && viewheight)
 	{
 		skyiscale = (200*FRACUNIT) / ((freelookviewheight * viewwidth) / viewwidth);
@@ -271,7 +261,7 @@ void R_RenderSkyRange(visplane_t* pl)
 
 	R_ResetDrawFuncs();
 
-	palette_t *pal = V_GetDefaultPalette();
+	const palette_t* pal = V_GetDefaultPalette();
 
 	dcol.iscale = skyiscale >> skystretch;
 	dcol.texturemid = skytexturemid;

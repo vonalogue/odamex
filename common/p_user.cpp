@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -594,7 +594,7 @@ bool P_AreTeammates(player_t &a, player_t &b)
 
 bool P_CanSpy(player_t &viewer, player_t &other)
 {
-	if (other.spectator || !other.mo)
+	if ((other.id != consoleplayer_id && other.spectator) || !other.mo)
 		return false;
 
 	return (viewer.spectator || P_AreTeammates(viewer, other) || demoplayback);

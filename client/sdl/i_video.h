@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -357,8 +357,8 @@ public:
 	inline const PixelFormat* getPixelFormat() const
 	{	return &mPixelFormat;	}
 
-	void setPalette(const argb_t* palette_colors)
-	{	memcpy(mPalette, palette_colors, 256 * sizeof(*mPalette));	}
+	void setPalette(const argb_t* palette)
+	{	mPalette = palette;	}
 
 	const argb_t* getPalette() const
 	{	return mPalette;	}
@@ -394,7 +394,7 @@ private:
 	uint8_t*			mSurfaceBuffer;
 	bool				mOwnsSurfaceBuffer;
 
-	argb_t				mPalette[256];
+	const argb_t*		mPalette;
 
 	PixelFormat			mPixelFormat;
 

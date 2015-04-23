@@ -88,7 +88,7 @@
 #endif
 
 #ifdef ODA_HAVE_MINIUPNP
-	#define STATICLIB
+	#define MINIUPNP_STATICLIB
 	#include "miniwget.h"
 	#include "miniupnpc.h"
 	#include "upnpcommands.h"

@@ -5,7 +5,7 @@
 //
 // Copyright (C) 1998-2006 by Randy Heit (ZDoom).
 // Copyright (C) 2000-2006 by Sergey Makovkin (CSDoom .62).
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -640,7 +640,6 @@ void CL_SpyCycle(Iterator begin, Iterator end)
 
 		// spectators only cycle between active players
 		if (P_CanSpy(self, player) ||
-			(player.id == consoleplayer_id && !self.spectator) ||
 			demoplayback || netdemo.isPlaying() || netdemo.isPaused())
 		{
 			displayplayer_id = player.id;
@@ -1838,12 +1837,14 @@ void CL_Print (void)
 		Printf(level, "\\c*%s", str);
 	else if (level == PRINT_TEAMCHAT)
 		Printf(level, "\\c!%s", str);
+	else if (level == PRINT_SERVERCHAT)
+		Printf(level, "\\ck%s", str);
 	else
 		Printf(level, "%s", str);
 
 	if (show_messages)
 	{
-		if (level == PRINT_CHAT)
+		if (level == PRINT_CHAT || level == PRINT_SERVERCHAT)
 			S_Sound(CHAN_INTERFACE, gameinfo.chatSound, 1, ATTN_NONE);
 		else if (level == PRINT_TEAMCHAT)
 			S_Sound(CHAN_INTERFACE, "misc/teamchat", 1, ATTN_NONE);

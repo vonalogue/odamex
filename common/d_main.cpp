@@ -4,7 +4,7 @@
 // $Id: d_main.cpp 3426 2012-11-19 17:25:28Z dr_sean $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -182,10 +182,10 @@ static const char* steam_install_subdirs[] =
 
 static char *GetRegistryString(registry_value_t *reg_val)
 {
-	HKEY key;
-	DWORD len;
-	DWORD valtype;
-	char* result;
+	HKEY key = 0;
+	DWORD len = 0;
+	DWORD valtype = 0;
+	char* result = 0;
 
 	// Open the key (directory where the value is stored)
 
@@ -431,6 +431,8 @@ static void D_AddPlatformSearchDirs(std::vector<std::string> &dirs)
 
 				const char* csubpath = subpath;
 				D_AddSearchDir(dirs, csubpath, separator);
+				
+				free(subpath);
 			}
 
 			free(install_path);
@@ -543,6 +545,8 @@ std::string D_GetTitleString()
 		return "Ultimate FreeDoom";
 	if (gamemission == commercial_freedoom)
 		return "FreeDoom";
+	if (gamemission == commercial_hacx)
+		return "HACX";
 
 	return gameinfo.titleString;
 }
@@ -817,13 +821,14 @@ void D_LoadResourceFiles(
 
 	modifiedgame = (wadfiles.size() > 2) || !newpatchfiles.empty();	// more than odamex.wad and IWAD?
 	if (modifiedgame && (gameinfo.flags & GI_SHAREWARE))
-		I_Error("\nYou cannot load additional WADs with the shareware version. Register!");
+		I_FatalError("\nYou cannot load additional WADs with the shareware version. Register!");
 
 	wadhashes = W_InitMultipleFiles(wadfiles);
 
 	// [RH] Initialize localizable strings.
 	// [SL] It is necessary to load the strings here since a dehacked patch
 	// might change the strings
+	GStrings.FreeData();
 	GStrings.LoadStrings(W_GetNumForName("LANGUAGE"), STRING_TABLE_SIZE, false);
 	GStrings.Compact();
 

@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -79,6 +79,7 @@
 #include "r_sky.h"
 #include "d_main.h"
 #include "d_dehacked.h"
+#include "cl_download.h"
 #include "cmdlib.h"
 #include "s_sound.h"
 #include "m_swap.h"
@@ -245,6 +246,7 @@ void D_Display()
 	{
 		case GS_FULLCONSOLE:
 		case GS_DOWNLOAD:
+		    CL_DownloadTicker();
 		case GS_CONNECTING:
         case GS_CONNECTED:
 			C_DrawConsole();
@@ -579,7 +581,8 @@ void D_Init()
 	M_ClearRandom();
 
 	// start the Zone memory manager
-	Z_Init();
+	bool use_zone = !Args.CheckParm("-nozone");
+	Z_Init(use_zone);
 	if (first_time)
 		Printf(PRINT_HIGH, "Z_Init: Heapsize: %u megabytes\n", got_heapsize);
 

@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -109,10 +109,6 @@ int main(int argc, char *argv[])
 			I_FatalError("root user detected, quitting odamex immediately");
 #endif
 
-		// ensure OString's string table is properly initialized and shutdown
-		OString::startup();
-		atterm(OString::shutdown);
-
 		// [ML] 2007/9/3: From Eternity (originally chocolate Doom) Thanks SoM & fraggle!
 		Args.SetArgs (argc, argv);
 
@@ -141,7 +137,29 @@ int main(int argc, char *argv[])
         // [Russell] - No more double-tapping of capslock to enable autorun
         SDL_putenv((char*)"SDL_DISABLE_LOCK_KEYS=1");
 
+		// Set SDL video centering
+		SDL_putenv((char*)"SDL_VIDEO_WINDOW_POS=center");
+		SDL_putenv((char*)"SDL_VIDEO_CENTERED=1");
+
 #if defined _WIN32 && !defined _XBOX
+    	// From the SDL 1.2.10 release notes:
+    	//
+    	// > The "windib" video driver is the default now, to prevent
+    	// > problems with certain laptops, 64-bit Windows, and Windows
+    	// > Vista.
+    	//
+    	// The hell with that.
+
+   		// SoM: the gdi interface is much faster for windowed modes which are more
+   		// commonly used. Thus, GDI is default.
+		//
+		// GDI mouse issues fill many users with great sadness. We are going back
+		// to directx as defulat for now and the people will rejoice. --Hyper_Eye
+     	if (Args.CheckParm ("-gdi"))
+        	putenv((char*)"SDL_VIDEODRIVER=windib");
+    	else if (getenv("SDL_VIDEODRIVER") == NULL || Args.CheckParm ("-directx") > 0)
+        	putenv((char*)"SDL_VIDEODRIVER=directx");
+
         // Set the process affinity mask to 1 on Windows, so that all threads
         // run on the same processor.  This is a workaround for a bug in
         // SDL_mixer that causes occasional crashes.  Thanks to entryway and fraggle for this.

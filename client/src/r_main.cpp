@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -844,11 +844,12 @@ void R_SetupFrame (player_t *player)
 	else
 	{
 		R_ClearSectorBlend();
+		NormalLight.maps = shaderef_t(&realcolormaps, 0);
 	}
 
 	fixedcolormap = shaderef_t();
 	fixedlightlev = 0;
-	palette_t *pal = V_GetDefaultPalette();
+	const palette_t* pal = V_GetDefaultPalette();
 
 	if (camera == player->mo && player->fixedcolormap)
 	{

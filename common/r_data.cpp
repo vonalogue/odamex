@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1998-2006 by Randy Heit (ZDoom).
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -248,6 +248,7 @@ void R_GenerateComposite (int texnum)
 {
 	byte *block = (byte *)Z_Malloc (texturecompositesize[texnum], PU_STATIC,
 						   (void **) &texturecomposite[texnum]);
+	texturecomposite[texnum] = block;
 	texture_t *texture = textures[texnum];
 
 	// Composite the columns together.
@@ -336,7 +337,7 @@ void R_GenerateComposite (int texnum)
 // Rewritten by Lee Killough for performance and to fix Medusa bug
 //
 
-static void R_GenerateLookup(int texnum, int *const errors)
+void R_GenerateLookup(int texnum, int *const errors)
 {
 	const texture_t *texture = textures[texnum];
 
@@ -863,14 +864,14 @@ void R_InitColormaps()
 	realcolormaps.colormap = (byte*)Z_Malloc(256*(NUMCOLORMAPS+1)*numfakecmaps, PU_STATIC,0);
 	realcolormaps.shademap = (argb_t*)Z_Malloc(256*sizeof(argb_t)*(NUMCOLORMAPS+1)*numfakecmaps, PU_STATIC,0);
 
+	delete[] fakecmaps;
 	fakecmaps = new FakeCmap[numfakecmaps];
 
 	R_ForceDefaultColormap("COLORMAP");
 
 	if (numfakecmaps > 1)
 	{
-		palette_t *pal = V_GetDefaultPalette();
-		shaderef_t defpal = shaderef_t(&pal->maps, 0);
+		const palette_t* pal = V_GetDefaultPalette();
 
 		for (unsigned i = ++firstfakecmap, j = 1; j < numfakecmaps; i++, j++)
 		{

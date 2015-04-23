@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -27,6 +27,7 @@
 #include "c_console.h"
 #include "c_dispatch.h"
 #include "d_main.h"
+#include "i_music.h"
 #include "i_system.h"
 #include "i_video.h"
 #include "i_input.h"
@@ -752,18 +753,13 @@ void M_SaveSelect (int choice)
 	saveSlot = choice;
 	strcpy(saveOldString,savegamestrings[choice]);
 
-	strncpy(savegamestrings[choice], asctime(lt) + 4, 20);
+	// If on a game console, auto-fill with date and time to save name
+
+	if (!LoadMenu[choice].status)
+		strncpy(savegamestrings[choice], asctime(lt) + 4, 20);
 
 	saveCharIndex = strlen(savegamestrings[choice]);
 }
-
-/*
-void M_SaveGame (int choice)
-{
-    M_StartMessage("Loading/saving is not supported\n\n(Press any key to "
-                   "continue)\n", M_LoadSaveResponse, false);
-}
-*/
 
 //
 // Selected from DOOM menu
@@ -1156,6 +1152,9 @@ void M_QuitResponse(int ch)
 		return;
 	}
 
+	// Stop the music so we do not get stuck notes
+	I_StopSong();
+	
 	if (!multiplayer)
 	{
 		if (gameinfo.quitSounds)
@@ -2175,10 +2174,8 @@ void M_Init (void)
 	M_OptInit ();
 
 	// [RH] Build a palette translation table for the fire
-	palette_t *pal = V_GetDefaultPalette();
-
 	for (i = 0; i < 256; i++)
-		FireRemap[i] = V_BestColor(pal->basecolors, i, 0, 0);
+		FireRemap[i] = V_BestColor(V_GetDefaultPalette()->basecolors, i, 0, 0);
 }
 
 //

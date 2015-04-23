@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 2000-2006 by Sergey Makovkin (CSDoom .62).
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -277,9 +277,6 @@ CVAR_FUNC_IMPL (sv_waddownloadcap)
 		var.Set(sv_maxrate);
 }
 
-EXTERN_CVAR (sv_antiwallhack)
-EXTERN_CVAR (sv_speedhackfix)
-
 client_c clients;
 
 
@@ -412,7 +409,7 @@ BEGIN_COMMAND (say)
 	if (argc > 1)
 	{
 		std::string chat = C_ArgCombine(argc - 1, (const char **)(argv + 1));
-		SV_BroadcastPrintf(PRINT_CHAT, "[console]: %s\n", chat.c_str());
+		SV_BroadcastPrintf(PRINT_SERVERCHAT, "[console]: %s\n", chat.c_str());
 	}
 }
 END_COMMAND (say)
@@ -1203,13 +1200,7 @@ bool SV_AwarenessUpdate(player_t &player, AActor *mo)
 		ok = false;
 	else if(player.mo && mo->player && SV_IsTeammate(player, *mo->player))
 		ok = true;
-	else if(player.mo && mo->player && !sv_antiwallhack)
-		ok = true;
-	else if (	player.mo && mo->player && sv_antiwallhack &&
-				player.spectator)	// GhostlyDeath -- Spectators MUST see players to F12 properly
-		ok = true;
-	else if (player.mo && mo->player && sv_antiwallhack &&
-         P_CheckSightEdges(player.mo, mo, 5) /*player.awaresector[sectors - mo->subsector->sector]*/)
+	else if(player.mo && mo->player && true)
 		ok = true;
 
 	bool previously_ok = mo->players_aware.get(player.id);
@@ -3458,7 +3449,7 @@ void SV_ProcessPlayerCmd(player_t &player)
 			player.mo->pitch = 0;
 
 		// Apply this ticcmd using the game logic
-		if (!sv_speedhackfix && gamestate == GS_LEVEL)
+		if (gamestate == GS_LEVEL)
 		{
 			P_PlayerThink(&player);
 			player.mo->RunThink();
@@ -4620,7 +4611,15 @@ void SV_RunTics()
 		// [SL] Ordinarily we should call G_DeferedInitNew but this is called
 		// at the end of a gametic and the level reset should take place now
 		// rather than at the start of the next gametic.
-		G_InitNew(level.mapname);
+
+		// [SL] create a copy of level.mapname because G_InitNew uses strncpy
+		// to copy the mapname parameter to level.mapname, which is undefined
+		// behavior.
+		char mapname[9];
+		strncpy(mapname, level.mapname, 8);
+		mapname[8] = 0;
+
+		G_InitNew(mapname);
 	}
 	last_player_count = players.size();
 }

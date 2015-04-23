@@ -3,7 +3,7 @@
 //
 // $Id$
 //
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -38,6 +38,7 @@ void STACK_ARGS I_ShutdownInput (void);
 void I_PauseMouse();
 void I_ResumeMouse();
 void I_ForceUpdateGrab();
+void I_FlushInput();
 
 int I_GetJoystickCount();
 std::string I_GetJoystickNameFromIndex (int index);

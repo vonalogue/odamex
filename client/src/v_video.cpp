@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -72,7 +72,6 @@ DCanvas *screen;
 
 static DBoundingBox dirtybox;
 
-void I_FlushInput();
 bool V_DoSetResolution(uint16_t, uint16_t);
 static void BuildTransTable(const argb_t* palette_colors);
 
@@ -501,9 +500,6 @@ void V_Init()
 	CleanXfac = CleanYfac = std::max(1, std::min(surface_width / 320, surface_height / 200));
 
 	R_InitColumnDrawers();
-
-	// [SL] 2011-11-30 - Prevent the player's view angle from moving
-	I_FlushInput();
 
 	I_SetWindowCaption(D_GetTitleString());
 	I_SetWindowIcon();

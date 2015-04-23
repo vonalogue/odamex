@@ -4,7 +4,7 @@
 // $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
-// Copyright (C) 2006-2014 by The Odamex Team.
+// Copyright (C) 2006-2015 by The Odamex Team.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -1076,7 +1076,7 @@ void WI_updateNetgameStats()
 
 void WI_drawNetgameStats(void)
 {
-	unsigned int i, x, y;
+	unsigned int x, y;
 	short pwidth = percent->width();
 
 	// draw animated background
@@ -1601,9 +1601,10 @@ void WI_Drawer (void)
 		case StatCount:
 			if (multiplayer && sv_maxplayers > 1)
 			{
-				if (sv_gametype == 0 && !wi_newintermission && sv_maxplayers < 5)
-					WI_drawNetgameStats();
-				else
+				// TODO: Fix classic coop scoreboard
+				//if (sv_gametype == 0 && !wi_newintermission && sv_maxplayers < 5)
+					//WI_drawNetgameStats();
+				//else
 					WI_drawDeathmatchStats();
 			}
 			else
