@@ -65,6 +65,7 @@
 #include "c_console.h"
 #include "c_dispatch.h"
 #include "i_system.h"
+#include "i_music.h"
 #include "i_sound.h"
 #include "i_video.h"
 #include "i_input.h"
@@ -114,6 +115,7 @@ extern BOOL gameisdead;
 extern BOOL demorecording;
 extern bool M_DemoNoPlay;	// [RH] if true, then skip any demos in the loop
 extern DThinker ThinkerCap;
+extern dyncolormap_t NormalLight;
 
 BOOL devparm;				// started game with -devparm
 const char *D_DrawIcon;			// [RH] Patch name of icon to draw on next refresh
@@ -438,8 +440,10 @@ void D_DoAdvanceDemo (void)
 
             gamestate = GS_DEMOSCREEN;
             pagename = gameinfo.titlePage;
+            
+            currentmusic = gameinfo.titleMusic;
 
-            S_StartMusic(gameinfo.titleMusic);
+            S_StartMusic(currentmusic.c_str());
 
             break;
         case 1:
@@ -466,7 +470,9 @@ void D_DoAdvanceDemo (void)
 				else
 					pagetic = 170;
                 pagename = gameinfo.titlePage;
-                S_StartMusic(gameinfo.titleMusic);
+                currentmusic = gameinfo.titleMusic;
+                
+                S_StartMusic(currentmusic.c_str());
             }
             else
             {
@@ -499,11 +505,7 @@ void D_DoAdvanceDemo (void)
 	{
 		const patch_t* patch = W_CachePatch(pagename);
 
-		if (page_surface)
-		{
-			I_FreeSurface(page_surface);
-			page_surface = NULL;
-		}
+		I_FreeSurface(page_surface);
 
 		if (gameinfo.flags & GI_PAGESARERAW)
 		{
@@ -531,11 +533,7 @@ void D_DoAdvanceDemo (void)
 //
 void STACK_ARGS D_Close()
 {
-	if (page_surface)
-	{
-		I_FreeSurface(page_surface);
-		page_surface = NULL;
-	}
+	I_FreeSurface(page_surface);
 
 	D_ClearTaskSchedulers();
 }
@@ -708,6 +706,10 @@ void STACK_ARGS D_Shutdown()
 
 	// reset the Zone memory manager
 	Z_Close();
+
+	// [AM] All of our dyncolormaps are freed, tidy up so we
+	//      don't follow wild pointers.
+	NormalLight.next = NULL;
 }
 
 

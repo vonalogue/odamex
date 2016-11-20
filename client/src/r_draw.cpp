@@ -27,10 +27,7 @@
 #include <assert.h>
 #include <algorithm>
 
-#include <SDL.h>
-#if (SDL_VERSION > SDL_VERSIONNUM(1, 2, 7))
-#include "SDL_cpuinfo.h"
-#endif
+#include "i_sdl.h"
 #include "r_intrin.h"
 
 #include "m_alloc.h"
@@ -1503,9 +1500,7 @@ static bool detect_optimizations()
 
 	// Detect CPU features in ascending order of preference:
 	#ifdef __MMX__
-	#ifndef _XBOX // Until SDLx is updated
 	if (SDL_HasMMX())
-	#endif
 		optimizations_available.push_back(OPTIMIZE_MMX);
 	#endif
 	#ifdef __SSE2__

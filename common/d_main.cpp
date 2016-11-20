@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: d_main.cpp 3426 2012-11-19 17:25:28Z dr_sean $
+// $Id$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 2006-2015 by The Odamex Team.
@@ -71,6 +71,7 @@
 #endif
 
 EXTERN_CVAR (waddirs)
+EXTERN_CVAR (cl_waddownloaddir)
 
 std::vector<std::string> wadfiles, wadhashes;		// [RH] remove limit on # of loaded wads
 std::vector<std::string> patchfiles, patchhashes;	// [RH] remove limit on # of loaded wads
@@ -81,6 +82,7 @@ extern bool step_mode;
 
 bool capfps = true;
 float maxfps = 35.0f;
+
 
 #if defined(_WIN32) && !defined(_XBOX)
 
@@ -500,6 +502,9 @@ static std::string BaseFileSearch(std::string file, std::string ext = "", std::s
 	D_AddSearchDir(dirs, getenv("DOOMWADDIR"), separator);
 	D_AddSearchDir(dirs, getenv("DOOMWADPATH"), separator);
 	D_AddSearchDir(dirs, getenv("HOME"), separator);
+
+	//[cSc] Add cl_waddownloaddir as default path
+	D_AddSearchDir(dirs, cl_waddownloaddir.cstring(), separator);
 
 	// [AM] Search additional paths based on platform
 	D_AddPlatformSearchDirs(dirs);
@@ -1122,4 +1127,4 @@ void D_RunTics(void (*sim_func)(), void(*display_func)())
 	} while (I_GetTime() < MIN(simulation_wake_time, display_wake_time));			
 }
 
-VERSION_CONTROL (d_main_cpp, "$Id: d_main.cpp 3426 2012-11-19 17:25:28Z dr_sean $")
+VERSION_CONTROL (d_main_cpp, "$Id$")

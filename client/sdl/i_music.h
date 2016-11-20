@@ -23,7 +23,7 @@
 #ifndef __I_MUSIC_H__
 #define __I_MUSIC_H__
 
-#include "SDL_mixer.h"
+#include <SDL_mixer.h>
 #include "doomstat.h"
 
 typedef struct
@@ -50,6 +50,9 @@ bool S_MusicIsWave(byte* data, size_t length);
 //	MUSIC I/O
 //
 EXTERN_CVAR(snd_musicsystem)
+
+// [ML] Keep track of the currently loaded music lump name
+extern std::string currentmusic;
 
 void I_InitMusic(MusicSystemType musicsystem_type = (MusicSystemType)snd_musicsystem.asInt());
 void STACK_ARGS I_ShutdownMusic(void);

@@ -43,7 +43,7 @@
 #include "z_zone.h"
 #include "i_system.h"
 
-#include "SDL_mixer.h"
+#include <SDL_mixer.h>
 #include "mus2midi.h"
 #include "i_musicsystem.h"
 
@@ -55,6 +55,9 @@ void S_ChangeMusic (std::string musicname, int looping);
 
 EXTERN_CVAR (snd_musicvolume)
 EXTERN_CVAR (snd_musicsystem)
+
+
+std::string currentmusic;
 
 //
 // S_MusicIsMus()
@@ -237,7 +240,11 @@ CVAR_FUNC_IMPL (snd_musicsystem)
 		S_StopMusic();
 	}
 	I_InitMusic();
-	S_ChangeMusic(std::string(level.music, 8), true);
+	
+	if (!level.music || level.music[0] == 0)
+		S_ChangeMusic(currentmusic.c_str(), true);	
+	else
+		S_ChangeMusic(std::string(level.music, 8), true);
 }
 
 //
