@@ -326,7 +326,7 @@ int NET_GetPacket (void)
 int NET_SendPacket (buf_t &buf, netadr_t &to)
 {
 	buf.clear();
-	return;
+	return 0;
 
 /*
     int                   ret;
@@ -362,6 +362,7 @@ int NET_SendPacket (buf_t &buf, netadr_t &to)
           Printf (PRINT_HIGH, "NET_SendPacket: %s\n", strerror(errno));
 #endif
     }
+*/
 }
 
 
