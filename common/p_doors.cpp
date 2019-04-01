@@ -100,7 +100,8 @@ void DDoor::RunThink ()
 	switch (m_Status)
 	{
 	case finished:
-		PlayDoorSound();
+		// Nautilus - Removed call below to prevent doors from playing their opening sound upon closing in multiplayer.
+		// PlayDoorSound();
 		// fall through
 	case destroy:
 		P_SetDoorDestroy(this);
