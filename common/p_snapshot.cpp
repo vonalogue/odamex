@@ -919,7 +919,7 @@ void SectorSnapshot::toSector(sector_t *sector) const
 		
 	if (mCeilingMoverType == SEC_DOOR && mCeilingStatus != DDoor::destroy)
 	{   
-		int status = mCeilingStatus; 
+		
 
 		if (sector->ceilingdata && !sector->ceilingdata->IsA(RUNTIME_CLASS(DDoor)))
 		{
@@ -927,8 +927,7 @@ void SectorSnapshot::toSector(sector_t *sector) const
 			sector->ceilingdata = NULL;
 		}
 
-		if (status == DDoor::finished)
-			return;
+		
 
 		if (!sector->ceilingdata)
 		{
