@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id$
+// $Id: 0887bc88c76169552273b613b9ee55de7ca4b731 $
 //
 // Copyright (C) 2000-2006 by Sergey Makovkin (CSDoom .62).
 // Copyright (C) 2006-2015 by The Odamex Team.
@@ -918,13 +918,18 @@ void SectorSnapshot::toSector(sector_t *sector) const
 	}
 		
 	if (mCeilingMoverType == SEC_DOOR && mCeilingStatus != DDoor::destroy)
-	{
+	{   
+		int status = mCeilingStatus; 
+
 		if (sector->ceilingdata && !sector->ceilingdata->IsA(RUNTIME_CLASS(DDoor)))
 		{
 			sector->ceilingdata->Destroy();
 			sector->ceilingdata = NULL;
 		}
-		
+
+		if (status == DDoor::finished)
+			return;
+
 		if (!sector->ceilingdata)
 		{
 			sector->ceilingdata =
@@ -1211,6 +1216,6 @@ bool P_FloorSnapshotDone(SectorSnapshot *snap)
 	return false;
 }
 
-VERSION_CONTROL (p_snapshot_cpp, "$Id$")
+VERSION_CONTROL (p_snapshot_cpp, "$Id: 0887bc88c76169552273b613b9ee55de7ca4b731 $")
 
 
