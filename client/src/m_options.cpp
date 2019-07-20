@@ -2359,9 +2359,10 @@ static void CustomizeControls (void)
 // record the last menu though, unfortunately
 static void PlayerSetup (void)
 {
-    M_ClearMenus ();
-    M_StartControlPanel ();
-	M_PlayerSetup(0);
+    //M_ClearMenus ();
+    //M_StartControlPanel ();
+	OptionsActive = false;		// [Nautilus] - Actually, OptionsActive just needs to be set to false to transition
+	M_PlayerSetup(0);		// to the player setup menu while preserving the menu stack (recorded menus).
 }
 
 BEGIN_COMMAND (menu_keys)
