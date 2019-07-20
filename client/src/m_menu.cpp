@@ -1187,6 +1187,11 @@ EXTERN_CVAR (cl_color)
 EXTERN_CVAR (cl_gender)
 EXTERN_CVAR (cl_autoaim)
 
+// [Nautilus] - Buffer for storing colors as they change to prevent them from
+// changing the player's color in real time (and consequently flooding the server with updates).
+int colorBuffer[3];
+bool colorChanged = false;
+
 void M_PlayerSetup(int choice)
 {
 	strcpy(savegamestrings[0], cl_name.cstring());
@@ -1197,8 +1202,12 @@ void M_PlayerSetup(int choice)
 	if (fire_surface == NULL)
 		fire_surface = I_AllocateSurface(fire_surface_width, fire_surface_height, 8);
 
-	// [Nes] Intialize the player preview color.
+	// [Nes] Intialize the player preview color (and color buffer).
 	argb_t player_color = CL_GetPlayerColor(&consoleplayer());
+	argb_t base_color = V_GetColorFromString(cl_color);
+	colorBuffer[0] = base_color.getr();
+	colorBuffer[1] = base_color.getg();
+	colorBuffer[2] = base_color.getb();
 	R_BuildPlayerTranslation(0, player_color);
 }
 
@@ -1394,9 +1403,16 @@ static void M_PlayerSetupDrawer (void)
 		int spritenum = states[mobjinfo[MT_PLAYER].spawnstate].sprite;
 		spriteframe_t* sprframe = &sprites[spritenum].spriteframes[PlayerState->frame & FF_FRAMEMASK];
 
-		// [Nes] Color of player preview uses the unused translation table (player 0), instead
-		// of the table of the current player color. (Which is different in single, demo, and team)
-		argb_t player_color = CL_GetPlayerColor(&consoleplayer());
+		// [Nautilus] - In a team game, apply the player's team color to the previewed color
+		// the whole time; otherwise, update the previewed color with any changes made. 
+
+		argb_t player_color;
+			
+		if (sv_gametype == GM_TEAMDM || sv_gametype == GM_CTF)
+			player_color = CL_GetPlayerColor(&consoleplayer());
+		else
+			player_color = argb_t(255, colorBuffer[0], colorBuffer[1], colorBuffer[2]);
+		
 		R_BuildPlayerTranslation(0, player_color);
 		V_ColorMap = translationref_t(translationtables, 0);
 
@@ -1417,11 +1433,10 @@ static void M_PlayerSetupDrawer (void)
 
 	{
 		int x = V_StringWidth("Green") + 8 + PSetupDef.x;
-		argb_t playercolor = V_GetColorFromString(cl_color);
-
-		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*2, 0.0f, 255.0f, playercolor.getr());
-		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*3, 0.0f, 255.0f, playercolor.getg());
-		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT*4, 0.0f, 255.0f, playercolor.getb());
+	
+		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT * 2, 0.0f, 255.0f, colorBuffer[0]);
+		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT * 3, 0.0f, 255.0f, colorBuffer[1]);
+		M_DrawSlider(x, PSetupDef.y + LINEHEIGHT * 4, 0.0f, 255.0f, colorBuffer[2]);
 	}
 
 	// Draw team setting
@@ -1557,19 +1572,22 @@ static void M_PlayerTeamChanged (int choice)
 }
 */
 
-static void SendNewColor(int red, int green, int blue)
+static void BufferColorChange(int red, int green, int blue)
 {
-	char command[24];
+	colorBuffer[0] = red;
+	colorBuffer[1] = green;
+	colorBuffer[2] = blue;
 
-	sprintf(command, "cl_color \"%02x %02x %02x\"", red, green, blue);
-	AddCommandString(command);
+	colorChanged = true;
+
+	argb_t color = argb_t(255, colorBuffer[0], colorBuffer[1], colorBuffer[2]);
 
 	// [SL] not connected to a server so we don't have to wait for the server
 	// to verify the color choice
 	if (!connected)
 	{
 		// [Nes] Change the player preview color.
-		R_BuildPlayerTranslation(0, V_GetColorFromString(cl_color));
+		R_BuildPlayerTranslation(0, color);
 
 		if (consoleplayer().ingame())
 			R_CopyTranslationRGB(0, consoleplayer_id);
@@ -1578,7 +1596,7 @@ static void SendNewColor(int red, int green, int blue)
 
 static void M_SlidePlayerRed(int choice)
 {
-	argb_t color = V_GetColorFromString(cl_color);
+	argb_t color = argb_t(255, colorBuffer[0], colorBuffer[1], colorBuffer[2]);
 	int accel = repeatCount < 10 ? 0 : 5;
 
 	if (choice == 0)
@@ -1586,12 +1604,12 @@ static void M_SlidePlayerRed(int choice)
 	else
 		color.setr(std::min(255, int(color.getr()) + 1 + accel));
 
-	SendNewColor(color.getr(), color.getg(), color.getb());
+	BufferColorChange(color.getr(), color.getg(), color.getb());
 }
 
-static void M_SlidePlayerGreen (int choice)
+static void M_SlidePlayerGreen(int choice)
 {
-	argb_t color = V_GetColorFromString(cl_color);
+	argb_t color = argb_t(255, colorBuffer[0], colorBuffer[1], colorBuffer[2]);
 	int accel = repeatCount < 10 ? 0 : 5;
 
 	if (choice == 0)
@@ -1599,12 +1617,12 @@ static void M_SlidePlayerGreen (int choice)
 	else
 		color.setg(std::min(255, int(color.getg()) + 1 + accel));
 
-	SendNewColor(color.getr(), color.getg(), color.getb());
+	BufferColorChange(color.getr(), color.getg(), color.getb());
 }
 
-static void M_SlidePlayerBlue (int choice)
+static void M_SlidePlayerBlue(int choice)
 {
-	argb_t color = V_GetColorFromString(cl_color);
+	argb_t color = argb_t(255, colorBuffer[0], colorBuffer[1], colorBuffer[2]);
 	int accel = repeatCount < 10 ? 0 : 5;
 
 	if (choice == 0)
@@ -1612,7 +1630,7 @@ static void M_SlidePlayerBlue (int choice)
 	else
 		color.setb(std::min(255, int(color.getb()) + 1 + accel));
 
-	SendNewColor(color.getr(), color.getg(), color.getb());
+	BufferColorChange(color.getr(), color.getg(), color.getb());
 }
 
 
@@ -1921,6 +1939,13 @@ bool M_Responder (event_t* ev)
 	  //	  is now ignored.
 	  case KEY_JOY2:
 	  case KEY_ESCAPE:
+		// [Nautilus] - If the player's color has been altered, apply the changes.
+		if (colorChanged) {
+			char command[24];
+			sprintf(command, "cl_color \"%02x %02x %02x\"", colorBuffer[0], colorBuffer[1], colorBuffer[2]);
+			AddCommandString(command);
+			colorChanged = false;
+		}
 		currentMenu->lastOn = itemOn;
 		M_PopMenuStack ();
 		return true;
